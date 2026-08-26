@@ -26,6 +26,14 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Independent process update — 01-05
+
+Against implementation committed as `d2bf53a`, the orchestrator independently reran **37 unit +41 integration +9 macOS native =87/87** (33.45s), typecheck and build successfully with managed Node24.20.0. Build produces actual API and Worker entries. Compiled A/B workers perform durable echo/SHA256; lifecycle testing covers launcher exit, independent API/Worker survival and stop, exact native listener ownership plus authenticated proof, pending-launch preservation/recovery, and stale-generation write rejection. These are synthetic integration and local macOS evidence, not actual Codex-exit or Windows UAT.
+
+Earlier lifecycle runs failed: macOS lsof field parsing was corrected and a timing-sensitive no-publish fixture was changed to explicit test release with a bounded fallback. Both preserved test installations were recovered only after proven process exit, then their exact fresh credential entries and owned roots were removed. Final pass does not erase those failures. A real regression also observed old-generation API writes returning200 before the fix; immutable runtime generation now reaches mutation transactions and the HTTP regression returns409.
+
+Plans09/10 must restart and probe candidate API/Worker in the new normal generation after maintenance exit; candidate selfcheck success alone is insufficient. Windows native behavior, final installer/artifacts, actual CLI/MCP wiring, browser UI and human UAT remain unrun. No beta or school/Profile activity; phase-wide requirements remain Pending. See `01-05-SUMMARY.md` for precise scope and recovery evidence.
+
 ### Authenticated API update — 01-04
 
 Code commit `3376f7f`: independently reran **37 unit +37 integration +7 macOS native =81/81** and typecheck successfully. Added17 real HTTP tests and3 policy tests cover authentication, atomic queue cap with competing processes, scope/maintenance/projections, explicit pairing/replay/expiry/boot revocation, safe outputs and actual listener shutdown. Build now compiles one API entry with injected identity. See `01-04-SUMMARY.md`.
