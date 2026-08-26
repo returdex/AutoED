@@ -63,6 +63,7 @@ export class ApiApplication {
   }
   async query(principal: Principal, id: string) {
     await authorize(this.policy, principal, 'jobs:read', 'job_read');
+    if (principal.destination === 'local_ui' && (await this.projections.read()).selfcheck?.jobId !== id) throw new ApplicationError('FORBIDDEN');
     const job = await this.jobs.query(z.uuid().parse(id), principal.scope);
     if (!job || principal.selfcheck && job.operationId !== principal.selfcheck.operationId) throw new ApplicationError('JOB_NOT_FOUND', 404);
     return redactOutput(job);

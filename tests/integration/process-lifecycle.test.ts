@@ -24,6 +24,8 @@ it('launcher exits; actual API and Worker stay independent; reuse and authentica
     const metadata=await initializeInstallation(selection,secrets);installationId=metadata.installationId;provisioningComplete=true;
     const out=join(parent,'compiled');mkdirSync(out,{mode:0o700});
     execFileSync(process.execPath,[resolve('node_modules/typescript/bin/tsc'),'--outDir',out],{stdio:'pipe'});
+    const {buildStatusAssets}=await import('../../scripts/build/build.mjs');
+    await buildStatusAssets(resolve('apps/status'),join(out,'apps/status'));
     symlinkSync(resolve('node_modules'),join(out,'node_modules'),'dir');
     writeFileSync(join(out,'package.json'),'{"type":"module"}',{mode:0o600});
     const build:BuildIdentity={version:'0.1.0',buildId:'e'.repeat(64),commit:'b'.repeat(40),tree:'c'.repeat(40),dependencyHash:'d'.repeat(64),protocol:1,schemaMin:1,schemaMax:1,capabilities:['echo','digest']};

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoED 本地服务</title>
+  <link rel="stylesheet" href="/assets/status.css">
+  <script type="module" src="/assets/status.js"></script>
+</head>
+<body>
+  <main>
+    <header><h1>AutoED 本地服务</h1><button id="refresh" type="button">刷新状态</button></header>
+    <p id="feedback" role="status" aria-live="polite" aria-atomic="true">正在读取本地服务状态…</p>
+    <section id="pairing" hidden>
+      <h2>此页面尚未获得本地访问权限</h2>
+      <p>请从本安装的 CLI 重新打开本地状态页。不要在对话中粘贴访问凭据。</p>
+      <p>请在本安装的 CLI 中核对以下关联码，再刷新此页面。关联码不是访问凭据。</p>
+      <span id="pair-code" aria-label="配对关联码"></span>
+    </section>
+    <div id="protected"></div>
+    <noscript>此只读状态页需要启用 JavaScript。请通过本安装的 CLI 查看状态。</noscript>
+  </main>
+</body>
+</html>

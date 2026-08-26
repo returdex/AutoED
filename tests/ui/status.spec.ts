@@ -17,7 +17,7 @@ test('real browser pairs via HTTP, refreshes without jobs, clears forbidden data
     await expect(page.getByRole('heading',{name:'尚无自检记录'})).toBeVisible();await expect(page.locator('#protected')).toContainText(f.build.version);
     await expect(page.locator('#protected')).toContainText('API 可连接，但 Worker 未运行');
     const count=()=>f!.db.prepare('SELECT COUNT(*) AS n FROM jobs').get();const before=count();
-    await page.getByRole('button',{name:'刷新状态'}).click();expect(count()).toEqual(before);
+    await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.getByRole('status')).toHaveText('本地状态已读取。');expect(count()).toEqual(before);
     await context.setOffline(true);await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.getByRole('status')).toContainText('以下为上次读取结果');await expect(page.locator('#protected')).toContainText(f.build.version);
     await context.setOffline(false);f.deny(true);await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.locator('#protected')).toBeEmpty();await expect(page.getByRole('heading',{name:'此页面尚未获得本地访问权限'})).toBeVisible();
   }finally{if(f)await f.close();await h.cleanup();}
