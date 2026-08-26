@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: 01-01 verified complete; begin01-02, then01-03 sequentially; no school/remote operations
-last_updated: "2026-08-26T15:31:39.065Z"
-last_activity: 2026-08-27 — 01-01 completed with independent20/20test rerun; Windows/live not_run.
+stopped_at: 01-02 verified complete; begin01-03 native platform; OS authorization remains human gate
+last_updated: "2026-08-26T15:44:39.685Z"
+last_activity: 2026-08-27 — 01-02 completed; independent26unit+20integration and typecheck pass; Windows/live not_run.
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 1
-  percent: 7
+  completed_plans: 2
+  percent: 14
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Implement01-02 actual SQLite durable jobs after20unit tests and typecheck pass for01-01; all phase-wide requirements remain pending.
+**Current focus:** Implement01-03 native platform protections and isolated OS credentials; independently verified46 tests and typecheck for01-02. All phase-wide requirements pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 2 of 14 (01-01 complete; beginning01-02)
-Status: Executing Phase 1 — Wave2 sequential; 1/14 plans complete
-Last activity: 2026-08-27 — 01-01 completed with independent20/20test rerun; Windows/live not_run.
+Plan: 3 of 14 (01-01 and01-02 complete; beginning01-03)
+Status: Executing Phase 1 — Wave2 sequential; 2/14 plans complete
+Last activity: 2026-08-27 — 01-02 completed; independent26unit+20integration and typecheck pass; Windows/live not_run.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,12 +44,12 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 1 completed / 14 planned | Executing | N/A |
+| 1 | 2 completed / 14 planned | Executing | N/A |
 | 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01
+- Last 5 plans: 01-01, 01-02
 - Trend: N/A
 
 ## Accumulated Context
@@ -67,12 +67,12 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- Phase 1 全部14份PLAN已批准；正在执行01-02，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
+- Phase 1 全部14份PLAN已批准；正在执行01-03，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
 
 ### Blockers/Concerns
 
 - 初始化已完成，Phase 1执行中；01-01已有实际单元测试和类型检查证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
-- 精确开发依赖已固定并验证；实际SQLite持久任务正在测试。原生权限/凭据保护、Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。
+- 精确开发依赖已固定并验证；实际SQLite持久任务已有20项集成证据。原生权限/凭据保护正在实施，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
@@ -85,6 +85,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T15:31:39.059Z
-Stopped at: 01-01 verified complete; begin01-02, then01-03 sequentially; no school/remote operations
-Resume file: .planning/phases/01-beta/01-02-PLAN.md
+Last session: 2026-08-26T15:44:39.680Z
+Stopped at: 01-02 verified complete; begin01-03 native platform; OS authorization remains human gate
+Resume file: .planning/phases/01-beta/01-03-PLAN.md

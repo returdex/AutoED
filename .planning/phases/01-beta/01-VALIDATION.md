@@ -19,7 +19,10 @@ created: 2026-08-27
 | 01-01-2 | 测试骨架与12项bootstrap/harness测试通过，包括篡改、错误key、symlink和真实all-skip子进程失败 | 本机macOS arm64；Windows原生和用户人工未跑 |
 | 01-01-3 | 8项契约/传递import边界测试、typecheck、build通过；编排器独立复跑全部20项单测及typecheck通过 | 下游真实HTTP/DB/Worker尚未实现；需求仍Pending |
 
-See `01-01-SUMMARY.md` and commits through f85501b. Other tasks remain not_run. No beta, school/login or live evidence. `wave_0_complete` remains false because the full A/B and fault-injection infrastructure is not complete.
+| 01-02-1 | 6项真实SQLite存储/重开/幂等/维护锁/状态投影集成测试通过；实际引擎3.53.4/source ID与WAL/FULL核验 | 仅synthetic数据，尚无HTTP/Worker交付入口 |
+| 01-02-2 | 14项恢复集成及4项runner单测通过；跨进程竞争、强制终止、租约/fence、取消竞态、维护后积压恢复、SQLITE_BUSY及max_page_count触发SQLITE_FULL | SQLITE_FULL为数据库容量故障注入，不是原生OS满盘；Windows未跑 |
+
+See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orchestrator independently reran26 unit +20 integration tests (46/46) and typecheck successfully using the verified Node24.20.0. Success-projection guards additionally reject missing or inconsistent actual evidence. Subsequent plans remain not_run. No beta, school/login or live evidence. `wave_0_complete` remains false because the full A/B and fault-injection infrastructure is not complete.
 
 ## Test Infrastructure
 
