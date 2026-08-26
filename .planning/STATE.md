@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: 01-04 verified complete; begin01-05 then01-07 sequentially; no human gates waived
-last_updated: "2026-08-26T16:09:14.790Z"
-last_activity: 2026-08-27 — 01-04 completed; independent37unit+37integration+7macOS native and typecheck pass.
+stopped_at: 01-05 independently verified complete; executing01-07 sequentially then01-06; hard human gates preserved
+last_updated: "2026-08-26T16:31:59.378Z"
+last_activity: "2026-08-27 — 01-05 independently verified:37unit+41integration+9macOS native; typecheck and two-entry build passed."
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 4
-  percent: 29
+  completed_plans: 5
+  percent: 36
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Implement01-05 actual independent API/Worker lifecycle; 81 tests and typecheck independently passed. All phase-wide requirements pending.
+**Current focus:** Implement01-07 readonly status UI, then01-06 CLI/MCP wiring; independent87 tests, typecheck and API/Worker build passed. Phase-wide requirements pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 5 of 14 (01-01 through01-04 complete; beginning01-05)
-Status: Executing Phase 1 — Wave4 sequential; 4/14 plans complete
-Last activity: 2026-08-27 — 01-04 completed; independent37unit+37integration+7macOS native and typecheck pass.
+Plan: 7 of 14 (01-01 through01-05 complete; beginning01-07)
+Status: Executing Phase 1 — Wave4 sequential; 5/14 plans complete
+Last activity: 2026-08-27 — 01-05 independently verified:37unit+41integration+9macOS native; typecheck and two-entry build passed.
 
-Progress: [░░░░░░░░░░] 0%
+Plan progress: [████░░░░░░] 36% (5/14); phase acceptance remains 0/8.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 4
+- Total plans completed: 5
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,12 +44,12 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 4 completed / 14 planned | Executing | N/A |
+| 1 | 5 completed / 14 planned | Executing | N/A |
 | 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01, 01-02, 01-03, 01-04
+- Last 5 plans: 01-01, 01-02, 01-03, 01-04, 01-05
 - Trend: N/A
 
 ## Accumulated Context
@@ -67,12 +67,12 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- Phase 1 全部14份PLAN已批准；正在执行01-05，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
+- Phase 1 全部14份PLAN已批准；正在执行01-07，然后01-06，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
 
 ### Blockers/Concerns
 
-- 初始化已完成，Phase 1执行中；01-01已有实际单元测试和类型检查证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
-- 精确开发依赖已固定并验证；实际SQLite持久任务已有20项集成证据。原生权限/凭据保护正在实施，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。
+- 初始化已完成，Phase 1执行中；01-01至01-05已有87项自动测试及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
+- 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；Windows原生运行、实际CLI/MCP与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
@@ -85,6 +85,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T16:09:14.785Z
-Stopped at: 01-04 verified complete; begin01-05 then01-07 sequentially; no human gates waived
-Resume file: .planning/phases/01-beta/01-05-PLAN.md
+Last session: 2026-08-26T16:31:59.372Z
+Stopped at: 01-05 independently verified complete; executing01-07 sequentially then01-06; hard human gates preserved
+Resume file: .planning/phases/01-beta/01-07-PLAN.md
