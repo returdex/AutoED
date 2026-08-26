@@ -1,0 +1,44 @@
+# Local operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Dependencies / builds / test artifacts
+node_modules/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Runtime data belong outside the repository; ignore accidental copies.
+.autoed/
+.runtime/
+runtime-data/
+profiles/
+Profile/
+browser-profiles/
+.auth/
+playwright/.auth/
+vault/
+backups/
+exports/
+logs/
+private-fixtures/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.har
+*.trace
+.env
+.env.*
+!.env.example
+local.config.*
+*.pem
+*.key
+
+# Temporary planning QA / generated templates
+.planning/.tmp/
