@@ -21,7 +21,9 @@ export class SyntheticOutputPolicy implements OutputPolicy {
 /** Source strings are inert text, never paths or tool instructions. */
 export function redactText(value: string): string {
   return value.replace(/(?:\/(?:Users|home|tmp|private|var|Volumes)\/|[A-Za-z]:[\\/])[^\s"'<>]*/g, '[redacted-path]')
-    .replace(/(?:bearer\s+|(?:token|password|cookie|secret|authorization)\s*[:=]\s*)[^\s"'<>]+/gi, '[redacted-secret]');
+    .replace(/(^|[\s"'(])\/[^\s"'<>]+/g, '$1[redacted-path]')
+    .replace(/(?:bearer\s+|(?:token|password|cookie|secret|authorization)\s*[:=]\s*)[^\s"'<>]+/gi, '[redacted-secret]')
+    .replace(/(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g, '[redacted-secret]');
 }
 export function redactOutput<T>(value: T): T {
   if (typeof value === 'string') return redactText(value) as T;

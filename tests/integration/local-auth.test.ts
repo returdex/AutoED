@@ -8,6 +8,7 @@ import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
 import { SQLiteStatusProjectionStore } from '../../packages/persistence/src/runtime-status.js';
+import { SQLiteSessions } from '../../packages/persistence/src/sessions.js';
 import { issueCredential, revokeCredential } from '../../packages/platform/src/credentials.js';
 import type { CredentialRecord } from '../../packages/platform/src/credentials.js';
 import type { SecretStore } from '../../packages/application/src/ports.js';
@@ -25,16 +26,23 @@ async function fixture() {
   const records: CredentialRecord[] = [];
   for (const [name, dest] of [['cli', 'local_cli'], ['mcp', 'model'], ['installer', 'installer'], ['api', 'service']] as const) records.push(await issueCredential(secrets, scope.installationId, name, scope, dest));
   const jobs = new SQLiteJobStore(db); const maintenance = new SQLiteMaintenanceStore(db); const projections = new SQLiteStatusProjectionStore(db);
-  let shutdowns = 0;
-  const options = { host: '127.0.0.1', port: 0, installationId: scope.installationId, build, secrets, credentials: records, jobs, maintenance, projections, shutdown: async () => { shutdowns++; } };
+  let shutdowns = 0; let onShutdown = async () => {};
+  const options = { host: '127.0.0.1', port: 0, installationId: scope.installationId, build, secrets, credentials: records, jobs, maintenance, projections, sessions: new SQLiteSessions(db, scope.installationId), shutdown: async () => { shutdowns++; await onShutdown(); } };
   const api = await startApi(options); cleanups.push(() => api.close());
   async function call(path: string, name: string | null = 'cli', body?: unknown, headers: Record<string, string> = {}, method?: string) {
     return h.fetch(api.origin + path, { method: method ?? (body === undefined ? 'GET' : 'POST'), headers: { ...(name ? { authorization: `Bearer ${values.get(name)}` } : {}), ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers }, ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) });
   }
   const request = () => ({ kind: 'echo' as const, value: 'synthetic only', idempotencyKey: randomUUID(), scope });
-  return { api, options, h, db, scope, records, values, secrets, jobs, maintenance, projections, call, request, shutdowns: () => shutdowns };
+  return { api, options, h, db, scope, records, values, secrets, jobs, maintenance, projections, call, request, shutdowns: () => shutdowns, setShutdown: (fn: () => Promise<void>) => { onShutdown = fn; } };
 }
 describe('authenticated actual loopback HTTP', () => {
+  it('finishes shutdown acceptance before awaiting listener close, avoiding a request-close deadlock', async () => {
+    const f = await fixture(); let resolveClosed!: () => void;
+    const closed = new Promise<void>(resolve => { resolveClosed=resolve; });
+    f.setShutdown(async () => { await f.api.close(); resolveClosed(); });
+    const response = await f.call('/api/control/shutdown', 'cli', {}); expect(response.status).toBe(200);
+    await closed; await expect(f.call('/api/status')).rejects.toThrow();
+  });
   it('enqueues and queries through SQLite, observes API separately from absent worker', async () => {
     const f = await fixture(); const response = await f.call('/api/jobs', 'cli', f.request()); expect(response.status).toBe(200);
     const job = await response.json(); expect(job.state).toBe('queued');
@@ -104,6 +112,8 @@ describe('authenticated actual loopback HTTP', () => {
     const name = `selfcheck-${operationId}`;
     f.records.push(await issueCredential(f.secrets, f.scope.installationId, name, f.scope, 'selfcheck', { operationId, generation: 0, expiresAt: Date.now() + 60000 }));
     const check = await f.call('/api/jobs', name, f.request()); expect(check.status).toBe(200); expect((await check.json()).operationId).toBe(operationId);
+    const selfcheckRecord = f.records.at(-1)!; const expiry = selfcheckRecord.expiresAt!; selfcheckRecord.expiresAt = Date.now()-1;
+    expect((await f.call('/api/jobs', name, f.request())).status).toBe(401); selfcheckRecord.expiresAt = expiry;
     expect((await f.call('/api/control/maintenance', name, { action: 'exit', operationId, expectedGeneration: 0 })).status).toBe(403);
     expect((await f.call('/api/control/maintenance', 'installer', { action: 'exit', operationId, expectedGeneration: 0 })).status).toBe(200);
     expect((await f.call('/api/jobs', name, f.request())).status).toBe(401);
@@ -121,6 +131,9 @@ describe('authenticated actual loopback HTTP', () => {
   it('redacts paths and credentials from model job text and exception details', async () => {
     const f = await fixture(); const r = await f.call('/api/jobs', 'mcp', { ...f.request(), value: `/Users/synthetic/private/Profile token=${f.values.get('mcp')}` });
     expect(r.status).toBe(200); const text = await r.text(); expect(text).not.toContain('/Users/'); expect(text).not.toContain(f.values.get('mcp'));
+    const prior = await f.jobs.enqueue(f.request(), { expectedGeneration:0 });
+    f.db.prepare('UPDATE jobs SET result=?,checkpoint=?,error_code=? WHERE id=?').run('/opt/private/result', f.values.get('cli'), 'token=synthetic-sensitive', prior.id);
+    const historic = await (await f.call(`/api/jobs/${prior.id}`, 'mcp')).text(); expect(historic).not.toContain('/opt/private'); expect(historic).not.toContain(f.values.get('cli')); expect(historic).not.toContain('synthetic-sensitive');
     f.projections.read = async () => { throw new Error(`private ${f.h.root} ${f.values.get('cli')}`); };
     const failure = await f.call('/api/status'); expect(failure.status).toBe(500); expect(await failure.text()).toBe('{"code":"INTERNAL_ERROR","stage":"api","nextAction":"retry_or_check_local_service"}');
   });

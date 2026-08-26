@@ -13,7 +13,7 @@ import { startApi } from '../../apps/api/src/main.js';
 const cleanup: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn(); });
 async function fixture() {
-  const h = createHarness(); cleanup.push(() => h.cleanup()); const db = openDatabase(join(h.root, 'pair.sqlite')); cleanup.push(async () => db.close());
+  const h = createHarness(); cleanup.push(() => h.cleanup()); const db = openDatabase(join(h.root, 'pair.sqlite')); cleanup.push(async () => { db.close(); });
   const scope = { installationId: randomUUID(), source: 'synthetic' as const, courseId: 'selftest' as const }; let now = Date.now();
   const values = new Map<string,string>(); const secrets: SecretStore = { async get(_id,n) { return values.get(n) ?? null; }, async set(_id,n,v) { values.set(n,v); }, async delete(_id,n) { values.delete(n); } };
   const credentials = [await issueCredential(secrets, scope.installationId, 'cli', scope, 'local_cli'), await issueCredential(secrets, scope.installationId, 'mcp', scope, 'model')];
@@ -34,9 +34,15 @@ async function fixture() {
     return h.fetch(api.origin + `/api/pairing/${code}/approve`, { method:'POST', headers:{ authorization:`Bearer ${values.get(name)}`, 'content-type':'application/json' }, body:JSON.stringify({ confirmedCode }) });
   }
   async function exchange(p: { cookie:string; nonce:string }) { return call('/api/pairing/exchange', {}, { cookie:p.cookie, 'x-autoed-csrf':p.nonce }); }
-  return { call, pending, approve, exchange, cookies, sessions, advance:(ms:number) => { now += ms; }, restart:async () => { await api.close(); api = await startApi({ ...options, sessions:new SQLiteSessions(db, scope.installationId, { now:() => now }) }); }, origin:() => api.origin };
+  return { call, pending, approve, exchange, cookies, sessions, raw:(path:string, headers:Record<string,string>) => h.fetch(api.origin+path,{headers}), advance:(ms:number) => { now += ms; }, restart:async () => { await api.close(); api = await startApi({ ...options, sessions:new SQLiteSessions(db, scope.installationId, { now:() => now }) }); }, origin:() => api.origin };
 }
 describe('explicit same-origin pairing over actual HTTP', () => {
+  it('supports actual browser same-origin GET metadata without requiring a forbidden Origin header', async () => {
+    const f=await fixture();
+    expect((await f.raw('/api/pairing/nonce',{})).status).toBe(403);
+    expect((await f.raw('/api/pairing/nonce',{'sec-fetch-site':'cross-site',referer:'http://evil.invalid/'})).status).toBe(403);
+    expect((await f.raw('/api/pairing/nonce',{'sec-fetch-site':'same-origin',referer:f.origin()+'/status'})).status).toBe(200);
+  });
   it('public shell discloses no identity; pending and correlation code cannot authenticate', async () => {
     const f = await fixture(); const shell = await f.call('/status'); expect(shell.status).toBe(200); expect(await shell.text()).not.toContain('beta.1');
     expect(shell.headers.get('content-security-policy')).toBe("default-src 'self'; frame-ancestors 'none'; object-src 'none'"); expect(shell.headers.get('cache-control')).toBe('no-store');
@@ -81,5 +87,13 @@ describe('explicit same-origin pairing over actual HTTP', () => {
     f.advance(8*60*60*1000); expect((await f.call('/api/status', undefined, { cookie:cookie2 })).status).toBe(401);
     const p3=await f.pending(); await f.approve(p3.code); const r3=await f.exchange(p3); const cookie3=f.cookies(r3);
     await f.restart(); expect((await f.call('/api/status', undefined, { cookie:cookie3 })).status).toBe(401); expect((await f.exchange(p3)).status).toBe(403);
+  });
+  it('allows exactly one concurrent exchange and cannot fix a session with a caller cookie', async () => {
+    const f=await fixture(); const p=await f.pending(); await f.approve(p.code);
+    const responses=await Promise.all([f.exchange(p),f.exchange(p)]); expect(responses.map(r=>r.status).sort()).toEqual([200,403]);
+    const cookie=f.cookies(responses.find(r=>r.status===200)!);
+    expect((await f.call('/api/status',undefined,{cookie:'autoed_session='+p.cookie.split('=')[1]})).status).toBe(401);
+    expect((await f.call('/api/status',undefined,{cookie,origin:'http://127.0.0.1:1'})).status).toBe(403);
+    expect((await f.call('/api/status',undefined,{cookie})).status).toBe(200);
   });
 });
