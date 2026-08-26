@@ -1,6 +1,8 @@
 # Initialization Review — 2026-08-26
 
-**Result:** planning artifacts ready for user review; requirements/roadmap not approved.
+**Current result (2026-08-26):** user approved all 51 requirements, the five detailed proposals and the eight-phase roadmap. Initialization complete; M1 target 0.1.0, not released.
+
+**Historical pre-approval result:** planning artifacts were ready for review. The checks below describe that pre-approval snapshot; the approval update supersedes its pending-review statuses.
 **Scope:** document consistency and preparation only. No implementation, installation, school access, release or product test has run.
 
 ## Completed checks
@@ -32,11 +34,11 @@
 5. Minimal installation/upgrade distribution is P1; first actual MCP wiring is P3; P8/P7 respectively complete those surfaces. Safety applies from first operation.
 6. Five detailed capabilities remain proposed: TEXT-01, TEXT-02, SEARCH-01, BUNDLE-01, OPS-01. Mapping is not approval.
 
-## Still requires the user
+## Remaining gates after approval
 
-- Review all 51 requirements, the five proposed details, and the eight-phase roadmap.
+- Completed: explicit user approval of all 51 requirements, the five detailed proposals and the eight-phase roadmap.
 - After approval, discuss/plan Phase 1 and confirm the relevant PLAN before implementation.
 - At the appropriate phases, select OS/CPU/Windows test environment, real sources/course scope and allowed model destinations. Never provide passwords/MFA/Cookie/token in chat.
 - Future manual UAT: first publish an obtainable beta, then user updates in Codex and performs official login/testing. All current product evidence remains not_run.
 
-Approved foundation/research artifacts are committed locally. REQUIREMENTS, ROADMAP, STATE and VALIDATION-STRATEGY remain uncommitted drafts until user approval, preserving the interactive GSD approval gates. No further phase is automatically started by this review.
+The approved baseline is now recorded in PROJECT (D14), REQUIREMENTS, ROADMAP, STATE, VALIDATION-STRATEGY and AGENTS for local Git tracking with returdex. The five proposed details became accepted_detail; all 51 implementation checkboxes remain open and all product evidence remains not_run. No further phase is automatically started by this review.

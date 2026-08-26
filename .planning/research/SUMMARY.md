@@ -4,13 +4,13 @@
 **Domain:** 本机单用户 macOS/Windows 课程信息同步、长期归档与获准模型读取
 **Researched:** 2026-08-26
 **Confidence:** MEDIUM；官方机制与项目适用性分开评价
-**Status:** 研究综合；51 项 REQUIREMENTS 与路线图仍待用户审核；全部产品测试证据 `not_run`，无 validated 能力。
+**Status:** 研究综合；51 项 REQUIREMENTS、五项细化提案与路线图已于2026-08-26获用户批准；全部产品测试证据 `not_run`，无 validated 能力。
 
 ## Executive Summary
 
 AutoED 应围绕“选定课程的持续完整盘点、版本化资料与可解释缺口”建设，而非单作业抓取器或作业助手。已批准目标包括独立本地后端、Local Playwright 专属敏感 Profile、SQLite＋最小持久 Job＋本地文件、macOS/Windows、长期归档、全文与原文件读取、提示词安装升级。用户已同意本地全文归档和获准模型读取，但每份材料的访问、保留与外发权限仍须分别满足；不默认全部 local_only，也不因用户同意而绕过材料限制。
 
-研究建议采用 TypeScript 模块化单体、独立 API/Worker、薄 stdio MCP 与共享 application/policy 层；这是 proposed 实现组合，库版本、打包、解析矩阵和具体算法尚未锁定。先建立真实持久化、最小安全控制面和可安装升级 beta，再进行双来源×双原生平台人工认证门禁；P3 即接通实际 MCP→HTTP→后端，之后扩展双源资料、文件全文与生命周期。P7 完成实际客户端读取，P8 完成全量交付恢复，而不是等到最后才建立分发通道。
+研究建议采用 TypeScript 模块化单体、独立 API/Worker、薄 stdio MCP 与共享 application/policy 层；这是 proposed 实现组合，库版本、打包与具体算法尚未锁定；解析矩阵目标已获批。先建立真实持久化、最小安全控制面和可安装升级 beta，再进行双来源×双原生平台人工认证门禁；P3 即接通实际 MCP→HTTP→后端，之后扩展双源资料、文件全文与生命周期。P7 完成实际客户端读取，P8 完成全量交付恢复，而不是等到最后才建立分发通道。
 
 最大风险是把持久 Profile 当永久登录、把租约当进程所有权、把失败当空集合、把搜索或文件路径当完整交付，以及把 beta/fixture 成功当 live 通过。应从第一条真实读取起执行来源/scope/操作/目的地门禁，保持不可变版本和分项状态，验证实际 SQLite 引擎的 WAL 修复，并将人工更新、官方登录、跨日复查和 Windows 原生证据设为不可自动批准的硬门禁。本轮只做规划，不安装、登录、采集或发布。
 
@@ -33,7 +33,7 @@ AutoED 应围绕“选定课程的持续完整盘点、版本化资料与可解�
 - **Must have：** 账号/学期/课程范围与双源绑定；结构/页面/公告/讨论/附件；assessment 时间、本人可见状态/成绩/反馈；独立任务、长期历史及提示词安装升级。
 - **Must have：** CourseManifest/ResourceManifest、固定版本分页全文、可取得真实字节的原文件访问、搜索与变化；分别呈现 discovery/fetch/archive/extraction/model_access，失败不覆盖最后成功数据。
 - **Should have / 核心差异价值：** 可复现 locator/revision、覆盖分母与缺项、模型无关读取、逐出口权限检查；这些已属于目标，不是可随意推迟的附加项。
-- **待本次审核的五项 proposed_detail：** TEXT-01 格式/定位矩阵、TEXT-02 有界 ZIP、SEARCH-01 中英文匹配策略、BUNDLE-01 纯资料聚合、OPS-01 加密完整备份。解析器可见的隐藏内容不自动属于采集范围；聚合不编译要求、不裁定权威、不评估作业。
+- **本次已批准的五项 accepted_detail：** TEXT-01 格式/定位矩阵、TEXT-02 有界 ZIP、SEARCH-01 中英文匹配策略、BUNDLE-01 纯资料聚合、OPS-01 加密完整备份。解析器可见的隐藏内容不自动属于采集范围；聚合不编译要求、不裁定权威、不评估作业。
 - **Defer / 无已批准后续里程碑：** 更多解析格式、学校适配、旧 metadata 导入、后台自动升级只能另提需求；扫描/媒体等先诚实报告缺口。作业 AI、EvidenceLens/AssignmentFlow、云服务及 Linux 强制支持不进入未来 AutoED 阶段。
 
 ### Architecture Approach
@@ -58,7 +58,7 @@ AutoED 应围绕“选定课程的持续完整盘点、版本化资料与可解�
 
 ## Implications for Roadmap
 
-以下八阶段与待审 REQUIREMENTS 主责映射一致，均为建议交付顺序，不构成需求、路线图或 PLAN 自动批准。
+以下八阶段与已批准 REQUIREMENTS 主责映射一致。用户已明确批准需求与路线图；研究结论本身不是批准，相关 PLAN 仍须用户确认。
 
 ### Phase 1: 契约、持久化骨架与最小 beta 安装升级
 
@@ -92,12 +92,12 @@ AutoED 应围绕“选定课程的持续完整盘点、版本化资料与可解�
 
 ### Phase 7: 管理页、CLI/MCP/Skill 与实际客户端读取
 
-**Rationale / Delivers:** 完善共享后端的入口；实际配置 Codex 经已安装 MCP 枚举课程/资料、逐页读全、取得支持的原件、搜索与查询变化，另测通用协议客户端；纯资料聚合须随需求批准。
+**Rationale / Delivers:** 完善共享后端的入口；实际配置 Codex 经已安装 MCP 枚举课程/资料、逐页读全、取得支持的原件、搜索与查询变化，另测通用协议客户端；纯资料聚合已随需求批准，仍须相关 PLAN 确认。
 **Addresses / Avoids:** UI/CLIENT/SEARCH/CHANGE/BUNDLE/MODEL/BOUND；不是首次 MCP 接线，不以 top-k、协议宣称或版本号替代真实读取，不加入作业推理/生成或 LLM Key 依赖。
 
 ### Phase 8: 完整交付、加密备份恢复与安全切换
 
-**Rationale / Delivers:** 完成双平台干净安装、连续升级、迁移/中断/文件锁恢复、全部入口/功能回归、受管旧程序清理与用户控制的新旧切换；加密完整备份及引用校验按 OPS-01 提案审核后实施。
+**Rationale / Delivers:** 完成双平台干净安装、连续升级、迁移/中断/文件锁恢复、全部入口/功能回归、受管旧程序清理与用户控制的新旧切换；加密完整备份及引用校验按已批准 OPS-01 及后续确认的 PLAN 实施。
 **Addresses / Avoids:** OPS/REL；最小分发已在 P1 存在；不删除课程档案、不写旧产品、不自动卸载旧版，不用未跑项支持稳定声明；缺失人工结果继续阻塞。
 
 ### Phase Ordering Rationale
@@ -122,10 +122,10 @@ P1 建立安装与安全不变量→P2 关闭真实认证风险→P3/P4 建来�
 
 ### Gaps to Address
 
-- **审核与输入版本：** 当前 REQUIREMENTS 已有 51 项待审草案，PROJECT 已同步其“已起草、未批准”状态。旧 DESIGN 的数据库/安装/版本待决记录被当前批准决定覆盖，原始三份输入保持不变作为历史依据，不能倒退。
+- **审核与输入版本：** 当前 REQUIREMENTS 的51项需求及八阶段路线图已获用户批准，PROJECT 已同步 D14；仍为0实现/验证。旧 DESIGN 的数据库/安装/版本待决记录被当前批准决定覆盖，原始三份输入保持不变作为历史依据，不能倒退。
 - **平台与授权：** P1 确定 OS/CPU、Windows 设备、OS 凭据桥接、进程身份/沙箱与依赖清单；P2–P4 明确真实账号/课程、每操作路径与材料目的地权限。未取得 Ed API 证据不等于 API 不存在。
-- **内容与客户端：** 五项 proposed_detail、复杂文件覆盖、预算、中文搜索、MCP 新旧协议/SDK/宿主与原件能力需确认；标准列表分页不是正文分页协议，受限材料不能借摘要绕过。
-- **发布与恢复：** M1 路线图确认后才启用 0.1.0，测试版 beta.N 从 1 递增且不覆盖；未来仅 returdex/AutoED，创建前查同名冲突。PROJECT 记录 gh 活动账号为 ywan1303，未来须重新核对 returdex 认证与本地 author/committer，不能沿用当前认证发布。保持标准 PolyForm Noncommercial 1.0.0 与商业授权说明，签名信任及 Profile 跨浏览器升级恢复仍待验证。
+- **内容与客户端：** 五项细化需求已批准；复杂文件覆盖、预算、中文搜索实现、MCP 新旧协议/SDK/宿主与原件能力仍需在相关 PLAN 确认及验证；标准列表分页不是正文分页协议，受限材料不能借摘要绕过。
+- **发布与恢复：** M1 路线图已确认，目标0.1.0生效但尚未发布，测试版 beta.N 从 1 递增且不覆盖；未来仅 returdex/AutoED，创建前查同名冲突。PROJECT 记录 gh 活动账号为 ywan1303，未来须重新核对 returdex 认证与本地 author/committer，不能沿用当前认证发布。保持标准 PolyForm Noncommercial 1.0.0 与商业授权说明，签名信任及 Profile 跨浏览器升级恢复仍待验证。
 
 ## Sources
 
@@ -135,4 +135,4 @@ P1 建立安装与安全不变量→P2 关闭真实认证风险→P3/P4 建来�
 - **Secondary / MEDIUM 适用性：** [Stanford Ed 指南](https://canvashelp.stanford.edu/hc/en-us/articles/4402081717011-Getting-Started-with-Ed-Discussion)仅说明该机构使用方式；[Monash AI/IP 指引](https://www.monash.edu/student-academic-success/ai-hub/responsible-and-ethical-use-of-ai)提示材料许可边界，不构成逐材料授权结论。
 - **Tertiary / LOW：** Ed 厂商页本轮研究仅得搜索摘要、不可读页面或帮助重定向；不将 snippet 作为 API、账号权限或功能可用性的事实依据。无安装、私有样本、登录或发布验证。
 
-*Research completed: 2026-08-26 · Ready for roadmap drafting: yes · Requirements/roadmap approval: pending · Implementation/release: not started.*
+*Research completed: 2026-08-26 · Initialization: complete · Requirements/roadmap approval: approved (2026-08-26) · Implementation/release: not started.*

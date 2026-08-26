@@ -12,7 +12,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 
 ## Initialization Status
 
-- 建项方式：交互式；用户已批准生成建项草案并开展研究。51 项需求、八阶段路线图及 STATE 已起草并完成文档校验，均待用户审核，不启动 phase 实现。
+- 建项方式：交互式；用户于2026-08-26批准全部51项需求、五项细化提案及八阶段路线图。文档校验完成，建项完成；M1目标0.1.0生效，下一步讨论/规划Phase 1，不自动启动实现。
 - 新代码库：无已实现或已验证能力；旧项目的完成状态不继承。
 - 本轮只准备文档；不安装依赖、不登录、不采集、不传输课程资料、不创建云服务、不执行 phase。
 - 许可证方案已确认：PolyForm Noncommercial 1.0.0 + 商业用途另行授权。本轮不创建远程仓库、不推送；正式商业授权文本另行审查。
@@ -27,7 +27,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 
 ### Active
 
-以下是用户已确认的目标，全部待实现、待验证；详细原子需求、可观察验收和唯一主责 phase 将在 REQUIREMENTS 中交互确认。
+以下是用户已确认的目标，全部待实现、待验证；详细原子需求、可观察验收和唯一主责 phase 已在 REQUIREMENTS 中获用户确认。
 
 - [ ] macOS/Windows 原生安装和运行；Linux 非强制，不做远程或多用户。
 - [ ] 独立本地后端与 Worker；Codex、MCP 或管理页退出不终止后台同步。
@@ -46,12 +46,13 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 - [ ] 可自动测试的逻辑自动测试；需要人工登录等场景明确交给用户，先完成可安装测试版推送，再请用户在 Codex 中手动更新和测试。
 - [ ] 遵循用户自定义 x.y.z 发布规则、beta 测试版规则与 returdex GitHub 身份约束。
 
+本次另已批准五项细化需求：TEXT-01 的 PDF/Office/文本可见内容与定位矩阵、TEXT-02 的有界安全 ZIP 解析、SEARCH-01 的范围搜索与声明的中英文匹配策略、BUNDLE-01 的固定版本纯作业资料聚合、OPS-01 的加密一致备份恢复（不含 Profile）。具体实现和依赖选择仍须在相关 PLAN 中确认，不增加隐藏内容采集、要求推理或云模型调用。
+
 ### Proposed / Not Yet Accepted
 
 以下是设计或工程建议，不能写成用户已批准的新能力或已验证结果：
 
 - TypeScript、Node 24 LTS、Fastify/Zod、npm workspaces、React/Vite、SQLite FTS5、Vitest 的具体版本与实现组合；实施前用官方资料核对、固定并验证依赖。
-- 文件提取矩阵按 DESIGN 3.4 作为需求讨论起点：PDF、DOCX、PPTX、XLSX/CSV、TXT/MD/HTML/代码，保留页/段/slide/sheet 定位；ZIP 有界安全处理；OCR/复杂图表/媒体显示具体缺口，不暗中调用云模型。
 - 升级时 staging、版本清单、备份/迁移/激活/健康验证/清理与隔离回滚副本的具体实现。
 
 ### Out of Scope
@@ -109,7 +110,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 ### Version and Identity Rules
 
 - 正式版本格式 `x.y.z`；x 从 0 开始，只有用户明确要求才更新。
-- M1 路线图确认后目标版本为 `0.1.0`；每次新里程碑确认时 y 加一且 z 归零；不因新 phase 或里程碑完成再次自动更新 y。
+- M1 路线图已确认，目标版本为 `0.1.0`（尚未发布）；每次新里程碑确认时 y 加一且 z 归零；不因新 phase 或里程碑完成再次自动更新 y。
 - 里程碑外零散修复，每次发布更新 z；普通本地 commit 不等于发布。
 - 测试版本为 `x.y.z-beta.N`，N 从 1 递增；例如 `0.1.0-beta.1`、`0.1.0-beta.2`，不覆盖已发布产物。
 - GitHub 仓库、认证推送账号限定 `returdex`，禁止 `ywan1303`。
@@ -119,7 +120,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 ### Approved Execution Continuation
 
 - 用户确认相关 PLAN 文件后，允许在已批准计划范围内连续进行实现、自动测试、修复、构建、可安装 beta 推送与发布产物检查，不必每个自动步骤重复询问。
-- 该许可不是本轮开始实现的指令。本轮仍为交互建项，需求/路线图要先审核；未来阶段的新计划、范围变化与新授权不能自动视为已批准。
+- 该许可不是本轮开始实现的指令。本轮完成交互建项，需求/路线图已审核通过但未生成或批准 PLAN；未来阶段的新计划、范围变化与新授权不能自动视为已批准。
 - 需要用户在 Codex 手动更新、官方登录/MFA、live UAT 或其他人工验证时必须停止并给出明确步骤；测试版必须先可获取，不能自行填写用户批准或 pass。
 - 未通过的测试、发布失败、无法升级或 live 门禁缺口不能伪装成完成，也不能推进依赖阶段；可在已批准范围内诊断修复，不能扩大权限或自动改变方案。
 - 本机 GSD 的通用 auto-mode 会自动批准部分 human-verify 和 decision，故不能直接将它视为上述许可。初始化不启用 workflow.auto_advance 或临时自动链；后续由编排遵守此项目规则，所有人工门禁仍硬停止，必要时使用 human-action 类型明确承载用户操作。
@@ -142,15 +143,16 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 | D11 | PolyForm Noncommercial 1.0.0 + 商业用途另行授权；不使用 Apache-2.0 冒充非商业限制 | accepted | standard LICENSE and LICENSING.md recorded; no release |
 | D12 | 计划经用户确认后，自动执行批准范围内工作直至必须人工操作/测试；不得自动批准人工门禁 | accepted | not_run |
 | D13 | 交互建项、standard 约 8 阶段、官方研究/plan check/verifier、独立研究可并行子代理、继承模型、去敏文档本地 Git 跟踪 | accepted | config.json created; auto flags false |
+| D14 | 全部51项需求、五项细化提案及八阶段路线图获批；M1目标0.1.0生效 | accepted (2026-08-26) | planning complete; implementation/tests not_run |
 
 ## Remaining Questions and Gates
 
 1. 许可证方案已确认；发布前保留标准 PolyForm Noncommercial 1.0.0 原文并说明商业另行授权，不篡改标准许可证、不误称 Apache-2.0。许可涵盖符合条款的非商业组织用途，并非仅限个人学习。商业授权联系与具体合同待发布准备时确定。
-2. 版本细则已确认；路线图未确认前不激活 M1 版本，未发布版本不创建标签。
+2. 版本细则已确认；M1目标0.1.0已确认，未发布版本不创建标签。
 3. GSD 偏好已确认（D13）；后续允许确认计划后连续执行至人工门禁（D12），不直接使用会自动批准检查点的通用 auto-mode。全局 defaults 只有 resolve_model_ids=omit；本项目使用用户此次确认的独立配置。
-4. Phase 1：锁定官方依赖版本、最低 OS/CPU、Windows 测试设备、文件提取验收矩阵、磁盘预算与安装标识。
+4. Phase 1：锁定官方依赖版本、最低 OS/CPU、Windows 测试设备、已批准提取矩阵的具体实现、磁盘预算与安装标识。
 5. Phase 2 前：实际课程和来源范围、集成目的地、用户官方登录与原生平台测试。
-6. 需求和约 8 阶段路线图须展示并由用户确认；完成建项后停止，不开始实现。
+6. 全部51项需求、五项细化提案及八阶段路线图已展示并获确认；完成建项后停止。下一步讨论/规划Phase 1，相关PLAN须再次确认后才能实现。
 
 ## License Research (2026-08-26)
 
@@ -165,4 +167,4 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 每个里程碑结束时完整复核范围、Core Value、排除项、验证与实际运行结果。不得将其他独立项目变成 AutoED 后续里程碑，不得因流程模板覆盖隐私与安全边界。
 
 ---
-*Last updated: 2026-08-26 after version details and D13 workflow preference approval; requirements and roadmap review pending.*
+*Last updated: 2026-08-26 after D14 requirements/roadmap approval; initialization complete, Phase 1 not started.*

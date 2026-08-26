@@ -73,7 +73,7 @@
 - Minimal beta distribution/update ability must exist before Phase 2 live UAT; Phase 8 completes full cross-platform delivery, recovery and switch acceptance.
 - Beta release does not mean live verification succeeded. No stable claim without required evidence.
 - Version format: x.y.z; x starts 0 and only changes on explicit user instruction; y changes when a new milestone is confirmed; z changes for each out-of-milestone fix release. Do not bump for every commit/phase.
-- Approved version details: M1 targets 0.1.0 after roadmap confirmation; next milestone increments y and resets z; prereleases use x.y.z-beta.N with N increasing from 1. Never overwrite published tags/artifacts.
+- Approved version details: M1 targets 0.1.0 (roadmap confirmed on 2026-08-26; no release yet); next milestone increments y and resets z; prereleases use x.y.z-beta.N with N increasing from 1. Never overwrite published tags/artifacts.
 - Future public repository target is `returdex/AutoED`. Only `returdex` may own/authenticate the intended GitHub actions; never `ywan1303`.
 - Verify Git author/committer and GitHub authentication separately. Use repo-local identity; do not invent an email, silently use another account or modify global account settings.
 - Before creating a remote, check for an existing same-name repository and stop on conflict. Do not reuse/overwrite a legacy remote by assumption.
@@ -81,7 +81,7 @@
 
 ## Current stop condition
 
-PROJECT is an approved-to-draft planning artifact, not completed initialization. Requirements and roadmap approval remain. License, version details, official research, plan checks, verification, parallel independent research agents, inherited models and sanitized local Git tracking are approved. Do not start implementation or remote publishing.
+Initialization is complete: on 2026-08-26 the user approved all 51 requirements, the eight-phase roadmap and TEXT-01/TEXT-02/SEARCH-01/BUNDLE-01/OPS-01 details. M1 target is 0.1.0; no capability is implemented or validated. Next is Phase 1 discussion/planning, with relevant PLAN approval still required. License, version details, official research, plan checks, verification, parallel independent research agents, inherited models and sanitized local Git tracking remain approved. Do not automatically start a phase, implementation or remote publishing during initialization closeout.
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
