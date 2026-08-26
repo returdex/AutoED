@@ -36,19 +36,20 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 1
 - Average duration: N/A
-- Total execution time: 0 hours (implementation not started)
+- Total execution time: Not aggregated; see individual SUMMARY files
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1–8 | 0 completed / TBD planned | Not started | N/A |
+| 1 | 1 completed / 14 planned | Executing | N/A |
+| 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: None
+- Last 5 plans: 01-01
 - Trend: N/A
 
 ## Accumulated Context
@@ -66,12 +67,12 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- 下一步使用 $gsd-discuss-phase 1 讨论/规划P1，并等相关PLAN确认；本轮不自动进入下一流程。
+- Phase 1 全部14份PLAN已批准；正在执行01-02，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
 
 ### Blockers/Concerns
 
-- 初始化已完成，实现未开始：八阶段均 Not started，51需求均 Pending/not_run；研究/旧commit/文档不等于实现证据。
-- P1需确认精确依赖、实际SQLite/WAL修复、原生OS/CPU/Windows设备、安装标识及保护机制；P2前确认实际来源/账户/课程/access plan/目的地。
+- 初始化已完成，Phase 1执行中；01-01已有实际单元测试和类型检查证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
+- 精确开发依赖已固定并验证；实际SQLite持久任务正在测试。原生权限/凭据保护、Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
