@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { randomUUID, createHash } from 'node:crypto';
 import { join } from 'node:path';
+import { request as httpRequest } from 'node:http';
+import { once } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
@@ -28,7 +31,7 @@ async function fixture() {
   async function call(path: string, name: string | null = 'cli', body?: unknown, headers: Record<string, string> = {}, method?: string) {
     return h.fetch(api.origin + path, { method: method ?? (body === undefined ? 'GET' : 'POST'), headers: { ...(name ? { authorization: `Bearer ${values.get(name)}` } : {}), ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers }, ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }) });
   }
-  const request = () => ({ kind: 'echo', value: 'synthetic only', idempotencyKey: randomUUID(), scope });
+  const request = () => ({ kind: 'echo' as const, value: 'synthetic only', idempotencyKey: randomUUID(), scope });
   return { api, options, h, db, scope, records, values, secrets, jobs, maintenance, projections, call, request, shutdowns: () => shutdowns };
 }
 describe('authenticated actual loopback HTTP', () => {
@@ -41,7 +44,9 @@ describe('authenticated actual loopback HTTP', () => {
   });
   it('rejects nonloopback binding and exact Host/Origin mismatches without disclosure', async () => {
     const f = await fixture(); await expect(startApi({ ...f.options, host: '0.0.0.0' })).rejects.toThrow('INVALID_BIND');
-    for (const headers of [{ host: 'localhost:9999' }, { origin: 'http://evil.invalid' }, { origin: 'null' }]) {
+    const wrongHost = await new Promise<number>(resolve => { const req = httpRequest(f.api.origin + '/api/status', { headers: { host: 'localhost:9999', authorization: `Bearer ${f.values.get('cli')}` } }, res => { res.resume(); resolve(res.statusCode!); }); req.end(); });
+    expect(wrongHost).toBe(403);
+    for (const headers of [{ origin: 'http://evil.invalid' }, { origin: 'null' }]) {
       const r = await f.call('/api/status', 'cli', undefined, headers); expect(r.status).toBe(403); expect(await r.text()).not.toContain(build.version);
     }
     const noauth = await f.call('/api/status', null); expect(noauth.status).toBe(401); expect(Object.keys(await noauth.json()).sort()).toEqual(['code', 'nextAction', 'stage']);
@@ -71,14 +76,22 @@ describe('authenticated actual loopback HTTP', () => {
   it('enforces cap atomically in SQLite including multiple connections and idempotent retry', async () => {
     const f = await fixture(); const first = f.request(); await f.jobs.enqueue(first, { expectedGeneration: 0 });
     for (let i = 1; i < 999; i++) await f.jobs.enqueue(f.request(), { expectedGeneration: 0 });
-    const second = openDatabase(join(f.h.root, 'api.sqlite'));
-    try {
-      const settled = await Promise.allSettled([f.jobs.enqueue(f.request(), { expectedGeneration: 0 }), new SQLiteJobStore(second).enqueue(f.request(), { expectedGeneration: 0 })]);
-      expect(settled.filter(r => r.status === 'fulfilled')).toHaveLength(1);
+    const source = new URL('../../packages/persistence/src/', import.meta.url).href;
+    const outputs = [join(f.h.root, 'cap-one'), join(f.h.root, 'cap-two')];
+    const children = outputs.map(output => f.h.spawn(['--experimental-transform-types', '--input-type=module', '-e', `
+      import {registerHooks} from 'node:module'; import {writeFileSync} from 'node:fs';
+      registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.endsWith('.js'))return n(s.slice(0,-3)+'.ts',c);throw e}}});
+      const {openDatabase}=await import(${JSON.stringify(source + 'database.ts')});
+      const {JobRepository}=await import(${JSON.stringify(source + 'jobs.ts')});
+      const db=openDatabase(${JSON.stringify(join(f.h.root, 'api.sqlite'))});
+      try{await new JobRepository(db).enqueue(${JSON.stringify(f.request())},{expectedGeneration:0});writeFileSync(${JSON.stringify(output)},'accepted')}
+      catch(e){writeFileSync(${JSON.stringify(output)},e.code)}finally{db.close()}
+    `]));
+      expect((await Promise.all(children.map(child => once(child, 'exit')))).map(([code]) => code)).toEqual([0, 0]);
+      expect(outputs.map(output => readFileSync(output, 'utf8')).sort()).toEqual(['QUEUE_FULL', 'accepted']);
       expect(f.db.prepare("SELECT count(*) AS n FROM jobs WHERE state='queued'").get()).toEqual({ n: 1000 });
       expect((await f.call('/api/jobs', 'cli', f.request())).status).toBe(429);
       expect((await f.call('/api/jobs', 'cli', first)).status).toBe(200);
-    } finally { second.close(); }
   });
   it('fences maintenance writes and accepts only short credential operation/generation bound selfchecks', async () => {
     const f = await fixture(); const job = await (await f.call('/api/jobs', 'cli', f.request())).json(); const operationId = randomUUID();

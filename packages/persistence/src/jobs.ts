@@ -25,6 +25,9 @@ export class JobRepository implements Pick<JobStore, 'enqueue' | 'query' | 'requ
         if (prior.payload_hash !== hash || prior.operation_id !== (context.selfcheck?.operationId ?? null)) throw new StorageError('IDEMPOTENCY_CONFLICT');
         return this.toJob(prior);
       }
+      // Count and insert share the immediate transaction, including selfcheck jobs.
+      const pending = this.db.prepare("SELECT count(*) AS n FROM jobs WHERE state IN ('queued','running','retry_wait')").get() as { n: number };
+      if (pending.n >= 1000) throw new StorageError('QUEUE_FULL', 429);
       const id = randomUUID(); const now = this.clock.now();
       this.db.prepare("INSERT INTO jobs(id,scope,idempotency_key,payload_hash,request,state,generation,operation_id,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?,?,?)")
         .run(id, scope, request.idempotencyKey, hash, JSON.stringify(request), gate.generation, context.selfcheck?.operationId ?? null, now, now);
