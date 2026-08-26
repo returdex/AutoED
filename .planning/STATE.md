@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
-status: verifying
-stopped_at: "01-01 checkpoint: approve isolated pinned bootstrap verifier; existing Phase1 approval retained, no automatic fallback"
-last_updated: "2026-08-26T15:16:27.557Z"
-last_activity: 2026-08-27 — Fixed versions obtainable; no installed GPG verifier. Safe stop before Node download/execution.
+status: executing
+stopped_at: Resuming01-01 after explicit verifier approval; zero completed tasks at resume
+last_updated: "2026-08-26T15:18:14.641Z"
+last_activity: 2026-08-27 — User approved bootstrap-only verifier after confirming no publication to Node.js/npm.
 progress:
   total_phases: 8
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** 01-01 preflight complete; 0/3 tasks done. Await scoped OpenPGP verifier approval; no dependency installation or product implementation yet.
+**Current focus:** Resume01-01 with isolated openpgp6.3.1 verification; other human gates unchanged.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
 Plan: 1 of 14
-Status: Waiting for user decision — Plan 01-01 requires an additional bootstrap signature verifier
-Last activity: 2026-08-27 — Fixed versions obtainable; no installed GPG verifier. Safe stop before Node download/execution.
+Status: Executing Phase 1 — bootstrap verifier amendment approved
+Last activity: 2026-08-27 — User approved bootstrap-only verifier after confirming no publication to Node.js/npm.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -84,6 +84,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T15:16:27.552Z
-Stopped at: 01-01 checkpoint: approve isolated pinned bootstrap verifier; existing Phase1 approval retained, no automatic fallback
-Resume file: .planning/phases/01-beta/01-01-CHECKPOINT.md
+Last session: 2026-08-26T15:18:14.636Z
+Stopped at: Resuming01-01 after explicit verifier approval; zero completed tasks at resume
+Resume file: .planning/phases/01-beta/01-01-PLAN.md
