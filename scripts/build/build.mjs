@@ -1,21 +1,30 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashBuildInputs } from '../dev/runtime.mjs';
 
 // Browser assets have no runtime identity and cannot import server modules.
 export async function buildStatusAssets(inputRoot, outputRoot) {
-  const source = readFileSync(join(inputRoot, 'src/main.ts'), 'utf8');
-  if (/\b(?:import|require|eval|process|Buffer|__dirname|__filename|__AUTOED_BUILD_IDENTITY__)\b|\\u[0-9a-f{]/i.test(source)) throw new Error('BROWSER_IMPORT_DENIED');
+  let source = readFileSync(join(inputRoot, 'src/main.ts'), 'utf8');
+  const sharedImport = "import { presentInstall, presentWorker } from '../../../packages/contracts/src/presentation.js';";
+  if (source.includes(sharedImport)) {
+    const shared=readFileSync(join(root, 'packages/contracts/src/presentation.ts'), 'utf8').replace(/^export /gm,'');
+    source=`const {presentInstall,presentWorker}=(()=>{\n${shared}\nreturn {presentInstall,presentWorker};\n})();\n`+source.replace(sharedImport,'');
+  }
+  if (/\b(?:import|export|require|eval|process|Buffer|__dirname|__filename|__AUTOED_BUILD_IDENTITY__)\b|\\u[0-9a-f{]/i.test(source)) throw new Error('BROWSER_IMPORT_DENIED');
   const css = readFileSync(join(inputRoot, 'styles.css'), 'utf8');
   if (/@import|url\s*\(/i.test(css)) throw new Error('BROWSER_IMPORT_DENIED');
   mkdirSync(outputRoot, { recursive: true });
   writeFileSync(join(outputRoot, 'index.html'), readFileSync(join(inputRoot, 'index.html')));
   writeFileSync(join(outputRoot, 'styles.css'), css);
   // TypeScript 7 exposes a different unstable API; use its approved native CLI.
-  execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--ignoreConfig', '--target', 'ES2023', '--module', 'ES2022', '--skipLibCheck', '--noResolve', '--rootDir', join(inputRoot, 'src'), '--outDir', outputRoot, join(inputRoot, 'src/main.ts')], { cwd: root, stdio: 'pipe' });
+  const entry=join(outputRoot,'.status-entry.ts');writeFileSync(entry,source);
+  try {
+    execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--ignoreConfig', '--target', 'ES2023', '--module', 'ES2022', '--skipLibCheck', '--noResolve', '--rootDir', outputRoot, '--outDir', outputRoot, entry], { cwd: root, stdio: 'pipe' });
+    renameSync(join(outputRoot,'.status-entry.js'),join(outputRoot,'main.js'));
+  } finally {rmSync(entry,{force:true});rmSync(join(outputRoot,'.status-entry.js'),{force:true});}
 }
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -46,7 +55,7 @@ for (const app of existsSync(join(root, 'apps')) ? readdirSync(join(root, 'apps'
   writeFileSync(output, code.replaceAll('__AUTOED_BUILD_IDENTITY__', JSON.stringify(identity)));
   entries.push(app);
 }
-if (existsSync(join(root, 'apps/status/src/main.ts'))) await buildStatusAssets(join(root, 'apps/status'), join(root, 'dist/apps/status'));
+await buildStatusAssets(join(root, 'apps/status'), join(root, 'dist/apps/status'));
 writeFileSync(join(root, 'build/identity.json'), JSON.stringify({ ...identity, entries }, null, 2));
 console.log(`Built ${entries.length} actual application entries; identity ${identity.buildId}; no release/tag created`);
 }

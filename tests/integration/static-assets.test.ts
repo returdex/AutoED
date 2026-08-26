@@ -33,5 +33,7 @@ it('browser builder rejects Node imports and does not execute source instruction
     const input=join(h.root,'input');mkdirSync(join(input,'src'),{recursive:true});writeFileSync(join(input,'index.html'),'<html></html>');writeFileSync(join(input,'styles.css'),'body{}');
     writeFileSync(join(input,'src/main.ts'),'import fs from "node:fs"; fs.readFileSync("secret");');
     await expect(buildStatusAssets(input,join(h.root,'output'))).rejects.toThrow('BROWSER_IMPORT_DENIED');
+    writeFileSync(join(input,'src/main.ts'),'export * from "node:fs";');
+    await expect(buildStatusAssets(input,join(h.root,'output'))).rejects.toThrow('BROWSER_IMPORT_DENIED');
   }finally{await h.cleanup();}
 });

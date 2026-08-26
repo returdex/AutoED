@@ -39,6 +39,7 @@ export const ComponentObservationSchema: z.ZodType<ComponentObservation> = z.str
   ? item.health === 'not_observed' && item.build === null && item.checkedAt === null
   : item.checkedAt !== null && (item.health !== 'healthy' || item.build !== null), 'Observation must have actual evidence');
 export const InstallProjectionSchema: z.ZodType<InstallProjection> = z.strictObject({
+  previousInstallation: z.enum(['none','present','unknown']).optional(),
   freshness: projectionFreshness,
   operationId: z.uuid(), stage: z.enum(['preview', 'download', 'verify', 'stage', 'quiesce', 'backup', 'migrate', 'activate', 'selfcheck', 'cleanup', 'complete', 'rollback', 'stopped']),
   result: z.enum(['not_observed', 'running', 'succeeded', 'failed', 'restored', 'human_needed']),

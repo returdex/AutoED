@@ -48,6 +48,8 @@ export interface ComponentObservation {
   evidence: 'not_observed' | 'authenticated_probe' | 'process_report';
 }
 export interface InstallProjection {
+  /** Missing is unknown; only inventory evidence may establish no previous install. */
+  previousInstallation?: 'none' | 'present' | 'unknown' | undefined;
   freshness?: 'not_observed' | 'fresh' | 'stale' | undefined;
   operationId: string;
   stage: 'preview' | 'download' | 'verify' | 'stage' | 'quiesce' | 'backup' | 'migrate' | 'activate' | 'selfcheck' | 'cleanup' | 'complete' | 'rollback' | 'stopped';
