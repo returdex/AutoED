@@ -1,6 +1,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {existsSync,lstatSync,mkdirSync,readFileSync,readdirSync,unlinkSync,rmdirSync,renameSync,openSync,closeSync,fsyncSync} from 'node:fs';
 import {join} from 'node:path';
+import {release} from 'node:os';
 import {z} from 'zod';
 import type Database from 'better-sqlite3';
 import type {InstallProjection} from '../../domain/src/model.js';
@@ -16,8 +17,10 @@ import {writeInstallerRecord} from './launchers.js';
 
 export const JOURNAL_STAGES=['preview','confirmed','download_verified','quiesced','snapshot_ready','migrated','activated','started','feature_verified','cleaned','reopened','normal_verified','complete'] as const;
 const hash=z.string().regex(/^[a-f0-9]{64}$/),generation=z.number().int().nonnegative();
-const Header=z.strictObject({operationId:z.uuid(),scopeHash:hash,manifestHash:hash,target:BuildIdentitySchema,previousInstallation:z.enum(['none','present']),generation,installationId:z.uuid()});
+const Platform=z.strictObject({os:z.enum(['darwin','win32']),arch:z.enum(['arm64','x64']),version:z.string().min(1).max(64)});
+const Header=z.strictObject({operationId:z.uuid(),scopeHash:hash,manifestHash:hash,target:BuildIdentitySchema,platform:Platform,previousInstallation:z.enum(['none','present']),generation,installationId:z.uuid()});
 const Entry=z.strictObject({sequence:z.number().int().nonnegative(),stage:z.enum(JOURNAL_STAGES),phase:z.enum(['intent','done']),previousHash:hash,checkedAt:z.number().int().nonnegative()});
+const Recovery=z.strictObject({operationId:z.uuid(),code:z.enum(['UPGRADE_FAILED_ROLLED_BACK','INSTALL_FAILED_NO_PREVIOUS']),checkedAt:z.number().int().nonnegative(),journalHash:hash});
 const Lock=z.strictObject({operationId:z.uuid(),installationId:z.uuid(),pid:z.number().int().positive(),osStartIdentity:z.string(),executable:z.string()});
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export type JournalInput=Omit<z.infer<typeof Header>,'installationId'>;
@@ -29,7 +32,7 @@ export class UpgradeJournal {
     return withClientAdmission(selection,()=>this.createLocked(selection,input));
   }
   private static async createLocked(selection:RootSelection,input:JournalInput){
-    const metadata=readInstallation(selection),header=Header.parse({...input,installationId:metadata.installationId}),paths=managedPaths(selection.root),lockPath=assertManagedPath(paths,'installer-staging/update.lock');
+    const metadata=readInstallation(selection),header=Header.parse({...input,installationId:metadata.installationId}),actual=Platform.parse({os:process.platform,arch:process.arch,version:release()}),paths=managedPaths(selection.root),lockPath=assertManagedPath(paths,'installer-staging/update.lock');if(JSON.stringify(header.platform)!==JSON.stringify(actual))throw new Error('PLATFORM_IDENTITY_MISMATCH');
     if(existsSync(lockPath))throw new Error('UPGRADE_LOCKED');const os=await observeProcess(process.pid);if(!os)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');
     const lock=Lock.parse({operationId:header.operationId,installationId:header.installationId,pid:process.pid,...os});
     try{mkdirSync(lockPath,{mode:0o700});}catch{throw new Error('UPGRADE_LOCKED');}protectPath(lockPath);writeInstallerRecord(join(lockPath,'owner.json'),lock);
@@ -38,15 +41,15 @@ export class UpgradeJournal {
     return new UpgradeJournal(selection,header,lock);
   }
   static async recover(selection:RootSelection,operationId:string){
-    return withClientAdmission(selection,async()=>{const metadata=readInstallation(selection),paths=managedPaths(selection.root),lockPath=assertManagedPath(paths,'installer-staging/update.lock'),ownerPath=assertManagedPath(paths,'installer-staging/update.lock/owner.json'),prior=Lock.parse(readRecord(ownerPath));if(prior.installationId!==metadata.installationId||prior.operationId!==operationId||await observeProcess(prior.pid)!==null)throw new Error('UPGRADE_LOCKED');const os=await observeProcess(process.pid);if(!os)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');const lock=Lock.parse({...prior,pid:process.pid,...os});replaceJournalRecord(ownerPath,prior,lock);const state=this.read(selection,operationId);return new UpgradeJournal(selection,state.header,lock);});
+    return withClientAdmission(selection,async()=>{const metadata=readInstallation(selection),paths=managedPaths(selection.root),ownerPath=assertManagedPath(paths,'installer-staging/update.lock/owner.json'),prior=Lock.parse(readRecord(ownerPath)),observed=await observeProcess(prior.pid);if(prior.installationId!==metadata.installationId||prior.operationId!==operationId||observed!==null&&(prior.pid!==process.pid||!observed||observed.osStartIdentity!==prior.osStartIdentity||observed.executable!==prior.executable))throw new Error('UPGRADE_LOCKED');const os=await observeProcess(process.pid);if(!os)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');const lock=Lock.parse({...prior,pid:process.pid,...os});if(JSON.stringify(lock)!==JSON.stringify(prior))replaceJournalRecord(ownerPath,prior,lock);const state=this.read(selection,operationId);return new UpgradeJournal(selection,state.header,lock);});
   }
   static read(selection:RootSelection,operationId:string){
     const metadata=readInstallation(selection),root=journalPath(selection,operationId),header=Header.parse(readRecord(assertManagedPath(managedPaths(selection.root),`installer-staging/operations/${operationId}/header.json`)));
     if(header.installationId!==metadata.installationId||header.operationId!==operationId)throw new Error('JOURNAL_INVALID');
-    const names=readdirSync(root).filter(n=>n!=='header.json').sort();if(names.length>JOURNAL_STAGES.length*2||names.some((n,i)=>n!==`${String(i).padStart(3,'0')}.json`))throw new Error('JOURNAL_INVALID');
+    const all=readdirSync(root).filter(n=>n!=='header.json').sort(),recoveryName=all.includes('recovery.json'),names=all.filter(n=>n!=='recovery.json');if(all.some(n=>n!=='recovery.json'&&!/^\d{3}\.json$/.test(n))||names.length>JOURNAL_STAGES.length*2||names.some((n,i)=>n!==`${String(i).padStart(3,'0')}.json`))throw new Error('JOURNAL_INVALID');
     const entries:z.infer<typeof Entry>[]=[];let previousHash=digest(header);
     for(const [i,name]of names.entries()){const value=Entry.parse(readRecord(assertManagedPath(managedPaths(selection.root),`installer-staging/operations/${operationId}/${name}`)));if(value.sequence!==i||value.stage!==JOURNAL_STAGES[Math.floor(i/2)]||value.phase!==(i%2?'done':'intent')||value.previousHash!==previousHash||value.checkedAt>Date.now()||value.checkedAt<(entries.at(-1)?.checkedAt??0))throw new Error('JOURNAL_INVALID');entries.push(value);previousHash=digest(value);}
-    return {header,entries};
+    let recovery:z.infer<typeof Recovery>|null=null;if(recoveryName){recovery=Recovery.parse(readRecord(join(root,'recovery.json')));if(recovery.operationId!==operationId||recovery.checkedAt>Date.now()||recovery.journalHash!==digest(entries.at(-1)??header))throw new Error('JOURNAL_INVALID');}return {header,entries,recovery};
   }
   private assertOwner(){const path=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock/owner.json');if(JSON.stringify(Lock.parse(readRecord(path)))!==JSON.stringify(this.lock)||this.lock.pid!==process.pid)throw new Error('UPGRADE_LOCKED');}
   async append(stage:typeof JOURNAL_STAGES[number],phase:'intent'|'done'){
@@ -57,6 +60,9 @@ export class UpgradeJournal {
   }
   async clientAdmission(mode:'blocked'|'selfcheck'|'normal_probe',buildId=this.header.target.buildId){this.assertOwner();await withClientAdmission(this.selection,async()=>{const path=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock/admission.json'),prior=ClientAdmissionSchema.parse(readRecord(path));replaceJournalRecord(path,prior,ClientAdmissionSchema.parse({operationId:this.header.operationId,buildId,mode}));});}
   async release(){this.assertOwner();const last=UpgradeJournal.read(this.selection,this.header.operationId).entries.at(-1);if(last?.stage!=='complete'||last.phase!=='done')throw new Error('UPGRADE_INCOMPLETE');await withClientAdmission(this.selection,async()=>{const path=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock');unlinkSync(join(path,'admission.json'));unlinkSync(join(path,'owner.json'));rmdirSync(path);});}
+  async resolve(code:'UPGRADE_FAILED_ROLLED_BACK'|'INSTALL_FAILED_NO_PREVIOUS'){
+    this.assertOwner();const root=journalPath(this.selection,this.header.operationId),path=join(root,'recovery.json');if(existsSync(path))throw new Error('RECOVERY_ALREADY_RESOLVED');writeInstallerRecord(path,{operationId:this.header.operationId,code,checkedAt:Date.now(),journalHash:digest(UpgradeJournal.read(this.selection,this.header.operationId).entries.at(-1)??this.header)});await withClientAdmission(this.selection,async()=>{const lock=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock');unlinkSync(join(lock,'admission.json'));unlinkSync(join(lock,'owner.json'));rmdirSync(lock);});
+  }
 }
 export function replaceJournalRecord(path:string,expected:unknown,value:unknown){if(digest(readRecord(path))!==digest(expected))throw new Error('JOURNAL_REALITY_MISMATCH');const temporary=path+'.'+randomUUID();writeInstallerRecord(temporary,value);if(digest(readRecord(path))!==digest(expected))throw new Error('JOURNAL_REALITY_MISMATCH');renameSync(temporary,path);if(process.platform==='darwin'){const fd=openSync(join(path,'..'),'r');try{fsyncSync(fd);}finally{closeSync(fd);}}}
 const pause=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));

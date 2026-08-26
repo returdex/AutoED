@@ -1,10 +1,8 @@
 import {expect,it} from 'vitest';
-import {createHash,randomUUID} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {join} from 'node:path';
-import {existsSync,readFileSync,realpathSync,writeFileSync,mkdirSync,readdirSync,lstatSync,symlinkSync} from 'node:fs';
-import {execFileSync} from 'node:child_process';
+import {existsSync,readFileSync,realpathSync,writeFileSync,readdirSync,symlinkSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {gzipSync} from 'node:zlib';
 import {createHarness} from '../../packages/test-support/src/harness.js';
 import {initializeInstallation} from '../../packages/platform/src/installation.js';
 import {protectPath} from '../../packages/platform/src/permissions.js';
@@ -16,17 +14,21 @@ import {createSnapshot,verifySnapshot} from '../../packages/installer/src/snapsh
 import {signSyntheticManifests} from '../../scripts/build/synthetic-sign.mjs';
 import {createFixtureVerifier} from '../../packages/installer/src/verify-manifest.js';
 import {createInstallPreview,confirmInstallPreview} from '../../packages/installer/src/preview.js';
-import {upgradeConfirmed,runtimeSupervisor} from '../../packages/installer/src/upgrade.js';
+import {upgradeConfirmed,runtimeSupervisor,recoverCandidateActivation} from '../../packages/installer/src/upgrade.js';
 import {NativeSecretStore} from '../../packages/platform/src/credentials.js';
 import {inspectClientHosts} from '../../packages/platform/src/client-host.js';
-import {buildStatusAssets} from '../../scripts/build/build.mjs';
+import {compiledRelease} from '../../packages/test-support/src/upgrade-fixture.js';
 import {once} from 'node:events';
+import {release as osRelease} from 'node:os';
+import {createHash} from 'node:crypto';
+import {mkdirSync,renameSync} from 'node:fs';
 
+const nativePlatform={os:process.platform as 'darwin'|'win32',arch:process.arch as 'arm64'|'x64',version:osRelease()};
 const build={version:'0.1.0-beta.2',buildId:'b'.repeat(64),commit:'c'.repeat(40),tree:'d'.repeat(40),dependencyHash:'e'.repeat(64),protocol:1 as const,schemaMin:1 as const,schemaMax:1 as const,capabilities:['echo','digest']};
 async function fixture(){const h=createHarness(),parent=realpathSync(h.root);protectPath(parent);const selection={root:join(parent,'installation'),parent,excludedRoots:[]},values=new Map<string,string>();const metadata=await initializeInstallation(selection,{get:async(id,name)=>values.get(id+name)??null,set:async(id,name,value)=>{values.set(id+name,value);},delete:async(id,name)=>{values.delete(id+name);}});const db=openDatabase(join(selection.root,'data/jobs.sqlite'));protectPath(db.name);return {h,selection,metadata,db};}
 it('journals every durable intent/done, rejects concurrent writers and replays only persisted boundaries',async()=>{
   const f=await fixture();try{
-    const input={operationId:randomUUID(),scopeHash:'a'.repeat(64),manifestHash:'f'.repeat(64),target:build,previousInstallation:'none' as const,generation:0};
+    const input={operationId:randomUUID(),scopeHash:'a'.repeat(64),manifestHash:'f'.repeat(64),target:build,platform:nativePlatform,previousInstallation:'none' as const,generation:0};
     const url=new URL('../../packages/installer/src/journal.ts',import.meta.url).href;
     for(const [sequence,{stage,phase}]of JOURNAL_STAGES.flatMap(stage=>[{stage,phase:'intent' as const},{stage,phase:'done' as const}]).entries()){
       const script=`import{registerHooks}from'node:module';registerHooks({resolve(s,c,n){try{return n(s,c)}catch(e){if(s.endsWith('.js'))return n(s.slice(0,-3)+'.ts',c);throw e}}});const {UpgradeJournal}=await import(${JSON.stringify(url)});const selection=${JSON.stringify(f.selection)},input=${JSON.stringify(input)};const journal=${sequence===0?'await UpgradeJournal.create(selection,input)':'await UpgradeJournal.recover(selection,input.operationId)'};await journal.append(${JSON.stringify(stage)},${JSON.stringify(phase)});process.exit(73);`;
@@ -34,6 +36,14 @@ it('journals every durable intent/done, rejects concurrent writers and replays o
     }
     await expect(UpgradeJournal.create(f.selection,{...input,operationId:randomUUID()})).rejects.toThrow('UPGRADE_LOCKED');const journal=await UpgradeJournal.recover(f.selection,input.operationId);expect(UpgradeJournal.read(f.selection,input.operationId).entries).toHaveLength(JOURNAL_STAGES.length*2);await journal.release();
   }finally{f.db.close();await f.h.cleanup();}
+});
+it('reopens a strictly resolved journal and rejects a second resolution',async()=>{
+  const f=await fixture();try{const operationId=randomUUID(),journal=await UpgradeJournal.create(f.selection,{operationId,scopeHash:'a'.repeat(64),manifestHash:'f'.repeat(64),target:build,platform:nativePlatform,previousInstallation:'none',generation:0});await journal.resolve('INSTALL_FAILED_NO_PREVIOUS');expect(UpgradeJournal.read(f.selection,operationId).recovery).toMatchObject({operationId,code:'INSTALL_FAILED_NO_PREVIOUS'});await expect(journal.resolve('INSTALL_FAILED_NO_PREVIOUS')).rejects.toThrow();writeFileSync(join(f.selection.root,'installer-staging/operations',operationId,'unknown.json'),'{}');expect(()=>UpgradeJournal.read(f.selection,operationId)).toThrow('JOURNAL_INVALID');}finally{f.db.close();await f.h.cleanup();}
+});
+it('completes every exact activation rename boundary and rejects mixed or unknown reality without mutation',async()=>{
+  const digest=(path:string)=>createHash('sha256').update(readFileSync(path)).digest('hex');
+  for(let phase=0;phase<5;phase++){const f=await fixture();try{const operationId=randomUUID(),root=join(f.selection.root,'installer-staging','activation-'+operationId),bin=join(f.selection.root,'bin'),active=join(f.selection.root,'active.json');mkdirSync(root,{mode:0o700});mkdirSync(bin,{mode:0o700});for(const name of ['launcher.mjs','autoed-rebuild','ownership.json'])writeFileSync(join(bin,name),'old-'+name);writeFileSync(active,'old-active');mkdirSync(join(root,'new-bin'));for(const name of ['launcher.mjs','autoed-rebuild','ownership.json'])writeFileSync(join(root,'new-bin',name),'new-'+name);writeFileSync(join(root,'new-active.json'),'new-active');const side=(b:string,a:string)=>({root:b,active:digest(a),files:readdirSync(b).sort().map(name=>({name,hash:digest(join(b,name))}))});writeFileSync(join(root,'pins.json'),JSON.stringify({schema:1,installationId:f.metadata.installationId,operationId,old:side(bin,active),candidate:side(join(root,'new-bin'),join(root,'new-active.json'))}));if(phase>=1)renameSync(bin,join(root,'old-bin'));if(phase>=2)renameSync(active,join(root,'old-active.json'));if(phase>=3)renameSync(join(root,'new-bin'),bin);if(phase>=4)renameSync(join(root,'new-active.json'),active);recoverCandidateActivation(f.selection,operationId);expect(readFileSync(active,'utf8')).toBe('new-active');expect(readFileSync(join(root,'old-active.json'),'utf8')).toBe('old-active');}finally{f.db.close();await f.h.cleanup();}}
+  const f=await fixture();try{const operationId=randomUUID(),root=join(f.selection.root,'installer-staging','activation-'+operationId);mkdirSync(root,{mode:0o700});writeFileSync(join(root,'pins.json'),'{}');writeFileSync(join(root,'unknown'),'canary');const before=readFileSync(join(root,'unknown'));expect(()=>recoverCandidateActivation(f.selection,operationId)).toThrow('ACTIVATION_REALITY_UNCONFIRMED');expect(readFileSync(join(root,'unknown'))).toEqual(before);}finally{f.db.close();await f.h.cleanup();}
 });
 it('uses a completed SQLite backup with gate/write fencing and never copies unrelated private directories',async()=>{
   const f=await fixture();try{
@@ -51,7 +61,7 @@ it('uses a completed SQLite backup with gate/write fencing and never copies unre
 it('persists truthful install projection through maintenance exit with actual monotonic timestamps',async()=>{
   const f=await fixture();try{
     const operationId=randomUUID(),gate=new SQLiteMaintenanceStore(f.db);await gate.enterMaintenance({operationId,expectedGeneration:0,owner:'installer',leaseUntil:Date.now()+60000});await gate.markExclusive(operationId,0);
-    const journal=await UpgradeJournal.create(f.selection,{operationId,scopeHash:'a'.repeat(64),manifestHash:'f'.repeat(64),target:build,previousInstallation:'present',generation:0});
+    const journal=await UpgradeJournal.create(f.selection,{operationId,scopeHash:'a'.repeat(64),manifestHash:'f'.repeat(64),target:build,platform:nativePlatform,previousInstallation:'present',generation:0});
     await journal.append('preview','intent');await writeJournalProjection(f.db,journal,{stage:'stopped',result:'human_needed',actualBuild:null,cleanup:'cleanup_pending'});
     const first=(await new SQLiteStatusProjectionStore(f.db).read()).install!;await writeJournalProjection(f.db,journal,{stage:'stopped',result:'failed',actualBuild:null,cleanup:'cleanup_pending'});
     const second=(await new SQLiteStatusProjectionStore(f.db).read()).install!;expect(Date.parse(second.checkedAt!)).toBeGreaterThan(Date.parse(first.checkedAt!));expect(Date.parse(second.checkedAt!)).toBeLessThanOrEqual(Date.now());
@@ -59,18 +69,6 @@ it('persists truthful install projection through maintenance exit with actual mo
   }finally{f.db.close();await f.h.cleanup();}
 });
 
-function tar(files:{path:string;data:Buffer;executable?:boolean}[]){const chunks:Buffer[]=[];for(const f of files){const h=Buffer.alloc(512);h.write(f.path,0,100);h.write((f.executable?'0000700':'0000600')+'\0',100);h.write(f.data.length.toString(8).padStart(11,'0')+'\0',124);h.fill(32,148,156);h[156]=48;h.write('ustar\0',257);h.write('00',263);h.write(h.reduce((n,b)=>n+b,0).toString(8).padStart(6,'0')+'\0 ',148);chunks.push(h,f.data,Buffer.alloc((512-f.data.length%512)%512));}chunks.push(Buffer.alloc(1024));return gzipSync(Buffer.concat(chunks));}
-function walk(root:string,path=root,prefix=''): {path:string;data:Buffer}[]{return readdirSync(path,{withFileTypes:true}).flatMap(entry=>{const full=join(path,entry.name),name=prefix+entry.name;if(entry.isDirectory())return walk(root,full,name+'/');if(!entry.isFile()||lstatSync(full).isSymbolicLink())throw new Error('FIXTURE_TREE_INVALID');return [{path:name,data:readFileSync(full)}];});}
-const sha=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
-async function compiledRelease(parent:string,variant:'A'|'B'){
-  const out=join(parent,'compiled-'+variant);mkdirSync(out,{mode:0o700});execFileSync(process.execPath,[resolve('node_modules/typescript/bin/tsc'),'--outDir',out],{stdio:'pipe',timeout:30000});await buildStatusAssets(resolve('apps/status'),join(out,'apps/status'));writeFileSync(join(out,'package.json'),'{"type":"module"}');
-  const build={version:`0.1.0-beta.${variant==='A'?1:2}`,buildId:(variant==='A'?'a':'b').repeat(64),commit:'c'.repeat(40),tree:(variant==='A'?'d':'e').repeat(40),dependencyHash:'f'.repeat(64),protocol:1 as const,schemaMin:1 as const,schemaMax:1 as const,capabilities:variant==='A'?['echo']:['echo','digest']};
-  for(const entry of ['apps/api/src/main.js','apps/worker/src/main.js','apps/cli/src/main.js','apps/mcp/src/main.js']){const path=join(out,entry);writeFileSync(path,readFileSync(path,'utf8').replaceAll('__AUTOED_BUILD_IDENTITY__',JSON.stringify(build)));}
-  mkdirSync(join(out,'build'));writeFileSync(join(out,'build/identity.json'),JSON.stringify({...build,entries:['api','worker','cli','mcp']}));const programFiles=walk(out).filter(f=>f.path!=='package.json'),program=tar(programFiles),node=readFileSync(process.execPath),browser=Buffer.from('synthetic-browser-only');
-  const parts=[{name:'program.tar.gz',role:'program',format:'tar.gz',data:program,files:programFiles},{name:'node',role:'node',format:'file',data:node,files:[{path:'bin/node',data:node,executable:true}]},{name:'browser',role:'browser',format:'file',data:browser,files:[{path:'synthetic-browser.txt',data:browser}]}] as const;
-  const manifest={schema:1,product:'autoed-rebuild',build,target:{os:'darwin',arch:'arm64',minVersion:'14.0.0'},dependencies:{node:'24.20.0',playwright:'1.62.1',browserRevision:'1234',browserVersion:'151.0.7922.34'},artifacts:parts.map(p=>({name:p.name,role:p.role,format:p.format,url:`https://github.com/returdex/AutoED/releases/download/${build.version}/${p.name}`,sha256:sha(p.data),bytes:p.data.length,unpackedBytes:p.files.reduce((n,f)=>n+f.data.length,0),files:p.files.map(f=>({path:f.path,bytes:f.data.length,sha256:sha(f.data),...('executable'in f&&f.executable?{executable:true}:{})}))})),dependencySources:[{name:'node',version:'24.20.0',url:'https://nodejs.org/dist/v24.20.0/node-v24.20.0-darwin-arm64.tar.gz',integrity:'sha256-'+'1'.repeat(64)}],tests:{synthetic:'pass',integration:'pass',macosNative:'not_run',windowsNative:'not_run',human:'not_run'}};
-  const bytes=Buffer.from(JSON.stringify(manifest));return {bytes,build,archives:Object.fromEntries(parts.map(p=>[p.name,p.data]))};
-}
 it('starts independently installed target entries, runs operation and fresh-generation selfchecks, then exposes real status',async()=>{
   const h=createHarness(),secrets=new NativeSecretStore();let selection:{root:string;parent:string;excludedRoots:never[]}|undefined,installationId:string|undefined,manifest:ReturnType<ReturnType<typeof createFixtureVerifier>>|undefined,safe=false;
   try{const parent=realpathSync(h.root);protectPath(parent);symlinkSync(realpathSync('node_modules'),join(parent,'node_modules'),'dir');const release=await compiledRelease(parent,'B'),signed=await signSyntheticManifests(parent,[release.bytes]);manifest=createFixtureVerifier(signed.publicKey,signed.fingerprint)(release.bytes,Buffer.from(signed.signatures[0]!,'base64'),{os:'darwin',arch:'arm64',version:'26.5.2',schema:1,protocol:1});selection={root:join(parent,'installation'),parent,excludedRoots:[]};const preview=createInstallPreview(manifest,selection),confirmation=confirmInstallPreview(preview,'INSTALL '+preview.scopeHash);installationId=preview.installationId;

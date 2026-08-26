@@ -1,6 +1,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readFileSync,writeFileSync,renameSync,openSync,closeSync,fsyncSync,lstatSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
+import {release} from 'node:os';
 import type Database from 'better-sqlite3';
 import type {SecretStore} from '../../application/src/ports.js';
 import type {InstallProjection} from '../../domain/src/model.js';
@@ -23,6 +24,7 @@ import {extractVerifiedArchive} from './download.js';
 import {publishLaunchers,assertOwnedLaunchers,writeInstallerRecord,readActive} from './launchers.js';
 import {UpgradeJournal,nextProjectionTime,writeJournalProjection,type JOURNAL_STAGES} from './journal.js';
 import {createSnapshot,type Snapshot} from './snapshot.js';
+import {z} from 'zod';
 
 export function verifiedRuntime(selection:RootSelection,manifest:VerifiedManifest){
   if(!isVerifiedManifest(manifest))throw new Error('VERIFIED_MANIFEST_REQUIRED');const metadata=readInstallation(selection),paths=managedPaths(selection.root),m=manifest.manifest;
@@ -38,6 +40,17 @@ export function preserveEnvelope(selection:RootSelection,manifest:VerifiedManife
 function hashFile(path:string){const st=lstatSync(path);if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size>1024*1024)throw new Error('ENTRY_OWNERSHIP_UNCONFIRMED');return createHash('sha256').update(readFileSync(path)).digest('hex');}
 function pins(root:string,bin:string,active:string){const names=readdirSync(bin).sort();if(names.join()!==['autoed-rebuild'+(process.platform==='win32'?'.cmd':''),'launcher.mjs','ownership.json'].sort().join())throw new Error('ENTRY_OWNERSHIP_UNCONFIRMED');return {active:hashFile(active),files:names.map(name=>({name,hash:hashFile(join(bin,name))})),root};}
 function durableRename(from:string,to:string){if(existsSync(to))throw new Error('ENTRY_OWNERSHIP_UNCONFIRMED');renameSync(from,to);if(process.platform==='darwin')for(const path of new Set([join(from,'..'),join(to,'..')])){const fd=openSync(path,'r');try{fsyncSync(fd);}finally{closeSync(fd);}}}
+const pinHash=z.string().regex(/^[a-f0-9]{64}$/),PinSide=z.strictObject({active:pinHash,files:z.array(z.strictObject({name:z.string(),hash:pinHash})).length(3),root:z.string()}),Pins=z.strictObject({schema:z.literal(1),installationId:z.uuid(),operationId:z.uuid(),old:PinSide,candidate:PinSide});
+function validatePinSide(bin:string,active:string,side:z.infer<typeof PinSide>){if(!existsSync(bin)||!existsSync(active)||hashFile(active)!==side.active)throw new Error('ACTIVATION_REALITY_UNCONFIRMED');const names=readdirSync(bin).sort();if(names.join()!==side.files.map(f=>f.name).sort().join())throw new Error('ACTIVATION_REALITY_UNCONFIRMED');for(const file of side.files)if(hashFile(join(bin,file.name))!==file.hash)throw new Error('ACTIVATION_REALITY_UNCONFIRMED');}
+/** Completes only one of the five exact durable rename boundaries. All hashes are checked before the first mutation. */
+export function recoverCandidateActivation(selection:RootSelection,operationId:string){
+  let root:string,record:z.infer<typeof Pins>;try{root=assertManagedPath(managedPaths(selection.root),`installer-staging/activation-${z.uuid().parse(operationId)}`);record=Pins.parse(JSON.parse(readFileSync(join(root,'pins.json'),'utf8')));}catch{throw new Error('ACTIVATION_REALITY_UNCONFIRMED');}if(record.operationId!==operationId||record.installationId!==readInstallation(selection).installationId)throw new Error('ACTIVATION_REALITY_UNCONFIRMED');
+  const currentBin=join(selection.root,'bin'),currentActive=join(selection.root,'active.json'),oldBin=join(root,'old-bin'),oldActive=join(root,'old-active.json'),newBin=join(root,'new-bin'),newActive=join(root,'new-active.json');
+  const allowed=new Set(['pins.json',...['old-bin','old-active.json','new-bin','new-active.json'].filter(name=>existsSync(join(root,name)))]);if(readdirSync(root).some(name=>!allowed.has(name)))throw new Error('ACTIVATION_REALITY_UNCONFIRMED');
+  const state=[currentBin,currentActive,oldBin,oldActive,newBin,newActive].map(existsSync).map(Number).join('');const phases=new Map([['110011',0],['011011',1],['001111',2],['101101',3],['111100',4]]);const phase=phases.get(state);if(phase===undefined)throw new Error('ACTIVATION_REALITY_UNCONFIRMED');
+  if(phase===0){validatePinSide(currentBin,currentActive,record.old);validatePinSide(newBin,newActive,record.candidate);}else if(phase===1){validatePinSide(oldBin,currentActive,record.old);validatePinSide(newBin,newActive,record.candidate);}else if(phase===2){validatePinSide(oldBin,oldActive,record.old);validatePinSide(newBin,newActive,record.candidate);}else if(phase===3){validatePinSide(oldBin,oldActive,record.old);validatePinSide(currentBin,newActive,record.candidate);}else{validatePinSide(oldBin,oldActive,record.old);validatePinSide(currentBin,currentActive,record.candidate);return root;}
+  if(phase<1)durableRename(currentBin,oldBin);if(phase<2)durableRename(currentActive,oldActive);if(phase<3)durableRename(newBin,currentBin);if(phase<4)durableRename(newActive,currentActive);validatePinSide(oldBin,oldActive,record.old);validatePinSide(currentBin,currentActive,record.candidate);return root;
+}
 export function activateCandidate(preview:InstallPreview,manifest:VerifiedManifest,operationId:string){
   const selection=preview.selection,old=existsSync(join(selection.root,'active.json'))?assertOwnedLaunchers(selection):null;
   const root=assertManagedPath(managedPaths(selection.root),`installer-staging/activation-${operationId}`);mkdirSync(root,{mode:0o700});protectPath(root);publishLaunchers(preview,manifest,operationId);
@@ -65,7 +78,7 @@ export async function upgradeConfirmed(preview:InstallPreview,confirmation:Insta
   const db=openDatabase(assertManagedPath(managedPaths(selection.root),'data/jobs.sqlite'));protectPath(db.name);let journal:UpgradeJournal|undefined;
   let supervisor=old?runtimeSupervisor(selection,old):undefined,client:HttpClient|undefined,snapshot:Snapshot|undefined,activationRoot='',actual:VerifiedManifest|undefined=old,cleanup:'pending'|'complete'|'cleanup_pending'='pending';
   try{
-    const gate=readGate(db);if(gate.state!=='open')throw new Error('MAINTENANCE_RECOVERY_REQUIRED');const operationId=randomUUID();journal=await UpgradeJournal.create(selection,{operationId,scopeHash:preview.scopeHash,manifestHash:manifest.manifestHash,target:preview.target,previousInstallation:preview.previousInstallation,generation:gate.generation});
+    const gate=readGate(db);if(gate.state!=='open')throw new Error('MAINTENANCE_RECOVERY_REQUIRED');const operationId=randomUUID();journal=await UpgradeJournal.create(selection,{operationId,scopeHash:preview.scopeHash,manifestHash:manifest.manifestHash,target:preview.target,platform:{os:process.platform as 'darwin'|'win32',arch:process.arch as 'arm64'|'x64',version:release()},previousInstallation:preview.previousInstallation,generation:gate.generation});
     if(supervisor?.hasPendingLaunch())throw new Error('PROCESS_START_IN_PROGRESS');
     if(old&&supervisor?.registered().some(i=>i.role==='api')){const identity=supervisor.registered().find(i=>i.role==='api')!;const status=await supervisor.inspect(identity);if(status==='running')client=verifiedInstallerClient(selection,old);else if(status!=='exited')throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');}
     const j=journal;
@@ -100,7 +113,9 @@ export async function upgradeConfirmed(preview:InstallPreview,confirmation:Insta
     await step('normal_verified',()=>selfcheck(null,gate.generation+1));await step('complete',async()=>{const status=await client!.status();if(!sameIdentity(status.api?.build,preview.target)||!sameIdentity(status.worker?.build,preview.target)||status.selfcheck?.featureResult!=='pass')throw new Error('FEATURE_SELFCHECK_FAILED');});await j.release();return {state:'complete' as const,operationId,generation:gate.generation+1,build:preview.target,cleanup};
   }catch(error){
     const base=error instanceof Error&&/^[A-Z_]+$/.test(error.message)?error.message:'UPGRADE_FAILED',last=journal?UpgradeJournal.read(selection,journal.header.operationId).entries.at(-1):undefined,code=last?`${base}_${last.stage.toUpperCase()}_${last.phase.toUpperCase()}`:base;
-    if(journal){const value={stage:'stopped' as const,result:(code.startsWith('HOST_')||code.includes('OWNERSHIP')?'human_needed':'failed') as 'human_needed'|'failed',actualBuild:actual?.manifest.build??null,cleanup};try{await writeJournalProjection(db,journal,value);}catch{/* Preserve failure journal; never claim a projection write succeeded. */}const path=assertManagedPath(managedPaths(selection.root),`installer-staging/failure-${journal.header.operationId}.json`);if(!existsSync(path))writeInstallerRecord(path,{operationId:journal.header.operationId,code,generation:readGate(db).generation,writeGeneration:(db.prepare('SELECT write_generation AS value FROM maintenance_generation WHERE id=1').get() as {value:number}).value});}
+    if(journal){const value={stage:'stopped' as const,result:(code.startsWith('HOST_')||code.includes('OWNERSHIP')?'human_needed':'failed') as 'human_needed'|'failed',actualBuild:actual?.manifest.build??null,cleanup};let projectionWritten=false,projectionCode='PROJECTION_UNAVAILABLE';if(client){try{const g=readGate(db),full={...value,operationId:journal.header.operationId,targetBuild:journal.header.target,previousInstallation:journal.header.previousInstallation,checkedAt:await nextProjectionTime(db,'install')};await client.call('/api/control/status-projection',{kind:'install',operationId:g.operationId,expectedGeneration:g.generation,value:full});projectionWritten=true;projectionCode='AUTHENTICATED_ROUTE';}catch{projectionCode='AUTHENTICATED_ROUTE_FAILED';}}
+      if(!projectionWritten){try{const gate=readGate(db),states=supervisor?await Promise.all(supervisor.registered().map(i=>supervisor!.inspect(i))):[];if(gate.state!=='exclusive'||states.some(s=>s!=='exited'))throw new Error('OFFLINE_PROJECTION_UNCONFIRMED');await writeJournalProjection(db,journal,value);projectionWritten=true;projectionCode='OFFLINE_EXCLUSIVE';}catch{if(projectionCode!=='AUTHENTICATED_ROUTE_FAILED')projectionCode='OFFLINE_PROJECTION_FAILED';}}
+      const path=assertManagedPath(managedPaths(selection.root),`installer-staging/failure-${journal.header.operationId}.json`);if(!existsSync(path))writeInstallerRecord(path,{operationId:journal.header.operationId,code,generation:readGate(db).generation,writeGeneration:(db.prepare('SELECT write_generation AS value FROM maintenance_generation WHERE id=1').get() as {value:number}).value,projectionWritten,projectionCode});}
     throw new Error(code);
   }finally{db.close();}
 }
