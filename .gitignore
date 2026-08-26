@@ -5,8 +5,8 @@ Desktop.ini
 
 # Dependencies / builds / test artifacts
 node_modules/
-dist/
-build/
+/dist/
+/build/
 coverage/
 test-results/
 playwright-report/
