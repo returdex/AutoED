@@ -13,7 +13,8 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 ## Current Execution Status (2026-08-27)
 
 - Phase 1全部14份PLAN已获用户批准（基线cc88906）；按AGENTS的硬门禁持续执行批准范围。
-- 01-01至01-10已完成：受管依赖、持久任务、原生保护、认证API及显式配对、独立API/Worker、只读状态页、真实CLI/SDK stdio MCP、持久升级恢复，以及目标专属macOS/Windows自包含交付闭包；独立复跑156项单元/集成/macOS原生测试、10项Chromium UI测试、类型检查与四入口构建通过。macOS固定Node/browser/SQLite/keyring/ACL及封装A→B已有synthetic/native证据；Windows仅静态闭包，native仍not_run。接下来执行01-11发行信任与发布门禁工具；真实密钥、远程发布与完整平台验收仍待硬门禁。
+- 01-01至01-11已完成：受管依赖、持久任务、原生保护、认证API及显式配对、独立API/Worker、只读客户端、持久升级恢复、目标专属双平台自包含交付闭包，以及fail-closed发行信任/预检/历史扫描/匿名可获取性工具；独立复跑164项单元/集成/macOS原生测试、10项Chromium UI测试、类型检查、四入口构建和当前HEAD有界扫描通过。production trust仍未建立，Windows native仍not_run。
+- 当前停在01-12硬门禁：真实发布密钥保管、固定public trust receipt、returdex GitHub身份与远程仓库操作必须取得当前明确批准；未批准前不生成密钥、不切账号、不创建远程、不发布。
 - 这不是阶段级验收通过：51项需求仍Pending；Windows原生、安装升级、发布及人工UAT未通过，不继承旧库证据。
 - 真实发布密钥/初始信任、必要OS授权和人工测试必须暂停。当前无远程创建、推送或发布，不自动进入Phase 2。
 - 下方建项状态和“本轮”表述是2026-08-26初始化记录；后续执行授权以本节、AGENTS、STATE和01-APPROVAL为准。不会将获批的具体PLAN继续误作未批准，也不会将获批误作已验证。
