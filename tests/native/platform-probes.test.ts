@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { chmodSync, existsSync, lstatSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { assertSupportedPlatform, detectPlatform } from '../../packages/platform/src/platform.js';
 import { createManagedRoot, preflightRoot, assertManagedPath, assertLocalVolume, managedPaths } from '../../packages/platform/src/paths.js';
@@ -32,6 +33,7 @@ describe('native managed platform boundary (only the executing OS is evidence)',
     expect(() => preflightRoot({ ...f, root: join(f.parent, '..', 'escape') })).toThrow('UNSAFE_PATH');
     expect(() => preflightRoot({ ...f, root: join(f.parent, 'OneDrive', 'data') })).toThrow('UNSAFE_PATH');
     expect(() => preflightRoot({ ...f, parent: '' })).toThrow('UNSAFE_PATH');
+    expect(() => preflightRoot({ root: join(homedir(), 'Documents', 'AutoED', 'nested'), parent: join(homedir(), 'Documents', 'AutoED'), excludedRoots: [] })).toThrow('UNSAFE_PATH');
     const paths = createManagedRoot(f); expect(() => assertManagedPath(paths, '../escape')).toThrow('UNSAFE_PATH');
     expect(() => assertManagedPath(paths, '/absolute')).toThrow('UNSAFE_PATH');
   });
