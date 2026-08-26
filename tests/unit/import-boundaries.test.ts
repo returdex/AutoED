@@ -17,7 +17,7 @@ function boundaryErrors(graph: Graph): string[] {
       const discoveryEdge = file === 'packages/client/src/discovery.ts' && target === 'packages/platform/src/installation.ts';
       const forbidden = tier === 'domain' ? !target.startsWith('packages/domain/')
         : tier === 'application' ? (local ? !/^packages\/(application|domain|contracts)\//.test(target) : !['zod', 'node:crypto'].includes(target))
-        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge || /profile/i.test(target);
+        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring)(?:\/|$)/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge || /profile/i.test(target);
       if (forbidden) errors.push(`${tier}: ${file} -> ${target}`);
       else if (local && !credentialEdge && !discoveryEdge) traverse(target, tier, seen);
     }
@@ -65,6 +65,7 @@ describe('transitive architecture boundaries', () => {
       ['packages/platform/src/credentials.ts', ['node:fs']],
     ]))).toEqual([]);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/credentials.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['better-sqlite3', '@napi-rs/keyring']]]))).toHaveLength(2);
   });
   it('recognizes imports, re-exports, dynamic imports and CommonJS requires', () => {
     expect(imports("import x from 'a'; export { x } from 'b'; import('c'); require('d'); import 'e';")).toEqual(['a', 'b', 'c', 'd', 'e']);
