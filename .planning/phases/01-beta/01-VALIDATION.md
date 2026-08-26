@@ -1,7 +1,7 @@
 ---
 phase: 1
 slug: beta
-status: reviewed_pending_user_plan_approval
+status: executing_partial_evidence
 nyquist_compliant: true
 wave_0_complete: false
 created: 2026-08-27
@@ -9,7 +9,17 @@ created: 2026-08-27
 
 # Phase 1 — Validation Strategy
 
-规划期验证契约；所有产品测试均为not_run，没有测试基础设施。计划质量签核不代表代码、原生平台或人工UAT通过。主基线为 `.planning/VALIDATION-STRATEGY.md`、`01-CONTEXT.md` 与 `01-UI-SPEC.md`。
+本验证契约已获用户PLAN批准，正在执行。规划基线表保留创建任务与原始预期，实际执行结果以本节记录及各PLAN SUMMARY为准。计划质量签核不代表代码、原生平台或人工UAT通过。主基线为 `.planning/VALIDATION-STRATEGY.md`、`01-CONTEXT.md` 与 `01-UI-SPEC.md`。
+
+## Execution evidence — 2026-08-27
+
+| Tasks | Actual evidence | Remaining limits |
+|---|---|---|
+| 01-01-1 | 官方Node签名/哈希通过后实际执行24.20.0；固定依赖安装、两次npm ci、bootstrap check与build通过 | 当前build为0应用入口；不等于服务接线通过 |
+| 01-01-2 | 测试骨架与12项bootstrap/harness测试通过，包括篡改、错误key、symlink和真实all-skip子进程失败 | 本机macOS arm64；Windows原生和用户人工未跑 |
+| 01-01-3 | 8项契约/传递import边界测试、typecheck、build通过；编排器独立复跑全部20项单测及typecheck通过 | 下游真实HTTP/DB/Worker尚未实现；需求仍Pending |
+
+See `01-01-SUMMARY.md` and commits through f85501b. Other tasks remain not_run. No beta, school/login or live evidence. `wave_0_complete` remains false because the full A/B and fault-injection infrastructure is not complete.
 
 ## Test Infrastructure
 
@@ -46,7 +56,7 @@ created: 2026-08-27
 
 ## Per-Task Verification Map
 
-14 plans / 31 tasks / 12 waves；所有产品文件当前不存在，全部not_run。01-01-1先创建受管runtime与npm scripts，01-01-2创建测试configs，表列测试由所属task先创建再运行。自动验证不等同人工批准；12为发布权限前置，14必须13公开可获取beta通过后才请求用户更新。命令中的runtime wrapper由01-01-1创建，严禁宿主Node26冒充产品Node24。
+14 plans / 31 tasks / 12 waves；下表为规划时基线（当时所有产品文件不存在/未跑），最新实际结果见上方Execution evidence。01-01-1先创建受管runtime与npm scripts，01-01-2创建测试configs，表列测试由所属task先创建再运行。自动验证不等同人工批准；12为发布权限前置，14必须13公开可获取beta通过后才请求用户更新。命令中的runtime wrapper由01-01-1创建，严禁宿主Node26冒充产品Node24。
 
 | Task | Wave | Requirements | Threat IDs | Secure behavior / observable check | Automated command | File exists / creator | Evidence status |
 |---|---|---|---|---|---|---|---|
@@ -120,4 +130,4 @@ Signing-key creation, GitHub authentication correction and first repository owne
 
 **Planning review:** 2026-08-27 independent checker: Nyquist planning coverage PASS; overall 0 blockers and 3 non-blocking scope warnings (01/07/08). See 01-PLAN-REVIEW.md.
 
-**User approval:** pending. `nyquist_compliant: true` describes only this validation plan; `wave_0_complete: false` remains unchanged. No infrastructure, product test, native execution or UAT has run, and no checkbox above asserts otherwise.
+**User approval:** granted for all fourteen plans; bootstrap verifier amendment separately approved (see01-APPROVAL/01-01-CHECKPOINT). `nyquist_compliant: true` describes planning coverage only; `wave_0_complete: false` remains unchanged. Actual checks are recorded above; the checklist is not a product/UAT pass claim.
