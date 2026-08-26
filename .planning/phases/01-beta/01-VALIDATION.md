@@ -26,6 +26,14 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Readonly browser status update — 01-07
+
+Against code commit `3b0d979`, the orchestrator independently reran **42 unit +44 integration +9 macOS native =95/95** (32.62s), **10/10 real Chromium UI tests** (3.5s), typecheck and production build successfully. Build contains two runtime entries and the mandatory three public browser assets. Actual browser151.0.7922.34/revision1234 is isolated under the new repo's ignored development toolchain; no default shared browser cache or user Profile is used. See `01-07-SUMMARY.md`.
+
+Tests cover real HTTP pairing/status/job reads, generic public assets, forbidden paths, protected-data clearing, network snapshots, explicit none/present/unknown previous-installation evidence, historical completion versus current liveness, inert long text, keyboard/details,320px and CSS200% zoom. Browser reads are restricted in application policy to the current selfcheck job; writes/cancel/control remain denied. Synthetic status fixtures do not validate real installer inventories, component selfchecks or OS behavior. CSS zoom automation is not user browser-zoom UAT.
+
+Actual signed manifest observation and platform/dependency/browser diagnostics are not supplied by the current status contract; the UI explicitly reports them unverified. Plans06/09/10 must supply and wire those observations, including actual previous-installation inventory, before complete phase acceptance. Windows native and user UAT remain unrun; no beta, school access or credentials/Profile export. Phase-wide requirements remain Pending.
+
 ### Independent process update — 01-05
 
 Against implementation committed as `d2bf53a`, the orchestrator independently reran **37 unit +41 integration +9 macOS native =87/87** (33.45s), typecheck and build successfully with managed Node24.20.0. Build produces actual API and Worker entries. Compiled A/B workers perform durable echo/SHA256; lifecycle testing covers launcher exit, independent API/Worker survival and stop, exact native listener ownership plus authenticated proof, pending-launch preservation/recovery, and stale-generation write rejection. These are synthetic integration and local macOS evidence, not actual Codex-exit or Windows UAT.
