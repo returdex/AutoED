@@ -4,7 +4,7 @@ import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,writeFileS
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
-import {assertReleaseIdentity,assertVersionAvailable,scanPublicPackage,scanReachableHistory} from '../../scripts/release/preflight.mjs';
+import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory} from '../../scripts/release/preflight.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
 
@@ -17,7 +17,11 @@ it('requires independent returdex identities and refuses an unknown same-name re
 });
 
 it('refuses beta overwrite, license drift, forbidden runtime material and package canaries',()=>{
-  expect(()=>assertVersionAvailable('0.1.0-beta.2',['0.1.0-beta.2'])).toThrow('VERSION_ALREADY_EXISTS');expect(()=>assertVersionAvailable('0.1.0',['0.1.0-beta.1'])).toThrow('VERSION_INVALID');const root=packageFixture();try{expect(scanPublicPackage(root)).toMatchObject({status:'pass'});writeFileSync(join(root,'dist/.env'),'CANARY_RELEASE_SECRET');expect(()=>scanPublicPackage(root)).toThrow('PUBLIC_PACKAGE_REJECTED');rmSync(join(root,'dist/.env'));writeFileSync(join(root,'LICENSE'),'Apache-2.0');expect(()=>scanPublicPackage(root)).toThrow('LICENSE_MISMATCH');}finally{rmSync(root,{recursive:true,force:true});}
+  expect(()=>assertVersionAvailable('0.1.0-beta.2',['0.1.0-beta.2'])).toThrow('VERSION_ALREADY_EXISTS');expect(()=>assertVersionAvailable('0.1.0',['0.1.0-beta.1'])).toThrow('VERSION_INVALID');const root=packageFixture();try{expect(scanPublicPackage(root)).toMatchObject({status:'pass'});writeFileSync(join(root,'dist/.env'),'CANARY_'+'RELEASE_SECRET');expect(()=>scanPublicPackage(root)).toThrow('PUBLIC_PACKAGE_REJECTED');rmSync(join(root,'dist/.env'));writeFileSync(join(root,'LICENSE'),'Apache-2.0');expect(()=>scanPublicPackage(root)).toThrow('LICENSE_MISMATCH');}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('limits reviewed fixture exceptions to exact immutable object and path pairs',()=>{
+  const hash='cef27bea75b9b60bd08288674cf66fcbe3e14518';expect(isReviewedFixtureException(hash,'scripts/release/preflight.mjs')).toBe(true);expect(isReviewedFixtureException(hash,'tests/integration/release-gates.test.ts')).toBe(false);expect(isReviewedFixtureException('0'+hash.slice(1),'scripts/release/preflight.mjs')).toBe(false);expect(isReviewedFixtureException(hash,'runtime/preflight.mjs')).toBe(false);expect(isReviewedFixtureException('f'.repeat(40),'scripts/release/preflight.mjs')).toBe(false);
 });
 
 it('scans every reachable source-history blob and blocks a secret deleted from the working tree',()=>{
