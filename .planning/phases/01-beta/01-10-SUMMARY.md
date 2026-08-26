@@ -125,6 +125,14 @@ These observations are recorded in synthetic build-manifest provenance. They are
 - TypeScript `--noEmit`: exited 0.
 - Windows native execution: **not_run**. Static PE/header/closure/hash/link evidence is not a substitute.
 
+### Independent final regression
+
+- Root independently ran **156/156 Vitest tests across 29 files** in 909.92 seconds.
+- Root independently ran **10/10 UI tests** in 3.3 seconds.
+- Independent `tsc --noEmit` exited 0.
+- Independent production build exited 0 with four actual entries and identity `f1ba5c6480ca135dc367031544c5ed413059fcecb5c7cb67f0ef6a7088950dc4`.
+- No release or tag was created.
+
 All signed A/B manifests used an ephemeral synthetic fixture key. No published beta, production release trust, real user login, long-lived Codex MCP reload, Windows execution, release, or tag was proven.
 
 ## Known Stubs
