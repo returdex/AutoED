@@ -13,6 +13,9 @@ const requireExecutedTests: Reporter = {
 
 export default defineConfig({
   test: {
+    // Native installation/lifecycle tests intentionally exercise the approved fixed
+    // port. Serialize files so unrelated test fixtures do not contend for it.
+    fileParallelism: false,
     passWithNoTests: false,
     reporters: ['default', requireExecutedTests],
     projects: ['unit', 'integration', 'native'].map(name => ({
