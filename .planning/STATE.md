@@ -73,6 +73,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 - 初始化已完成，Phase 1执行中；01-01至01-05及01-07已有95项U/I/macOS原生+10项Chromium UI及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
 - 01-06须接独立实际manifest观测与API安装身份、真实短期selfcheck凭据注册/撤销和发token前endpoint所有权校验；不以fixture数组/targetBuild/客户端scope回显代替。01-09从真实inventory填写previousInstallation；01-10补实际平台/依赖诊断，UI现明确未验证。
+- 安装自检新spawn的MCP不能证明当前Codex中长期运行的MCP已经重载。01-09/10/14须检查受管旧入口与实际客户端版本；若宿主仍持有旧客户端且无法安全自动重载，明确human_needed/cleanup_pending并给出重载步骤，不能把新子进程自检冒充宿主实际更新完成。
 - 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；Windows原生运行、实际CLI/MCP与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
