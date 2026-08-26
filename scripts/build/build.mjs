@@ -5,7 +5,21 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashBuildInputs } from '../dev/runtime.mjs';
 
+// Browser assets have no runtime identity and cannot import server modules.
+export async function buildStatusAssets(inputRoot, outputRoot) {
+  const source = readFileSync(join(inputRoot, 'src/main.ts'), 'utf8');
+  if (/\b(?:import|require|eval|process|Buffer|__dirname|__filename|__AUTOED_BUILD_IDENTITY__)\b|\\u[0-9a-f{]/i.test(source)) throw new Error('BROWSER_IMPORT_DENIED');
+  const css = readFileSync(join(inputRoot, 'styles.css'), 'utf8');
+  if (/@import|url\s*\(/i.test(css)) throw new Error('BROWSER_IMPORT_DENIED');
+  mkdirSync(outputRoot, { recursive: true });
+  writeFileSync(join(outputRoot, 'index.html'), readFileSync(join(inputRoot, 'index.html')));
+  writeFileSync(join(outputRoot, 'styles.css'), css);
+  // TypeScript 7 exposes a different unstable API; use its approved native CLI.
+  execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--ignoreConfig', '--target', 'ES2023', '--module', 'ES2022', '--skipLibCheck', '--noResolve', '--rootDir', join(inputRoot, 'src'), '--outDir', outputRoot, join(inputRoot, 'src/main.ts')], { cwd: root, stdio: 'pipe' });
+}
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+async function build() {
 if (process.version !== 'v24.20.0') throw new Error('Build requires the verified managed Node 24.20.0');
 const variant = process.env.AUTOED_BUILD_VARIANT ?? 'A';
 if (!['A', 'B'].includes(variant)) throw new Error('Build variant must be A or B');
@@ -23,6 +37,7 @@ mkdirSync(join(root, 'build'), { recursive: true });
 execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--outDir', 'dist'], { cwd: root, stdio: 'inherit' });
 const entries = [];
 for (const app of existsSync(join(root, 'apps')) ? readdirSync(join(root, 'apps')) : []) {
+  if (app === 'status') continue;
   const source = join(root, 'apps', app, 'src/main.ts');
   if (!existsSync(source)) continue;
   const output = join(root, 'dist/apps', app, 'src/main.js');
@@ -31,5 +46,8 @@ for (const app of existsSync(join(root, 'apps')) ? readdirSync(join(root, 'apps'
   writeFileSync(output, code.replaceAll('__AUTOED_BUILD_IDENTITY__', JSON.stringify(identity)));
   entries.push(app);
 }
+if (existsSync(join(root, 'apps/status/src/main.ts'))) await buildStatusAssets(join(root, 'apps/status'), join(root, 'dist/apps/status'));
 writeFileSync(join(root, 'build/identity.json'), JSON.stringify({ ...identity, entries }, null, 2));
 console.log(`Built ${entries.length} actual application entries; identity ${identity.buildId}; no release/tag created`);
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await build();

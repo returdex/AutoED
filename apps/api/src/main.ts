@@ -10,6 +10,8 @@ import { ApplicationStatus } from '../../../packages/application/src/status.js';
 import { JobRequestSchema, MaintenanceGateSchema, StatusSchema } from '../../../packages/contracts/src/index.js';
 import { assertTransport, authenticate, WindowLimit } from './security.js';
 import { browserPrincipal, publicPairingPaths, registerPairing } from './pairing.js';
+import { publicStaticPaths, registerStatic } from './static.js';
+import { fileURLToPath } from 'node:url';
 import type { SQLiteSessions } from '../../../packages/persistence/src/sessions.js';
 import { SQLiteSessions as Sessions } from '../../../packages/persistence/src/sessions.js';
 import { openDatabase, readGate, SQLiteMaintenanceStore } from '../../../packages/persistence/src/database.js';
@@ -29,6 +31,7 @@ export interface ApiOptions {
   sessions: SQLiteSessions;
   processRecord?: () => ProcessRecord;
   runtimeGeneration?: number;
+  assetsRoot?: string;
 }
 const JobOutput = z.strictObject({
   id: z.uuid(), request: JobRequestSchema, state: z.enum(['queued','running','retry_wait','succeeded','failed','cancelled']), cancelRequested: z.boolean(), attempt: z.number().int(), maxAttempts: z.number().int(),
@@ -57,7 +60,7 @@ export async function startApi(options: ApiOptions) {
   app.addHook('onRequest', async (request, reply) => {
     reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff').header('content-security-policy', "default-src 'self'; frame-ancestors 'none'; object-src 'none'");
     assertTransport(request, origin);
-    if (request.url === '/status' && request.method === 'GET') return;
+    if (publicStaticPaths.has(request.url) && request.method === 'GET') return;
     if (publicPairingPaths.has(request.url)) return;
     authLimit.take();
     principals.set(request, request.headers.authorization !== undefined || !request.cookies.autoed_session
@@ -74,7 +77,7 @@ export async function startApi(options: ApiOptions) {
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ code: 'NOT_FOUND', stage: 'api', nextAction: 'use_registered_endpoint' }));
   const principal = (request: FastifyRequest) => { const p = principals.get(request); if (!p) throw new ApplicationError('UNAUTHORIZED', 401); return p; };
   registerPairing(app, options.sessions, () => origin, principal, policy);
-  app.get('/status', async (_request, reply) => reply.type('text/html').send('<!doctype html><html><head><title>AutoED</title></head><body>Pair this page using the local CLI to view status.</body></html>'));
+  registerStatic(app, options.assetsRoot);
   app.get('/api/status', async request => StatusSchema.parse(await status.read(principal(request))));
   app.post('/api/process/inspect', async request => {
     const p=principal(request);
@@ -116,7 +119,7 @@ async function standaloneApi() {
   const secrets=new NativeSecretStore();
   const service=await startApi({host:'127.0.0.1',port:metadata.port,installationId:metadata.installationId,build:API_BUILD_IDENTITY,secrets,credentials:metadata.credentials,
     jobs:new SQLiteJobStore(db),maintenance:new SQLiteMaintenanceStore(db),projections,sessions:new Sessions(db,metadata.installationId),
-    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop()});
+    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop(),assetsRoot:fileURLToPath(new URL('../../status/',import.meta.url))});
   let pulse:Promise<void>|undefined;
   const timer=setInterval(()=>{if(!closing&&!pulse)pulse=report('healthy').catch(()=>{setImmediate(()=>{void stop();});}).finally(()=>{pulse=undefined;});},5000);
   async function stop() {
