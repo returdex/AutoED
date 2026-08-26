@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { readFileSync, existsSync, symlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { ROOT, TOOLCHAIN, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
   it('runs actual Node 24 and exact installed dependencies', () => {
@@ -12,6 +12,17 @@ describe('managed bootstrap and synthetic harness', () => {
     const pkg = checkPackage();
     expect(Object.keys(pkg.dependencies).some(name => /openai|anthropic|openpgp/i.test(name))).toBe(false);
     expect(pkg.dependencies.playwright).toBe(pkg.devDependencies['@playwright/test']);
+  });
+  it('changes build inputs hash when an untracked source changes', async () => {
+    const harness = createHarness();
+    try {
+      for (const file of ['package.json', 'package-lock.json', 'tsconfig.json']) writeFileSync(join(harness.root, file), '{}');
+      mkdirSync(join(harness.root, 'apps'));
+      writeFileSync(join(harness.root, 'apps/main.ts'), 'export const value = 1;');
+      const before = hashBuildInputs(harness.root);
+      writeFileSync(join(harness.root, 'apps/main.ts'), 'export const value = 2;');
+      expect(hashBuildInputs(harness.root)).not.toBe(before);
+    } finally { await harness.cleanup(); }
   });
   it('accepts loopback only and rejects school hosts, userinfo and non-http schemes', () => {
     expect(assertLocalURL('http://127.0.0.1:43187/status').hostname).toBe('127.0.0.1');
@@ -78,7 +89,7 @@ describe('official detached-signature verification', () => {
     await expect(verifySignedChecksums(verifier, checksums, signature, keys, ['0000000000000000000000000000000000000000'])).rejects.toThrow(/fingerprint/);
   });
   it('rejects changed archives and missing or duplicate checksums', () => {
-    const filename = 'node-v24.20.0-darwin-arm64.tar.gz';
+    const filename = `node-v24.20.0-${target()}.${process.platform === 'win32' ? 'zip' : 'tar.gz'}`;
     const archive = readFileSync(join(TOOLCHAIN, filename));
     expect(() => verifyArchive(checksums, filename, archive)).not.toThrow();
     expect(() => verifyArchive(checksums, filename, Buffer.concat([archive, Buffer.from('changed')]))).toThrow(/hash/);

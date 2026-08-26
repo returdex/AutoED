@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { dirname, join, resolve, delimiter, sep } from 'node:path';
+import { dirname, join, resolve, relative, isAbsolute, delimiter, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -18,6 +18,19 @@ export const RELEASE_FINGERPRINTS = Object.freeze([
   'A363A499291CBBC940DD62E41F10027AF002F8B0',
 ]);
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
+
+export function hashBuildInputs(root) {
+  function files(path) {
+    if (!existsSync(join(root, path))) return [];
+    return readdirSync(join(root, path), { withFileTypes: true }).flatMap(entry => {
+      const relative = `${path}/${entry.name}`;
+      if (entry.isSymbolicLink()) throw new Error('Linked build inputs are not supported');
+      return entry.isDirectory() ? files(relative) : /\.(ts|mjs|html|css)$/.test(relative) ? [relative] : [];
+    });
+  }
+  const inputs = ['package.json', 'package-lock.json', 'tsconfig.json', ...['apps', 'packages', 'scripts'].flatMap(files)].sort();
+  return sha256(JSON.stringify(inputs.map(path => [path, sha256(readFileSync(join(root, path)))])));
+}
 
 export function assertRegularFile(path) {
   try {
@@ -66,11 +79,14 @@ function run(executable, args, options = {}) {
 function safeDirectory(path) {
   // Do not follow a pre-existing link into an unrelated installation.
   let current = ROOT;
-  for (const segment of path.slice(ROOT.length + 1).split('/')) {
+  const suffix = relative(ROOT, path);
+  if (!suffix || suffix.startsWith(`..${sep}`) || suffix === '..' || isAbsolute(suffix)) throw new Error('Toolchain escaped repository');
+  for (const segment of suffix.split(sep)) {
     current = join(current, segment);
-    if (existsSync(current) && (lstatSync(current).isSymbolicLink() || !lstatSync(current).isDirectory())) {
-      throw new Error('Toolchain directory is not an owned plain directory');
-    }
+    try {
+      const stat = lstatSync(current);
+      if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('Toolchain directory is not an owned plain directory');
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
     mkdirSync(current, { recursive: true, mode: 0o700 });
   }
 }

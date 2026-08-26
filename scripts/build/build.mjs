@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashBuildInputs } from '../dev/runtime.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 if (process.version !== 'v24.20.0') throw new Error('Build requires the verified managed Node 24.20.0');
@@ -14,16 +15,7 @@ const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).ver
 const commit = git('rev-parse', 'HEAD');
 const tree = git('rev-parse', 'HEAD^{tree}');
 const dependencyHash = hash(readFileSync(join(root, 'package-lock.json')));
-function sourceFiles(path) {
-  if (!existsSync(join(root, path))) return [];
-  return readdirSync(join(root, path), { withFileTypes: true }).flatMap(entry => {
-    const relative = `${path}/${entry.name}`;
-    if (entry.isSymbolicLink()) throw new Error('Linked build inputs are not supported');
-    return entry.isDirectory() ? sourceFiles(relative) : /\.(ts|mjs|html|css)$/.test(relative) ? [relative] : [];
-  });
-}
-const inputs = ['package.json', 'package-lock.json', 'tsconfig.json', ...['apps', 'packages', 'scripts'].flatMap(sourceFiles)].sort();
-const sourceHash = hash(JSON.stringify(inputs.map(path => [path, hash(readFileSync(join(root, path)))])));
+const sourceHash = hashBuildInputs(root);
 const identity = { version, buildId: hash(JSON.stringify({ commit, tree, dependencyHash, sourceHash, variant })), commit, tree, dependencyHash, protocol: 1, schemaMin: 1, schemaMax: 1, capabilities: variant === 'A' ? ['echo'] : ['echo', 'digest'] };
 // Only this build's output roots may be cleaned; never node_modules or .runtime.
 for (const dir of ['dist', 'build']) rmSync(join(root, dir), { recursive: true, force: true });
