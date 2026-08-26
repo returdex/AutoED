@@ -23,20 +23,22 @@ async function cliStatus(node,entry,args){
     deadline=setTimeout(()=>{const exited=child.exitCode!==null||child.signalCode!==null;child.stdout.destroy();child.stderr.destroy();reject(new Error(exited?'CLI_PROBE_FAILED':'CHILD_EXIT_UNCONFIRMED'));},20000);
   });if(timed||overflow||child.exitCode!==0)throw new Error('CLI_PROBE_FAILED');return JSON.parse(output);}finally{clearTimeout(timer);clearTimeout(force);clearTimeout(deadline);}
 }
-/** Trusted installer configuration only; never exposed as MCP arguments. */
-export async function runSelfcheck({selection,managedNode,cliEntry,mcpEntry,manifestPath,operationId,generation}){
-  z.uuid().parse(operationId);z.number().int().nonnegative().parse(generation);regular(managedNode,200000000);regular(cliEntry);regular(mcpEntry);regular(manifestPath,16384);
+/** Trusted installer configuration only; never exposed as MCP arguments.
+ * @param {any} options
+ */
+export async function runSelfcheck({selection,managedNode,cliEntry,mcpEntry,manifestPath,operationId,generation,installerClient=undefined,releaseObservation=undefined}){
+  z.uuid().nullable().parse(operationId);z.number().int().nonnegative().parse(generation);regular(managedNode,200000000);regular(cliEntry);regular(mcpEntry);regular(manifestPath,16384);
   const bytes=readFileSync(manifestPath);const parsed=JSON.parse(bytes.toString('utf8'));const {entries,...identity}=parsed;
   if(!Array.isArray(entries)||entries.length!==4||[...entries].sort().join()!=='api,cli,mcp,worker')throw new Error('INVALID_BUILD_MANIFEST');
-  const build=BuildIdentitySchema.parse(identity);const manifest={build,manifestHash:createHash('sha256').update(bytes).digest('hex'),checkedAt:new Date().toISOString(),evidence:'build_manifest'};
-  const installer=new HttpClient(selection.root,selection.parent,'installer',build);const credentialId=`selfcheck-${operationId}`;
+  const build=BuildIdentitySchema.parse(identity);const manifest=releaseObservation??{build,manifestHash:createHash('sha256').update(bytes).digest('hex'),checkedAt:new Date().toISOString(),evidence:'build_manifest'};
+  const installer=installerClient??new HttpClient(selection.root,selection.parent,'installer',build);const credentialId=operationId===null?null:`selfcheck-${operationId}`;
   const projection=(kind,value)=>installer.call('/api/control/status-projection',{kind,operationId,expectedGeneration:generation,value});
   let client,issued=false,result,jobId=null;const probes=[];const features={};
   const failureCode=error=>['CHILD_EXIT_UNCONFIRMED','CLI_START_FAILED','CLI_PROBE_FAILED','MCP_PROBE_FAILED','FEATURE_REQUEST_FAILED','FEATURE_QUERY_FAILED'].includes(error?.message)?error.message:clientError(error).code;
   try{
     // Set recovery obligation before the request: a response loss may follow successful issuance.
-    issued=true;const credential=await installer.call('/api/control/selfcheck-credential',{action:'issue',operationId,generation,expiresAt:Date.now()+120000});if(credential.credentialId!==credentialId)throw new Error('INVALID_CREDENTIAL');
-    const args=['--root',selection.root,'--parent',selection.parent,'--credential-id',credentialId];
+    if(operationId!==null){issued=true;const credential=await installer.call('/api/control/selfcheck-credential',{action:'issue',operationId,generation,expiresAt:Date.now()+120000});if(credential.credentialId!==credentialId)throw new Error('INVALID_CREDENTIAL');}
+    const args=['--root',selection.root,'--parent',selection.parent,...(credentialId?['--credential-id',credentialId]:[])];
     const cli=await cliStatus(managedNode,cliEntry,args);
     probes.push(ComponentObservationSchema.parse(cli.component));
     client=new Client({name:'autoed-installer-selfcheck',version:build.version});const transport=new StdioClientTransport({command:managedNode,args:[mcpEntry,...args],cwd:dirname(mcpEntry),stderr:'pipe',maxBufferSize:131072});transport.stderr?.on('data',()=>{});await client.connect(transport);

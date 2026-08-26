@@ -19,7 +19,12 @@ export class SQLiteStatusProjectionStore implements StatusProjectionStore {
   }
   async writeInstall(projection: InstallProjection, context: ProjectionWriteContext): Promise<void> {
     const value = InstallProjectionSchema.parse(projection);
-    if (value.operationId !== context.operationId) throw new StorageError('MAINTENANCE_OWNERSHIP_MISMATCH');
+    if (context.operationId!==null&&value.operationId !== context.operationId) throw new StorageError('MAINTENANCE_OWNERSHIP_MISMATCH');
+    if(context.operationId===null){
+      const prior=this.db.prepare("SELECT projection FROM runtime_status WHERE key='install'").get() as {projection:string}|undefined;
+      if(prior){const previous=InstallProjectionSchema.parse(JSON.parse(prior.projection));if(previous.operationId!==value.operationId&&!(value.stage==='preview'&&value.result==='running'&&['succeeded','failed','restored'].includes(previous.result)))throw new StorageError('MAINTENANCE_OWNERSHIP_MISMATCH');}
+      else if(value.stage!=='preview'||value.result!=='running')throw new StorageError('MAINTENANCE_OWNERSHIP_MISMATCH');
+    }
     this.write('install', value, value.result === 'succeeded', context);
   }
   async writeSelfcheck(projection: SelfcheckProjection, context: ProjectionWriteContext): Promise<void> {

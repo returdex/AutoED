@@ -28,6 +28,8 @@ export type ReleaseManifest=z.infer<typeof ReleaseManifestSchema>;
 export interface VerificationTarget {os:'darwin'|'win32';arch:'arm64'|'x64';version:string;schema:number;protocol:number;currentVersion?:string}
 export interface VerifiedManifest {readonly manifest:ReleaseManifest;readonly manifestHash:string;readonly keyFingerprint:string;readonly evidence:'synthetic_signature'|'verified_release_manifest'}
 const verifiedObjects=new WeakSet<object>();
+const envelopes=new WeakMap<object,{bytes:Buffer;signature:Buffer}>();
+export function verifiedEnvelope(value:VerifiedManifest){const envelope=envelopes.get(value);if(!isVerifiedManifest(value)||!envelope)throw new Error('VERIFIED_MANIFEST_REQUIRED');return {bytes:Buffer.from(envelope.bytes),signature:Buffer.from(envelope.signature)};}
 export function isVerifiedManifest(value:unknown):value is VerifiedManifest{return typeof value==='object'&&value!==null&&verifiedObjects.has(value);}
 function digest(bytes:Buffer){return createHash('sha256').update(bytes).digest('hex');}
 function compare(a:string,b:string){const version=(s:string)=>{const match=/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/.exec(s);if(!match)throw new Error('INCOMPATIBLE');return [Number(match[1]),Number(match[2]),Number(match[3]),match[4]===undefined?Number.MAX_SAFE_INTEGER:Number(match[4])];};const left=version(a),right=version(b);for(let i=0;i<4;i++)if(left[i]!==right[i])return left[i]!>right[i]!?1:-1;return 0;}
@@ -40,7 +42,7 @@ function verifier(publicKey:string,fingerprint:string,evidence:VerifiedManifest[
     let manifest:ReleaseManifest;try{manifest=ReleaseManifestSchema.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}catch{throw new Error('MANIFEST_INVALID');}
     if(manifest.target.os!==target.os||manifest.target.arch!==target.arch||compare(target.version,manifest.target.minVersion)<0||target.schema<manifest.build.schemaMin||target.schema>manifest.build.schemaMax||target.protocol!==manifest.build.protocol)throw new Error('INCOMPATIBLE');
     if(target.currentVersion)assertNoDowngrade(manifest.build.version,target.currentVersion);
-    const result=freeze({manifest,manifestHash:digest(bytes),keyFingerprint:fingerprint,evidence});verifiedObjects.add(result);return result;
+    const result=freeze({manifest,manifestHash:digest(bytes),keyFingerprint:fingerprint,evidence});verifiedObjects.add(result);envelopes.set(result,{bytes:Buffer.from(bytes),signature:Buffer.from(signature)});return result;
   };
 }
 /** Only synthetic test composition may select this root. No production CLI flag accepts a key. */

@@ -1,7 +1,7 @@
 import {request as httpRequest} from 'node:http';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {discover} from './discovery.js';
+import {discover,isDiscoveredEndpoint} from './discovery.js';
 import {clientCredential,type ClientPurpose} from './credentials.js';
 import {StatusSchema} from '../../contracts/src/index.js';
 import {redactOutput} from '../../application/src/policy.js';
@@ -11,7 +11,7 @@ const errorCodes=new Set(['CREDENTIAL_RECOVERY_REQUIRED','INVALID_CREDENTIAL','B
 export function clientError(error:unknown){const code=error instanceof Error?error.message:'';return {code:errorCodes.has(code)?code:'REQUEST_FAILED',stage:'client',nextAction:code==='SECRET_STORE_UNAVAILABLE'?'human_os_authorization_required':code==='CREDENTIAL_RECOVERY_REQUIRED'?'preserve_exact_receipt_for_human_recovery':'check_this_installation'};}
 export class HttpClient {
   private endpoint:ReturnType<typeof discover>|undefined;private verified=false;
-  constructor(private readonly root:string,private readonly parent:string,private readonly purpose:ClientPurpose,private readonly build:BuildIdentity,private readonly credentialId?:string){}
+  constructor(private readonly root:string,private readonly parent:string,private readonly purpose:ClientPurpose,private readonly build:BuildIdentity,private readonly credentialId?:string,installerEndpoint?:ReturnType<typeof discover>){if(installerEndpoint){if(purpose!=='installer'||!isDiscoveredEndpoint(installerEndpoint))throw new Error('INVALID_REQUEST');this.endpoint=installerEndpoint;}}
   private async raw(path:string,body?:unknown){
     const endpoint=this.endpoint??=discover(this.root,this.parent);await endpoint.guard();
     const token=await clientCredential(endpoint.installationId,this.purpose,this.credentialId);

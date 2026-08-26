@@ -42,10 +42,10 @@ const MaintenanceInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.enum(['exclusive', 'exit']), operationId: z.uuid(), expectedGeneration: generation }),
 ]);
 const ProjectionInput = z.discriminatedUnion('kind', [
-  z.strictObject({kind:z.literal('manifest'),operationId:z.uuid(),expectedGeneration:generation,value:ManifestObservationSchema}),
-  z.strictObject({ kind: z.literal('component'), operationId: z.uuid(), expectedGeneration: generation, value: ComponentObservationSchema }),
-  z.strictObject({ kind: z.literal('install'), operationId: z.uuid(), expectedGeneration: generation, value: InstallProjectionSchema }),
-  z.strictObject({ kind: z.literal('selfcheck'), operationId: z.uuid(), expectedGeneration: generation, value: SelfcheckProjectionSchema }),
+  z.strictObject({kind:z.literal('manifest'),operationId:z.uuid().nullable(),expectedGeneration:generation,value:ManifestObservationSchema}),
+  z.strictObject({ kind: z.literal('component'), operationId: z.uuid().nullable(), expectedGeneration: generation, value: ComponentObservationSchema }),
+  z.strictObject({ kind: z.literal('install'), operationId: z.uuid().nullable(), expectedGeneration: generation, value: InstallProjectionSchema }),
+  z.strictObject({ kind: z.literal('selfcheck'), operationId: z.uuid().nullable(), expectedGeneration: generation, value: SelfcheckProjectionSchema }),
 ]);
 /** All application admission lives here, independent of HTTP or SQLite drivers. */
 export class ApiApplication {
@@ -89,7 +89,14 @@ export class ApiApplication {
     if(this.runtimeGeneration!==undefined&&value.expectedGeneration!==this.runtimeGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
     const context = { operationId: value.operationId, expectedGeneration: value.expectedGeneration };
     if (value.kind === 'manifest') await this.projections.writeManifest(value.value,context);
-    else if (value.kind === 'install') await this.projections.writeInstall(value.value, context);
+    else if (value.kind === 'install') {
+      if(value.value.result==='succeeded'){
+        const status=await this.projections.read(),check=status.selfcheck;
+        const job=check?.jobId?await this.store.query(check.jobId,principal.scope):null;
+        if(value.operationId!==null||!status.manifest||!sameIdentity(status.manifest.build,value.value.targetBuild)||check?.featureResult!=='pass'||!check.probes.every(p=>sameIdentity(p.build,value.value.targetBuild))||!job||job.state!=='succeeded'||job.generation!==value.expectedGeneration||job.operationId!==null)throw new ApplicationError('INVALID_SELFCHECK',409);
+      }
+      await this.projections.writeInstall(value.value, context);
+    }
     else if (value.kind === 'component') await this.projections.writeComponent(value.value, context);
     else {
       if (value.value.featureResult === 'pass') {

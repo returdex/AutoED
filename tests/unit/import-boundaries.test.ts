@@ -15,11 +15,12 @@ function boundaryErrors(graph: Graph): string[] {
       const local = specifier.startsWith('.');
       const credentialEdge = file === 'packages/client/src/credentials.ts' && target === 'packages/platform/src/credentials.ts';
       const discoveryEdge = file === 'packages/client/src/discovery.ts' && ['packages/platform/src/installation.ts','packages/platform/src/client-endpoint.ts'].includes(target);
+      const hostEdge = file === 'packages/client/src/host.ts' && target === 'packages/platform/src/client-host.ts';
       const forbidden = tier === 'domain' ? !target.startsWith('packages/domain/')
         : tier === 'application' ? (local ? !/^packages\/(application|domain|contracts)\//.test(target) : !['zod', 'node:crypto'].includes(target))
-        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring)(?:\/|$)/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge || /profile/i.test(target);
+        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring)(?:\/|$)/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge && !hostEdge || /profile/i.test(target);
       if (forbidden) errors.push(`${tier}: ${file} -> ${target}`);
-      else if (local && !credentialEdge && !discoveryEdge) traverse(target, tier, seen);
+      else if (local && !credentialEdge && !discoveryEdge && !hostEdge) traverse(target, tier, seen);
     }
   }
   for (const file of graph.keys()) {
@@ -66,6 +67,8 @@ describe('transitive architecture boundaries', () => {
     ]))).toEqual([]);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/credentials.js']]]))).toHaveLength(1);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/client-endpoint.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/client-host.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts',['../../../packages/client/src/host.js']],['packages/client/src/host.ts',['../../platform/src/client-host.js']]]))).toEqual([]);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/client/src/discovery.js']],['packages/client/src/discovery.ts',['../../platform/src/processes.js']]]))).toHaveLength(1);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['better-sqlite3', '@napi-rs/keyring']]]))).toHaveLength(2);
   });
