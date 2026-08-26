@@ -4,6 +4,15 @@ import { SQLiteJobStore } from '../../../packages/persistence/src/claims.js';
 import { SQLiteStatusProjectionStore } from '../../../packages/persistence/src/runtime-status.js';
 import { syntheticProvider } from '../../../packages/test-support/src/synthetic-provider.js';
 import type { BuildIdentity, WriteContext, Health } from '../../../packages/domain/src/model.js';
+import Fastify from 'fastify';
+import { serviceSelection, runtimeIdentity, publishProcess, processProof, workerLaunchContext, type ProcessRecord } from '../../../packages/platform/src/processes.js';
+import { NativeSecretStore } from '../../../packages/platform/src/credentials.js';
+import { readInstallation } from '../../../packages/platform/src/installation.js';
+import { managedPaths, assertManagedPath } from '../../../packages/platform/src/paths.js';
+import { SQLiteMaintenanceStore } from '../../../packages/persistence/src/database.js';
+import { assertTransport, authenticate, WindowLimit } from '../../api/src/security.js';
+import { z } from 'zod';
+import { authorize, SyntheticOutputPolicy } from '../../../packages/application/src/policy.js';
 
 export const WORKER_BUILD_IDENTITY = typeof __AUTOED_BUILD_IDENTITY__ === 'undefined' ? null : __AUTOED_BUILD_IDENTITY__;
 export interface WorkerOptions { databasePath: string; owner: string; build: BuildIdentity; context?: WriteContext }
@@ -50,3 +59,35 @@ export async function startWorker(options: WorkerOptions) {
   }
   return {stop,build,done:loop};
 }
+
+async function standaloneWorker() {
+  const launch=serviceSelection();if(!launch)return;
+  if(!WORKER_BUILD_IDENTITY)throw new Error('COMPILED_BUILD_REQUIRED');
+  const context=workerLaunchContext(launch.selection,launch.nonce,WORKER_BUILD_IDENTITY);
+  process.umask(0o077);
+  const metadata=readInstallation(launch.selection);const databasePath=assertManagedPath(managedPaths(launch.selection.root),'data/jobs.sqlite');
+  const controlDb=openDatabase(databasePath);const maintenance=new SQLiteMaintenanceStore(controlDb);const secrets=new NativeSecretStore();
+  const app=Fastify({logger:false,trustProxy:false,bodyLimit:1024,requestTimeout:3000,connectionTimeout:3000});
+  const policy=new SyntheticOutputPolicy(metadata.installationId);
+  let origin='';let record:ProcessRecord;let closing=false;let shutdown=false;const limit=new WindowLimit(30);
+  app.addHook('onRequest',async(request,reply)=>{
+    reply.header('cache-control','no-store');assertTransport(request,origin);limit.take();
+    const principal=await authenticate(request,metadata.installationId,metadata.credentials,secrets,maintenance);
+    await authorize(policy,principal,'control:shutdown','status');
+  });
+  app.setErrorHandler((_error,_request,reply)=>{reply.code(403).send({code:'PROCESS_CONTROL_DENIED'});});
+  app.post('/api/process/inspect',request=>processProof(secrets,record,request.body));
+  app.post('/api/control/shutdown',async request=>{z.strictObject({}).parse(request.body);shutdown=true;return {accepted:true};});
+  app.addHook('onResponse',async(request,reply)=>{if(shutdown&&request.url==='/api/control/shutdown'&&reply.statusCode===200)setImmediate(()=>{void stop();});});
+  await app.listen({host:'127.0.0.1',port:0});const address=app.server.address();
+  if(!address||typeof address==='string')throw new Error('INVALID_BIND');origin=`http://127.0.0.1:${address.port}`;
+  let worker:Awaited<ReturnType<typeof startWorker>>;
+  try {worker=await startWorker({databasePath,owner:launch.nonce,build:WORKER_BUILD_IDENTITY,...(context?{context}:{})});}
+  catch(error){await app.close();controlDb.close();throw error;}
+  async function stop(){if(closing)return;closing=true;await worker.stop();await app.close();controlDb.close();}
+  void worker.done.then(()=>stop());
+  process.once('SIGTERM',()=>{void stop();});process.once('SIGINT',()=>{void stop();});
+  try {record=await runtimeIdentity(launch.selection,'worker',WORKER_BUILD_IDENTITY,launch.nonce,address.port);publishProcess(launch.selection,record);}
+  catch(error){await stop();throw error;}
+}
+void standaloneWorker().catch(()=>{process.exitCode=1;});

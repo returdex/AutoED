@@ -47,10 +47,14 @@ const ProjectionInput = z.discriminatedUnion('kind', [
 /** All application admission lives here, independent of HTTP or SQLite drivers. */
 export class ApiApplication {
   private readonly jobs: Jobs;
-  constructor(private readonly store: JobStore, private readonly maintenance: MaintenanceStore, private readonly projections: StatusProjectionStore, readonly policy: OutputPolicy, private readonly stop: () => Promise<void>) { this.jobs = new Jobs(store); }
+  constructor(private readonly store: JobStore, private readonly maintenance: MaintenanceStore, private readonly projections: StatusProjectionStore, readonly policy: OutputPolicy, private readonly stop: () => Promise<void>, private readonly runtimeGeneration?: number) { this.jobs = new Jobs(store); }
   private async context(principal: Principal): Promise<WriteContext> {
     const gate = await this.maintenance.read();
-    return { expectedGeneration: principal.selfcheck?.generation ?? gate.generation, ...(principal.selfcheck ? { selfcheck: principal.selfcheck } : {}) };
+    const expectedGeneration=this.runtimeGeneration ?? principal.selfcheck?.generation ?? gate.generation;
+    if(principal.selfcheck&&principal.selfcheck.generation!==expectedGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
+    // Immutable runtime generation reaches the SQLite transaction, closing the
+    // race between HTTP admission and a maintenance generation change.
+    return { expectedGeneration, ...(principal.selfcheck ? { selfcheck: principal.selfcheck } : {}) };
   }
   async enqueue(principal: Principal, input: unknown) {
     const request = JobRequestSchema.parse(input);
@@ -72,11 +76,13 @@ export class ApiApplication {
   }
   async maintain(principal: Principal, input: unknown) {
     await authorize(this.policy, principal, 'installer', 'status'); const value = MaintenanceInput.parse(input);
+    if(this.runtimeGeneration!==undefined&&value.expectedGeneration!==this.runtimeGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
     if (value.action === 'enter') return this.maintenance.enterMaintenance({ ...value, owner: 'installer' });
     return value.action === 'exclusive' ? this.maintenance.markExclusive(value.operationId, value.expectedGeneration) : this.maintenance.exitMaintenance(value.operationId, value.expectedGeneration);
   }
   async project(principal: Principal, input: unknown) {
     await authorize(this.policy, principal, 'installer', 'status'); const value = ProjectionInput.parse(input);
+    if(this.runtimeGeneration!==undefined&&value.expectedGeneration!==this.runtimeGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
     const context = { operationId: value.operationId, expectedGeneration: value.expectedGeneration };
     if (value.kind === 'install') await this.projections.writeInstall(value.value, context);
     else if (value.kind === 'component') await this.projections.writeComponent(value.value, context);

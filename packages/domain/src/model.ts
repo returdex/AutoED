@@ -67,6 +67,8 @@ export interface Status {
 export interface ProcessIdentity {
   installationId: string; role: 'api' | 'worker'; buildId: string;
   pid: number; nonce: string; osStartIdentity: string;
+  /** Required by the runtime supervisor; optional only for older contract callers. */
+  executable?: string | undefined;
 }
 export interface ProcessLaunch {
   installationId: string; role: 'api' | 'worker'; build: BuildIdentity;

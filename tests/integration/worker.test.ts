@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { once } from 'node:events';
 import { startWorker } from '../../apps/worker/src/main.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
@@ -36,6 +37,14 @@ it('compiled A and B independent workers execute durable echo and actual SHA256,
     expect((await projections.read()).worker).toMatchObject({health:'healthy',freshness:'fresh',build:{capabilities:variant==='A'?['echo']:['echo','digest']}});
     await f.h.stop(child);
     expect((await projections.read()).worker).toMatchObject({health:'not_observed',freshness:'fresh'});
+    if(variant==='B'){
+      const stopped=(await projections.read()).worker!.checkedAt;
+      const crashed=f.h.spawn(['--input-type=module','-e',`const {startWorker}=await import(${JSON.stringify(entry)});await startWorker({databasePath:${JSON.stringify(f.path)},owner:'crash-child',build:${JSON.stringify(build)}});`]);
+      await until(async()=>{const status=(await projections.read()).worker;return status?.health==='healthy'&&status.checkedAt!==stopped;});
+      const exited=once(crashed,'exit');crashed.kill('SIGKILL');await exited;
+      expect((await new SQLiteStatusProjectionStore(f.db,{now:()=>Date.now()+31000}).read()).worker).toMatchObject({health:'healthy',freshness:'stale'});
+      expect((await f.jobs.query(digest.id,f.request.scope))?.result).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+    }
   }
 },30000);
 it('quiescing prevents claims; exclusive executes only operation-bound selfcheck; old generation cannot resume',async()=>{
