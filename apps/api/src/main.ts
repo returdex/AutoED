@@ -8,7 +8,8 @@ import type { CredentialRecord } from '../../../packages/platform/src/credential
 import { ApiApplication, ApplicationError, SyntheticOutputPolicy, authorize, type Principal } from '../../../packages/application/src/policy.js';
 import { ApplicationStatus } from '../../../packages/application/src/status.js';
 import { JobRequestSchema, MaintenanceGateSchema, StatusSchema } from '../../../packages/contracts/src/index.js';
-import { assertTransport, authenticate, WindowLimit } from './security.js';
+import { assertTransport, authenticate, authenticatedRecord, WindowLimit } from './security.js';
+import { clientIdentityProof } from '../../../packages/platform/src/client-endpoint.js';
 import { browserPrincipal, publicPairingPaths, registerPairing } from './pairing.js';
 import { publicStaticPaths, registerStatic } from './static.js';
 import { fileURLToPath } from 'node:url';
@@ -56,7 +57,7 @@ export async function startApi(options: ApiOptions) {
       setImmediate(() => { void options.shutdown().catch(() => { /* Acceptance is not completion; supervisor verifies exit. */ }); });
     }
   });
-  const status = new ApplicationStatus(options.projections, policy, API_BUILD_IDENTITY ?? options.build);
+  const status = new ApplicationStatus(options.projections, policy, API_BUILD_IDENTITY ?? options.build,undefined,options.installationId);
   app.addHook('onRequest', async (request, reply) => {
     reply.header('cache-control', 'no-store').header('x-content-type-options', 'nosniff').header('content-security-policy', "default-src 'self'; frame-ancestors 'none'; object-src 'none'");
     assertTransport(request, origin);
@@ -79,6 +80,11 @@ export async function startApi(options: ApiOptions) {
   registerPairing(app, options.sessions, () => origin, principal, policy);
   registerStatic(app, options.assetsRoot);
   app.get('/api/status', async request => StatusSchema.parse(await status.read(principal(request))));
+  app.post('/api/client/identity',async request=>{
+    await authorize(policy,principal(request),'status:read','status');
+    if(!options.processRecord)throw new ApplicationError('FORBIDDEN');
+    return clientIdentityProof(options.secrets,authenticatedRecord(request),options.installationId,API_BUILD_IDENTITY??options.build,options.processRecord().nonce,request.body);
+  });
   app.post('/api/process/inspect', async request => {
     const p=principal(request);
     await authorize(policy,p,'control:shutdown','status');

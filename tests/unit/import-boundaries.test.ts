@@ -14,7 +14,7 @@ function boundaryErrors(graph: Graph): string[] {
       const target = specifier.startsWith('.') ? posix.normalize(posix.join(posix.dirname(file), specifier)).replace(/\.js$/, '.ts') : specifier;
       const local = specifier.startsWith('.');
       const credentialEdge = file === 'packages/client/src/credentials.ts' && target === 'packages/platform/src/credentials.ts';
-      const discoveryEdge = file === 'packages/client/src/discovery.ts' && target === 'packages/platform/src/installation.ts';
+      const discoveryEdge = file === 'packages/client/src/discovery.ts' && ['packages/platform/src/installation.ts','packages/platform/src/client-endpoint.ts'].includes(target);
       const forbidden = tier === 'domain' ? !target.startsWith('packages/domain/')
         : tier === 'application' ? (local ? !/^packages\/(application|domain|contracts)\//.test(target) : !['zod', 'node:crypto'].includes(target))
         : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring)(?:\/|$)/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge || /profile/i.test(target);
@@ -65,6 +65,8 @@ describe('transitive architecture boundaries', () => {
       ['packages/platform/src/credentials.ts', ['node:fs']],
     ]))).toEqual([]);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/credentials.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/platform/src/client-endpoint.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/client/src/discovery.js']],['packages/client/src/discovery.ts',['../../platform/src/processes.js']]]))).toHaveLength(1);
     expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['better-sqlite3', '@napi-rs/keyring']]]))).toHaveLength(2);
   });
   it('recognizes imports, re-exports, dynamic imports and CommonJS requires', () => {

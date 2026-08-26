@@ -63,6 +63,7 @@ export interface SelfcheckProjection {
   featureResult: 'not_observed' | 'pass' | 'fail'; checkedAt: string | null;
 }
 export interface Status {
+  installationId?: string | undefined;
   api: ComponentObservation | null; worker: ComponentObservation | null;
   install: InstallProjection | null; selfcheck: SelfcheckProjection | null; checkedAt: string | null;
 }

@@ -54,6 +54,7 @@ export function ownsListener(pid:number,port:number):boolean {
 }
 const recordSchema=z.strictObject({installationId:z.uuid(),role:z.enum(['api','worker']),buildId:z.string().regex(/^[a-f0-9]{64}$/),pid:z.number().int().positive(),nonce:z.uuid(),osStartIdentity:z.string().min(1).max(128),executable:z.string().min(1).max(4096),entrypoint:z.string().min(1).max(4096),controlPort:z.number().int().min(1).max(65535)});
 export type ProcessRecord=z.infer<typeof recordSchema>;
+export {recordSchema as ProcessRecordSchema};
 const contextSchema=z.strictObject({expectedGeneration:z.number().int().nonnegative(),selfcheck:z.strictObject({operationId:z.uuid(),generation:z.number().int().nonnegative()}).optional()});
 const intentSchema=z.strictObject({installationId:z.uuid(),role:z.enum(['api','worker']),buildId:z.string(),nonce:z.uuid(),context:contextSchema.optional(),pid:z.number().int().positive().optional(),os:z.strictObject({osStartIdentity:z.string(),executable:z.string()}).optional()});
 function durableIntent(path:string,value:z.infer<typeof intentSchema>) {

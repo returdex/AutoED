@@ -34,11 +34,14 @@ export async function createNativeRuntime(variant:'A'|'B'='B') {
     provisioning=true;const metadata=await initializeInstallation(selection,secrets);installationId=metadata.installationId;initialized=true;
     const options={selection,managedNode:realpathSync(process.execPath),entries:{api:entries.api,worker:entries.worker}};supervisor=new OwnedProcessSupervisor(options);
     const activeSupervisor=supervisor;
-    async function runCli(args:string[],input='') {
+    async function runCli(args:string[],input='',proxyEnvironment:Record<string,string>={}) {
       const env:NodeJS.ProcessEnv={};for(const name of ['HOME','TMPDIR','TEMP','TMP','SystemRoot','WINDIR','LOCALAPPDATA','USERPROFILE'])if(process.env[name])env[name]=process.env[name];
+      for(const name of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NODE_USE_ENV_PROXY'])if(proxyEnvironment[name])env[name]=proxyEnvironment[name];
       const child=spawn(process.execPath,[entries.cli,'--root',selection.root,'--parent',selection.parent,...args],{cwd:out,env,stdio:['pipe','pipe','pipe'],shell:false});children.add(child);
       let stdout='',stderr='';child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>131072)child.kill('SIGTERM');});child.stderr.on('data',chunk=>{stderr+=chunk;if(stderr.length>8192)child.kill('SIGTERM');});child.stdin.end(input);
-      const timer=setTimeout(()=>child.kill('SIGTERM'),15000);timer.unref();try{const [code]=await once(child,'exit');return {code,stdout,stderr};}finally{clearTimeout(timer);if(child.exitCode!==null||child.signalCode!==null)children.delete(child);}
+      let timer:ReturnType<typeof setTimeout>|undefined;
+      try{const [code]=await Promise.race([once(child,'close'),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');reject(new Error('CLI_OUTPUT_TIMEOUT'));},15000);timer.unref();})]);return {code,stdout,stderr};}
+      finally{if(timer)clearTimeout(timer);if(child.exitCode!==null||child.signalCode!==null)children.delete(child);}
     }
     async function request(path:string,body?:unknown,name='installer') {
       const identity=activeSupervisor.registered().find(i=>i.role==='api');if(!identity||!matchesProcess(identity,await observeProcess(identity.pid))||!ownsListener(identity.pid,metadata.port))throw new Error('TEST_ENDPOINT_UNCONFIRMED');

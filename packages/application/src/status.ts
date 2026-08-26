@@ -4,10 +4,10 @@ import { BuildIdentitySchema, StatusSchema } from '../../contracts/src/index.js'
 import { authorize, redactOutput, type Principal } from './policy.js';
 
 export class ApplicationStatus {
-  constructor(private readonly projections: StatusProjectionStore, private readonly policy: OutputPolicy, private readonly build: BuildIdentity, private readonly clock: Clock = { now: () => Date.now() }) { BuildIdentitySchema.parse(build); }
+  constructor(private readonly projections: StatusProjectionStore, private readonly policy: OutputPolicy, private readonly build: BuildIdentity, private readonly clock: Clock = { now: () => Date.now() },private readonly installationId?:string) { BuildIdentitySchema.parse(build); }
   async read(principal: Principal) {
     await authorize(this.policy, principal, 'status:read', 'status');
     const stored = await this.projections.read(); const checkedAt = new Date(this.clock.now()).toISOString();
-    return StatusSchema.parse(redactOutput({ ...stored, api: { role: 'api', build: this.build, checkedAt, health: 'healthy', evidence: 'process_report', freshness: 'fresh' }, checkedAt }));
+    return StatusSchema.parse(redactOutput({ ...stored,...(this.installationId?{installationId:this.installationId}:{}), api: { role: 'api', build: this.build, checkedAt, health: 'healthy', evidence: 'process_report', freshness: 'fresh' }, checkedAt }));
   }
 }

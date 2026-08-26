@@ -14,6 +14,8 @@ const permissions: Record<CredentialRecord['destination'], readonly Permission[]
   model: ['status:read', 'jobs:read', 'jobs:write'], service: ['status:read'],
   installer: ['status:read', 'jobs:read', 'control:shutdown', 'installer'], selfcheck: ['status:read', 'jobs:read', 'jobs:selfcheck'],
 };
+const authenticatedRecords=new WeakMap<FastifyRequest,CredentialRecord>();
+export function authenticatedRecord(request:FastifyRequest){const record=authenticatedRecords.get(request);if(!record)throw new ApplicationError('UNAUTHORIZED',401);return record;}
 export function assertTransport(request: FastifyRequest, origin: string): void {
   if (request.raw.socket.remoteAddress !== '127.0.0.1' || request.headers.host !== origin.slice(7) || request.headers.origin !== undefined && request.headers.origin !== origin) throw new ApplicationError('FORBIDDEN');
   if (request.headers['sec-fetch-site'] && request.headers['sec-fetch-site'] !== 'same-origin' && request.headers['sec-fetch-site'] !== 'none') throw new ApplicationError('FORBIDDEN');
@@ -27,5 +29,6 @@ export async function authenticate(request: FastifyRequest, installationId: stri
   const gate = record.destination === 'selfcheck' ? await maintenance.read() : null;
   if (gate && gate.state !== 'exclusive' || !await verifyCredential(secrets, record, token, record.scope, record.destination, gate?.operationId ?? null, gate?.generation ?? null)) throw new ApplicationError('UNAUTHORIZED', 401);
   if (request.headers.origin !== undefined && request.method !== 'GET' && request.method !== 'HEAD' && request.headers['x-autoed-csrf'] !== digest) throw new ApplicationError('FORBIDDEN');
-  return { scope: record.scope, destination: record.destination === 'model' ? 'model' : 'local_cli', permissions: permissions[record.destination], ...(record.destination === 'selfcheck' ? { selfcheck: { operationId: record.operationId!, generation: record.generation! } } : {}) };
+  authenticatedRecords.set(request,record);
+  return { scope: record.scope, destination: record.destination === 'model'||record.destination==='selfcheck' ? 'model' : 'local_cli', permissions: permissions[record.destination], ...(record.destination === 'selfcheck' ? { selfcheck: { operationId: record.operationId!, generation: record.generation! } } : {}) };
 }

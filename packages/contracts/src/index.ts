@@ -56,6 +56,7 @@ export const SelfcheckProjectionSchema: z.ZodType<SelfcheckProjection> = z.stric
     item.probes.every(probe => probe.health === 'healthy' && probe.build !== null && sameBuild(first, probe.build) && probe.checkedAt !== null && Date.parse(probe.checkedAt) <= Date.parse(item.checkedAt!));
 }, 'Passing selfcheck requires a job and four consistent actual component observations');
 export const StatusSchema: z.ZodType<Status> = z.strictObject({
+  installationId: z.uuid().optional(),
   api: ComponentObservationSchema.nullable(), worker: ComponentObservationSchema.nullable(),
   install: InstallProjectionSchema.nullable(), selfcheck: SelfcheckProjectionSchema.nullable(), checkedAt: timestamp,
 }).refine(status => (status.api === null || status.api.role === 'api') && (status.worker === null || status.worker.role === 'worker'), 'Component role mismatch');
