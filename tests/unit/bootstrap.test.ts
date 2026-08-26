@@ -3,8 +3,9 @@ import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync } from 
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { spawnSync } from 'node:child_process';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
   it('runs actual Node 24 and exact installed dependencies', () => {
@@ -12,6 +13,11 @@ describe('managed bootstrap and synthetic harness', () => {
     const pkg = checkPackage();
     expect(Object.keys(pkg.dependencies).some(name => /openai|anthropic|openpgp/i.test(name))).toBe(false);
     expect(pkg.dependencies.playwright).toBe(pkg.devDependencies['@playwright/test']);
+  });
+  it('fails an actual all-skipped Vitest subprocess', () => {
+    const child = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run', '--project', 'unit', 'tests/unit/bootstrap.test.ts', '--testNamePattern', '__no_matching_behavior__'], { cwd: ROOT, encoding: 'utf8', timeout: 10_000 });
+    expect(child.status).toBe(1);
+    expect(child.stderr).toContain('No behavior tests executed');
   });
   it('changes build inputs hash when an untracked source changes', async () => {
     const harness = createHarness();
