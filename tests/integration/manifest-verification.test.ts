@@ -1,11 +1,11 @@
 import {expect,it} from 'vitest';
 import {createHash} from 'node:crypto';
-import {readFileSync,realpathSync,writeFileSync} from 'node:fs';
+import {realpathSync,writeFileSync,unlinkSync,mkdirSync,symlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHarness} from '../../packages/test-support/src/harness.js';
 import {protectPath} from '../../packages/platform/src/permissions.js';
 import {signSyntheticManifests} from '../../scripts/build/synthetic-sign.mjs';
-import {createFixtureVerifier,verifyRelease,verifyArtifactBytes,verifyFileTree,isVerifiedManifest} from '../../packages/installer/src/verify-manifest.js';
+import {createFixtureVerifier,verifyRelease,verifyArtifactBytes,verifyFileTree,isVerifiedManifest,safeArtifactPath} from '../../packages/installer/src/verify-manifest.js';
 
 const hash=(value:Buffer|string)=>createHash('sha256').update(value).digest('hex');
 function manifest(variant:'A'|'B'='A'){
@@ -16,7 +16,15 @@ it('real Ed25519 signs exact A/B bytes with a short-lived fixture key; artifacts
   const h=createHarness();try{const root=realpathSync(h.root);protectPath(root);const objects=[manifest('A'),manifest('B')];const bytes=objects.map(m=>Buffer.from(JSON.stringify(m)));const signed=await signSyntheticManifests(root,bytes);
     expect(signed.signerExited).toBe(true);expect(JSON.stringify(signed).includes('PRIVATE KEY')).toBe(false);
     const verify=createFixtureVerifier(signed.publicKey,signed.fingerprint);for(let i=0;i<bytes.length;i++){const verified=verify(bytes[i]!,Buffer.from(signed.signatures[i]!,'base64'),target);expect(isVerifiedManifest(verified)).toBe(true);expect(isVerifiedManifest(JSON.parse(JSON.stringify(verified)))).toBe(false);expect(verified.evidence).toBe('synthetic_signature');verifyArtifactBytes(verified,'program.tar.gz',Buffer.from('synthetic archive'));writeFileSync(join(root,'app.js'),'abc');verifyFileTree(verified,'program.tar.gz',root);writeFileSync(join(root,'app.js'),'bad');expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');}
+    writeFileSync(join(root,'app.js'),'abc');writeFileSync(join(root,'unlisted.js'),'untrusted');const verified=verify(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target);expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');unlinkSync(join(root,'unlisted.js'));
     expect(()=>verifyRelease(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target)).toThrow('RELEASE_TRUST_NOT_ESTABLISHED');
+  }finally{await h.cleanup();}
+});
+it('real headed Chrome internal spaces are valid while ancestor conflicts and nested symlinks are rejected',async()=>{
+  expect(safeArtifactPath('chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing')).toBe(true);
+  for(const path of ['x/../y','x/CON.txt','x/trailing ','x/dot.','x/a\\b','x/a\nb','/absolute','x/C:drive'])expect(safeArtifactPath(path)).toBe(false);
+  const h=createHarness();try{const root=realpathSync(h.root);protectPath(root);const original=manifest();const nested={...original,artifacts:original.artifacts.map(a=>({...a,files:[{...a.files[0]!,path:'nested/app.js'}]}))};const conflict={...original,artifacts:original.artifacts.map(a=>({...a,unpackedBytes:9,files:['a','a-b','a/b'].map(path=>({...a.files[0]!,path}))}))};const bytes=[nested,conflict].map(m=>Buffer.from(JSON.stringify(m))),signed=await signSyntheticManifests(root,bytes),verify=createFixtureVerifier(signed.publicKey,signed.fingerprint);
+    expect(()=>verify(bytes[1]!,Buffer.from(signed.signatures[1]!,'base64'),target)).toThrow('MANIFEST_INVALID');mkdirSync(join(root,'nested'));writeFileSync(join(root,'nested/app.js'),'abc');symlinkSync(root,join(root,'nested/link'));const verified=verify(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target);expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');
   }finally{await h.cleanup();}
 });
 it('tampered bytes, wrong key/target/schema, missing file closure and oversized/traversal/duplicate members fail closed',async()=>{
