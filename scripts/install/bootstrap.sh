@@ -13,9 +13,9 @@ fail() { printf '%s\n' "$1" >&2; exit 1; }
 [ "$(/usr/bin/uname -s)" = Darwin ] && [ "$(/usr/bin/uname -m)" = arm64 ] || fail UNSUPPORTED_PLATFORM
 parent=$2
 case "$parent" in /*) ;; *) fail UNSAFE_STAGING ;; esac
-home=$(/usr/bin/dscl . -read "/Users/$(/usr/bin/id -un)" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')
-[ -n "$home" ] || fail UNSAFE_STAGING
-case "$parent" in "$home/Documents/AutoED"|"$home/Documents/AutoED/"*|"$home/Library/Application Support/AutoED"|"$home/Library/Application Support/AutoED/"*) fail UNSAFE_STAGING ;; esac
+bootstrap_home=$(/usr/bin/dscl . -read "/Users/$(/usr/bin/id -un)" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')
+[ -n "$bootstrap_home" ] || fail UNSAFE_STAGING
+case "$parent" in "$bootstrap_home/Documents/AutoED"|"$bootstrap_home/Documents/AutoED/"*|"$bootstrap_home/Library/Application Support/AutoED"|"$bootstrap_home/Library/Application Support/AutoED/"*) fail UNSAFE_STAGING ;; esac
 printf '%s' "$parent" | LC_ALL=C /usr/bin/grep '[[:cntrl:]]' >/dev/null && fail UNSAFE_STAGING
 [ -d "$parent" ] && [ ! -L "$parent" ] || fail UNSAFE_STAGING
 [ "$(cd "$parent" && /bin/pwd -P)" = "$parent" ] || fail UNSAFE_STAGING
