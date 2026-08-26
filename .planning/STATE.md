@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: 01-07 independently verified complete; executing01-06 actual CLI/MCP; hard human gates preserved
-last_updated: "2026-08-26T16:52:45.077Z"
-last_activity: "2026-08-27 — 01-07 independently verified:95 U/I/macOS native +10 Chromium UI; typecheck and production build passed."
+stopped_at: 01-06 independently verified complete; executing01-08 managed installation; hard human gates preserved
+last_updated: "2026-08-26T17:22:07.526254+00:00"
+last_activity: "2026-08-27 — 01-06 independently verified:108 U/I/macOS native +10 Chromium UI; typecheck and four-entry build passed."
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 6
-  percent: 43
+  completed_plans: 7
+  percent: 50
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Implement01-06 real CLI/MCP wiring and independent manifest/endpoint identity;95 unit/integration/native plus10 browser tests independently passed. Phase-wide requirements pending.
+**Current focus:** Implement01-08 managed installation and scope confirmation;108 unit/integration/native plus10 browser tests independently passed. Phase-wide requirements pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 6 of 14 (01-01 through01-05 and01-07 complete; beginning01-06)
-Status: Executing Phase 1 — Wave5 sequential; 6/14 plans complete
-Last activity: 2026-08-27 — 01-07 independently verified:95 U/I/macOS native +10 Chromium UI; typecheck and production build passed.
+Plan: 7 of 14 (01-01 through01-07 complete; beginning01-08)
+Status: Executing Phase 1 — Wave6 sequential; 7/14 plans complete
+Last activity: 2026-08-27 — 01-06 independently verified:108 U/I/macOS native +10 Chromium UI; typecheck and four-entry build passed.
 
-Plan progress: [████░░░░░░] 43% (6/14); phase acceptance remains 0/8.
+Plan progress: [█████░░░░░] 50% (7/14); phase acceptance remains 0/8.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 6
+- Total plans completed: 7
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,12 +44,12 @@ Plan progress: [████░░░░░░] 43% (6/14); phase acceptance rem
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 6 completed / 14 planned | Executing | N/A |
+| 1 | 7 completed / 14 planned | Executing | N/A |
 | 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-02, 01-03, 01-04, 01-05, 01-07
+- Last 5 plans: 01-03, 01-04, 01-05, 01-07, 01-06
 - Trend: N/A
 
 ## Accumulated Context
@@ -67,14 +67,14 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- Phase 1 全部14份PLAN已批准；正在执行01-06，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
+- Phase 1 全部14份PLAN已批准；正在执行01-08，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
 
 ### Blockers/Concerns
 
-- 初始化已完成，Phase 1执行中；01-01至01-05及01-07已有95项U/I/macOS原生+10项Chromium UI及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
-- 01-06须接独立实际manifest观测与API安装身份、真实短期selfcheck凭据注册/撤销和发token前endpoint所有权校验；不以fixture数组/targetBuild/客户端scope回显代替。01-09从真实inventory填写previousInstallation；01-10补实际平台/依赖诊断，UI现明确未验证。
+- 初始化已完成，Phase 1执行中；01-01至01-07已有108项U/I/macOS原生+10项Chromium UI及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
+- 01-06已接实际构建manifest、API安装身份、短期selfcheck凭据与发token前所有权校验；08/09须由真正verifier建立发行签名证据，journal记录预解析/离线失败，不能将build_manifest改名冒充验签。01-09从真实inventory填写previousInstallation；01-10补实际平台/依赖诊断，UI现明确未验证。
 - 安装自检新spawn的MCP不能证明当前Codex中长期运行的MCP已经重载。01-09/10/14须检查受管旧入口与实际客户端版本；若宿主仍持有旧客户端且无法安全自动重载，明确human_needed/cleanup_pending并给出重载步骤，不能把新子进程自检冒充宿主实际更新完成。
-- 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；Windows原生运行、实际CLI/MCP与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
+- 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；实际CLI/MCP已验证，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
@@ -87,6 +87,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T16:52:45.072Z
-Stopped at: 01-07 independently verified complete; executing01-06 actual CLI/MCP; hard human gates preserved
-Resume file: .planning/phases/01-beta/01-06-PLAN.md
+Last session: 2026-08-26T17:22:07.526350+00:00
+Stopped at: 01-06 independently verified complete; executing01-08 managed installation; hard human gates preserved
+Resume file: .planning/phases/01-beta/01-08-PLAN.md

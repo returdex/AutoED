@@ -26,6 +26,14 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Actual CLI/MCP update — 01-06
+
+Against code commit `29a958e`, the orchestrator independently reran **43 unit +56 integration +9 macOS native =108/108** (76.43s), **10/10 Chromium UI tests** (3.5s), typecheck and production build successfully. Build contains all four actual API/Worker/CLI/MCP entries and status assets; identity `cbdc255872326530917a5f4393f9ceb2d6d69c7c9c1d3c8bf4671815058bde3a`. See `01-06-SUMMARY.md`.
+
+Real compiled CLI and official SDK stdio tests reach authenticated HTTP, durable SQLite and independent Worker for A echo/unsupported digest and B actual SHA-256. Same-version mismatches in CLI/MCP/Worker/manifest fail; early CLI failure records failed selfcheck and exact temporary key revocation. Native ownership is checked before bearer transmission. The bearer-key HMAC is a consistency binding, not independent server-secret authentication. Protected short-credential receipts preserve recovery without changing the four base installation records.
+
+Manifest evidence is an actual `build_manifest` read/hash, not a signed release. Plans08/09 must connect the actual verifier, journal preflight/offline failures and restart/probe normal services after maintenance generation changes. Fresh MCP probes do not establish current Codex-host reload. Windows, user UAT, release, full installer and platform diagnostics remain unverified; all phase-wide requirements remain Pending.
+
 ### Readonly browser status update — 01-07
 
 Against code commit `3b0d979`, the orchestrator independently reran **42 unit +44 integration +9 macOS native =95/95** (32.62s), **10/10 real Chromium UI tests** (3.5s), typecheck and production build successfully. Build contains two runtime entries and the mandatory three public browser assets. Actual browser151.0.7922.34/revision1234 is isolated under the new repo's ignored development toolchain; no default shared browser cache or user Profile is used. See `01-07-SUMMARY.md`.
