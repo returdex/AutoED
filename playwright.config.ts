@@ -1,5 +1,7 @@
 import { defineConfig, test as base, expect } from '@playwright/test';
 import { assertLocalURL } from './packages/test-support/src/harness.js';
+import { fileURLToPath } from 'node:url';
+process.env.PLAYWRIGHT_BROWSERS_PATH = fileURLToPath(new URL('./.runtime/dev-toolchain/ui-browsers', import.meta.url));
 
 const baseURL = process.env.AUTOED_TEST_BASE_URL ?? 'http://127.0.0.1:43187';
 assertLocalURL(baseURL);

@@ -34,9 +34,20 @@ async function fixture() {
     return h.fetch(api.origin + `/api/pairing/${code}/approve`, { method:'POST', headers:{ authorization:`Bearer ${values.get(name)}`, 'content-type':'application/json' }, body:JSON.stringify({ confirmedCode }) });
   }
   async function exchange(p: { cookie:string; nonce:string }) { return call('/api/pairing/exchange', {}, { cookie:p.cookie, 'x-autoed-csrf':p.nonce }); }
-  return { call, pending, approve, exchange, cookies, sessions, raw:(path:string, headers:Record<string,string>) => h.fetch(api.origin+path,{headers}), advance:(ms:number) => { now += ms; }, restart:async () => { await api.close(); api = await startApi({ ...options, sessions:new SQLiteSessions(db, scope.installationId, { now:() => now }) }); }, origin:() => api.origin };
+  return { call, pending, approve, exchange, cookies, sessions, options, scope, raw:(path:string, headers:Record<string,string>) => h.fetch(api.origin+path,{headers}), advance:(ms:number) => { now += ms; }, restart:async () => { await api.close(); api = await startApi({ ...options, sessions:new SQLiteSessions(db, scope.installationId, { now:() => now }) }); }, origin:() => api.origin };
 }
 describe('explicit same-origin pairing over actual HTTP', () => {
+  it('browser reads only the currently projected selfcheck job and cannot mutate it',async()=>{
+    const f=await fixture();const jobs=[];
+    for(let i=0;i<2;i++)jobs.push(await f.options.jobs.enqueue({kind:'echo',value:'synthetic',idempotencyKey:randomUUID(),scope:f.scope},{expectedGeneration:0}));
+    const job=jobs[0]!;await f.options.projections.writeSelfcheck({jobId:job.id,probes:[],featureResult:'not_observed',checkedAt:new Date().toISOString()},{operationId:null,expectedGeneration:0});
+    expect((await f.call('/api/jobs/'+job.id)).status).toBe(401);
+    const p=await f.pending();await f.approve(p.code);const r=await f.exchange(p);const cookie=f.cookies(r);const {csrf}=await r.json();
+    expect((await f.call('/api/jobs/'+job.id,undefined,{cookie})).status).toBe(200);
+    expect((await f.call('/api/jobs/'+jobs[1]!.id,undefined,{cookie})).status).toBe(403);
+    expect((await f.call('/api/jobs/'+job.id+'/cancel',{}, {cookie,'x-autoed-csrf':csrf})).status).toBe(403);
+    expect((await f.call('/api/jobs',job.request,{cookie,'x-autoed-csrf':csrf})).status).toBe(403);
+  });
   it('supports actual browser same-origin GET metadata without requiring a forbidden Origin header', async () => {
     const f=await fixture();
     expect((await f.raw('/api/pairing/nonce',{})).status).toBe(403);
