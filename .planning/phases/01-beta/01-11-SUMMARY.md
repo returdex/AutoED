@@ -116,6 +116,14 @@ completed: 2026-08-27
 - Bounded source-history scan: `pass`, boundary current repository `HEAD`, 350 blobs scanned, 3 exact reviewed fixture exceptions.
 - No `gh`, remote, authenticated fetch, keyring, key generation outside test memory, OS prompt, repository creation, tag, release, upload or push occurred.
 
+### Independent final regression
+
+- Root independently ran **164/164 Vitest tests across 31 files** in 923.94 seconds.
+- Root independently ran **10/10 UI tests** in 3.4 seconds.
+- Independent `tsc --noEmit` exited 0.
+- Independent production build exited 0 with four actual entries and identity `1e864b58227077a5a392d322cccfa20faa64a6b7dbc372b9bff641f072a63188`; no release or tag was created.
+- After the SUMMARY commit, root reran the bounded current-repository `HEAD` scan: `pass`, 351 blobs, 3 exact reviewed fixture exceptions, 12.50 seconds. The executor's earlier 350-blob count was the pre-SUMMARY boundary.
+
 These are local synthetic/integration tools and mocked service tests. They do not establish production release trust, authenticate `returdex`, prove repository availability, publish a beta, verify a real public download, run Windows native tests, or authorize UAT.
 
 ## Known Stubs
