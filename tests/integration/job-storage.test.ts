@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { once } from 'node:events';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, assertSQLiteIdentity, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import { JobRepository } from '../../packages/persistence/src/jobs.js';
@@ -39,6 +41,25 @@ describe('real SQLite durable storage', () => {
     await expect(jobs.enqueue({ ...req, value: 'changed' }, context)).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT', statusCode: 409 });
     expect(await jobs.query(a.id, { ...req.scope, installationId: randomUUID() })).toBeNull();
   });
+  it('deduplicates competing real processes on the same database', async () => {
+    const { db, path, h } = fixture(); const req = request();
+    const source = new URL('../../packages/persistence/src/', import.meta.url).href;
+    const script = (output: string) => `
+      import { registerHooks } from 'node:module';
+      import { writeFileSync } from 'node:fs';
+      registerHooks({ resolve(s,c,n) { try { return n(s,c); } catch(e) { if(s.endsWith('.js')) return n(s.slice(0,-3)+'.ts',c); throw e; } } });
+      const {openDatabase} = await import(${JSON.stringify(source + 'database.ts')});
+      const {JobRepository} = await import(${JSON.stringify(source + 'jobs.ts')});
+      const db=openDatabase(${JSON.stringify(path)});
+      const job=await new JobRepository(db).enqueue(${JSON.stringify(req)},{expectedGeneration:0});
+      writeFileSync(${JSON.stringify(output)},job.id); db.close();`;
+    const paths = [join(h.root, 'first.json'), join(h.root, 'second.json')];
+    const children = paths.map(p => h.spawn(['--experimental-transform-types', '--input-type=module', '-e', script(p)]));
+    const exits = await Promise.all(children.map(child => once(child, 'exit')));
+    expect(exits.map(([code]) => code)).toEqual([0, 0]);
+    expect(readFileSync(paths[0]!, 'utf8')).toBe(readFileSync(paths[1]!, 'utf8'));
+    expect(db.prepare('SELECT count(*) AS n FROM jobs').get()).toEqual({ n: 1 });
+  });
   it('maintenance persists, never clears expired locks, and only admits matching operation selfchecks', async () => {
     const { gate, jobs, db, path } = fixture(); const operationId = randomUUID();
     await gate.enterMaintenance({ operationId, owner: 'installer', leaseUntil: 1, expectedGeneration: 0 });
@@ -71,7 +92,8 @@ describe('real SQLite durable storage', () => {
     await expect(status.writeComponent({ ...observed, secret: 'must-not-persist' } as typeof observed, { expectedGeneration: 0, operationId: null })).rejects.toThrow();
     const op = randomUUID(); await gate.enterMaintenance({ operationId: op, owner: 'installer', leaseUntil: 9000, expectedGeneration: 0 });
     await expect(status.writeComponent(observed, { expectedGeneration: 0, operationId: null })).rejects.toMatchObject({ code: 'MAINTENANCE_ACTIVE' });
-    await status.writeInstall({ operationId: op, stage: 'complete', result: 'succeeded', cleanup: 'complete', targetBuild: null, actualBuild: null, checkedAt: new Date(now).toISOString() }, { expectedGeneration: 0, operationId: op });
+    const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo'] };
+    await status.writeInstall({ operationId: op, stage: 'complete', result: 'succeeded', cleanup: 'complete', targetBuild: build, actualBuild: build, checkedAt: new Date(now).toISOString() }, { expectedGeneration: 0, operationId: op });
     now += 1;
     await status.writeInstall({ operationId: op, stage: 'stopped', result: 'failed', cleanup: 'cleanup_pending', targetBuild: null, actualBuild: null, checkedAt: new Date(now).toISOString() }, { expectedGeneration: 0, operationId: op });
     expect(db.prepare("SELECT last_success FROM runtime_status WHERE key='install'").get()).toMatchObject({ last_success: expect.stringContaining('succeeded') });

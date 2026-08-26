@@ -43,10 +43,12 @@ export interface Job {
 }
 export type ComponentRole = 'api' | 'worker' | 'cli' | 'mcp';
 export interface ComponentObservation {
+  freshness?: 'not_observed' | 'fresh' | 'stale' | undefined;
   role: ComponentRole; build: BuildIdentity | null; checkedAt: string | null; health: Health;
   evidence: 'not_observed' | 'authenticated_probe' | 'process_report';
 }
 export interface InstallProjection {
+  freshness?: 'not_observed' | 'fresh' | 'stale' | undefined;
   operationId: string;
   stage: 'preview' | 'download' | 'verify' | 'stage' | 'quiesce' | 'backup' | 'migrate' | 'activate' | 'selfcheck' | 'cleanup' | 'complete' | 'rollback' | 'stopped';
   result: 'not_observed' | 'running' | 'succeeded' | 'failed' | 'restored' | 'human_needed';
@@ -54,6 +56,7 @@ export interface InstallProjection {
   cleanup: 'not_observed' | 'pending' | 'complete' | 'cleanup_pending'; checkedAt: string | null;
 }
 export interface SelfcheckProjection {
+  freshness?: 'not_observed' | 'fresh' | 'stale' | undefined;
   jobId: string | null; probes: ComponentObservation[];
   featureResult: 'not_observed' | 'pass' | 'fail'; checkedAt: string | null;
 }

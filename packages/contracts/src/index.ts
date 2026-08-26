@@ -11,6 +11,7 @@ export const BuildIdentitySchema: z.ZodType<BuildIdentity> = z.strictObject({
   protocol: z.literal(1), schemaMin: z.literal(1), schemaMax: z.literal(1), capabilities: z.array(z.enum(['echo', 'digest'])).min(1).max(2),
 });
 const health = z.enum(['not_observed', 'healthy', 'degraded', 'error']);
+const projectionFreshness = z.enum(['not_observed', 'fresh', 'stale']).optional();
 export const ObservationSchema: z.ZodType<Observation> = z.strictObject({
   auth: z.enum(['not_observed', 'authenticated', 'unauthenticated', 'reauth_required']),
   capability: z.enum(['unknown', 'available', 'unavailable', 'denied']), health,
@@ -26,18 +27,21 @@ export const MaintenanceGateSchema: z.ZodType<MaintenanceGate> = z.strictObject(
   owner: z.string().min(1).max(128).nullable(), leaseUntil: z.number().int().nonnegative().nullable(),
 }).refine(gate => gate.state === 'open' ? gate.operationId === null && gate.owner === null && gate.leaseUntil === null : gate.operationId !== null && gate.owner !== null && gate.leaseUntil !== null, 'Maintenance ownership required');
 export const ComponentObservationSchema: z.ZodType<ComponentObservation> = z.strictObject({
+  freshness: projectionFreshness,
   role: z.enum(['api', 'worker', 'cli', 'mcp']), build: BuildIdentitySchema.nullable(), checkedAt: timestamp, health,
   evidence: z.enum(['not_observed', 'authenticated_probe', 'process_report']),
 }).refine(item => item.evidence === 'not_observed'
   ? item.health === 'not_observed' && item.build === null && item.checkedAt === null
   : item.checkedAt !== null && (item.health !== 'healthy' || item.build !== null), 'Observation must have actual evidence');
 export const InstallProjectionSchema: z.ZodType<InstallProjection> = z.strictObject({
+  freshness: projectionFreshness,
   operationId: z.uuid(), stage: z.enum(['preview', 'download', 'verify', 'stage', 'quiesce', 'backup', 'migrate', 'activate', 'selfcheck', 'cleanup', 'complete', 'rollback', 'stopped']),
   result: z.enum(['not_observed', 'running', 'succeeded', 'failed', 'restored', 'human_needed']),
   targetBuild: BuildIdentitySchema.nullable(), actualBuild: BuildIdentitySchema.nullable(),
   cleanup: z.enum(['not_observed', 'pending', 'complete', 'cleanup_pending']), checkedAt: timestamp,
-});
+}).refine(item => item.result !== 'succeeded' || (item.stage === 'complete' && item.cleanup === 'complete' && item.targetBuild !== null && item.actualBuild !== null && item.targetBuild.buildId === item.actualBuild.buildId), 'Successful installation requires actual matching build and completed cleanup');
 export const SelfcheckProjectionSchema: z.ZodType<SelfcheckProjection> = z.strictObject({
+  freshness: projectionFreshness,
   jobId: z.uuid().nullable(), probes: z.array(ComponentObservationSchema).max(4), featureResult: z.enum(['not_observed', 'pass', 'fail']), checkedAt: timestamp,
 });
 export const StatusSchema: z.ZodType<Status> = z.strictObject({
