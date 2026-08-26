@@ -16,7 +16,7 @@ function fixture(target:'darwin-arm64'|'win32-x64'){
 }
 
 it.each(['darwin-arm64','win32-x64'] as const)('writes an auditable, target-specific dependency closure for %s',async target=>{
-  const f=fixture(target),result=await assembleTarget({target,outputRoot:f.output,sourceRoot:f.source,components:f.components,diagnosticsRequired:false});expect(result.report.target).toBe(target);expect(result.report.nativeEvidence).toBe(target==='darwin-arm64'?'passed':'not_run');expect(result.report.files.length).toBeGreaterThan(4);expect(result.report.components.every(c=>c.sourceURL&&c.integrity&&c.license)).toBe(true);expect(auditDelivery(result.root).target).toBe(target);
+  const f=fixture(target),result=await assembleTarget({target,outputRoot:f.output,sourceRoot:f.source,components:f.components,diagnosticsRequired:false});expect(result.report.target).toBe(target);expect(result.report.nativeEvidence).toBe(target==='darwin-arm64'?'static_only':'not_run');expect(result.report.nativeEvidence).not.toBe('passed');expect(result.report.platform.actualNative.status).toBe('not_run');expect(result.report.files.length).toBeGreaterThan(4);expect(result.report.components.every(c=>c.sourceURL&&c.integrity&&c.license)).toBe(true);expect(auditDelivery(result.root).target).toBe(target);
 });
 
 it('rejects wrong machine types, tampering, missing closure and Windows links without running foreign binaries',async()=>{
