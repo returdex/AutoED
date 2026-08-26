@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: 01-03 verified complete; begin01-04 authenticated API and pairing; preserve all human gates
-last_updated: "2026-08-26T15:56:13.037Z"
-last_activity: 2026-08-27 — 01-03 completed; independent34unit+20integration+7macOS native and typecheck pass.
+stopped_at: 01-04 verified complete; begin01-05 then01-07 sequentially; no human gates waived
+last_updated: "2026-08-26T16:09:14.790Z"
+last_activity: 2026-08-27 — 01-04 completed; independent37unit+37integration+7macOS native and typecheck pass.
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 3
-  percent: 21
+  completed_plans: 4
+  percent: 29
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Implement01-04 authenticated loopback API and explicit pairing after independently verified61 tests and typecheck; Windows and all phase-wide requirements remain pending.
+**Current focus:** Implement01-05 actual independent API/Worker lifecycle; 81 tests and typecheck independently passed. All phase-wide requirements pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 4 of 14 (01-01 through01-03 complete; beginning01-04)
-Status: Executing Phase 1 — Wave3; 3/14 plans complete
-Last activity: 2026-08-27 — 01-03 completed; independent34unit+20integration+7macOS native and typecheck pass.
+Plan: 5 of 14 (01-01 through01-04 complete; beginning01-05)
+Status: Executing Phase 1 — Wave4 sequential; 4/14 plans complete
+Last activity: 2026-08-27 — 01-04 completed; independent37unit+37integration+7macOS native and typecheck pass.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -36,7 +36,7 @@ Progress: [░░░░░░░░░░] 0%
 
 **Velocity:**
 
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,12 +44,12 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 3 completed / 14 planned | Executing | N/A |
+| 1 | 4 completed / 14 planned | Executing | N/A |
 | 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01, 01-02, 01-03
+- Last 5 plans: 01-01, 01-02, 01-03, 01-04
 - Trend: N/A
 
 ## Accumulated Context
@@ -67,7 +67,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- Phase 1 全部14份PLAN已批准；正在执行01-04，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
+- Phase 1 全部14份PLAN已批准；正在执行01-05，随后按依赖继续，保留发布信任、OS授权和人工UAT硬门禁。
 
 ### Blockers/Concerns
 
@@ -85,6 +85,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T15:56:13.032Z
-Stopped at: 01-03 verified complete; begin01-04 authenticated API and pairing; preserve all human gates
-Resume file: .planning/phases/01-beta/01-04-PLAN.md
+Last session: 2026-08-26T16:09:14.785Z
+Stopped at: 01-04 verified complete; begin01-05 then01-07 sequentially; no human gates waived
+Resume file: .planning/phases/01-beta/01-05-PLAN.md

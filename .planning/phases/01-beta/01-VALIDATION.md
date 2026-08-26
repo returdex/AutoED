@@ -26,6 +26,12 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Authenticated API update — 01-04
+
+Code commit `3376f7f`: independently reran **37 unit +37 integration +7 macOS native =81/81** and typecheck successfully. Added17 real HTTP tests and3 policy tests cover authentication, atomic queue cap with competing processes, scope/maintenance/projections, explicit pairing/replay/expiry/boot revocation, safe outputs and actual listener shutdown. Build now compiles one API entry with injected identity. See `01-04-SUMMARY.md`.
+
+HTTP browser-shaped headers are not browser E2E; listener shutdown is not detached process survival. Windows, real user pairing/Codex exit, release and UAT remain unrun. Shared queue cap and authenticated30/min request limit remain requirements for downstream clients. Phase-wide requirements stay Pending.
+
 ### Native foundation update — 01-03
 
 Against commit `3d24c06`, the orchestrator independently reran **34 unit +20 integration +7 native =61/61** tests and typecheck under managed Node24.20.0. The 7 native tests executed on macOS26.5.2 arm64; Keychain canary set/read/isolation/delete succeeded and test entries were removed. Path tests include native positive permissions and synthetic negative mount/platform inputs; they are not Windows evidence. See `01-03-SUMMARY.md`.
