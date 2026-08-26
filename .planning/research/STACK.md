@@ -91,7 +91,7 @@
 | 7 恢复 / 回滚 | 旧 schema 可兼容才重启旧程序；否则在尚未恢复业务写入时恢复经过验证的迁移前快照。新运行已有写入时不自动覆盖数据；保持维护态并交人工决策 |
 | 8 清理 | 验证成功后移除本安装过时程序和启动引用；失败清理列为 pending。允许的回滚副本显式隔离、不自动运行；永不清理课程资料或其他产品安装 |
 
-**Windows 文件锁必须作为正常失败场景。** 文件被其他句柄占用时删除可能失败；不能把 Unix rename/unlink 行为直接当保证。采用并列版本目录，激活前确认所属句柄关闭，清理有界重试并记录 pending；重启后继续未完成步骤，不静默杀浏览器或强删资料。[Microsoft 文件关闭/删除](https://learn.microsoft.com/en-us/windows/win32/fileio/closing-and-deleting-files)
+**Windows 文件锁必须作为正常失败场景。** 文件被其他句柄占用时删除可能失败；不能把 Unix rename/unlink 行为直接当保证。采用并列版本目录，激活前确认所属句柄关闭，清理有界重试并记录 pending；重启后继续未完成步骤，不静默杀浏览器或强删资料。cleanup_pending不是升级完成；最终验收须清理过时受管程序/入口/进程，只有明确隔离的回滚副本可保留。[Microsoft 文件关闭/删除](https://learn.microsoft.com/en-us/windows/win32/fileio/closing-and-deleting-files)
 
 **浏览器降级不等于应用回滚。** 本项目禁止复制/备份 Profile，因此回滚设计不能依赖 Profile 快照；升级浏览器后能否由旧浏览器继续使用该目录未验证。遇到不兼容先停止/要求受控重新登录，不自动删 Profile、读 Cookie 或宣称会话可回滚。
 

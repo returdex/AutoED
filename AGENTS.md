@@ -67,7 +67,7 @@
 
 - First release includes a complete prompt-driven automated installation/upgrade flow on macOS/Windows, including approved Node/Playwright dependency installation. User controls OS approval and login.
 - Upgrade must inventory managed versions/processes/entrypoints, preserve data, handle migration failure and interruption, verify new runtime/actual features, and clean obsolete managed programs and startup references.
-- Any rollback copy must be explicit and isolated, not a stale active installation. Never delete course archives while cleaning program versions.
+- Any rollback copy must be explicit and isolated, not a stale active installation. Failed cleanup may be reported as cleanup_pending but is not a successful completed upgrade; completion requires obsolete managed programs/entrypoints/processes cleared. Never delete course archives while cleaning program versions.
 - New and legacy products use separate data roots, databases, ports, install IDs and MCP registration. No automatic legacy uninstall or legacy writes.
 - Run applicable automated tests first. Before asking user to perform manual UAT, publish an installable beta and verify it is obtainable; provide exact update instructions and human test cases. User performs the update in Codex and official login themselves.
 - Minimal beta distribution/update ability must exist before Phase 2 live UAT; Phase 8 completes full cross-platform delivery, recovery and switch acceptance.
