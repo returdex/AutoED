@@ -71,6 +71,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ### Blockers/Concerns
 
+- 01-09备份/恢复按[SQLite backup](https://www.sqlite.org/backup.html)与[WAL持久状态](https://www.sqlite.org/wal.html#the_wal_file)：完成backup API后才验证一致快照，恢复前证明所有连接/拥有进程退出并正确收束WAL，不直接copy运行主DB或任意删WAL。本地better-sqlite3 13.0.3 backup会允许既有destination，须新建受管目标、前后核对gate/write_generation与完整性。最终projection须处理exit后operationId=null/gen++及严格单调非未来checkedAt，不能吞掉写入失败。
 - 01-08解包须保留官方macOS headed浏览器的合法Framework links。根于2026-08-27只读核对Playwright固定151.0.7922.34 mac-arm64官方ZIP（cdn.playwright.dev→storage.googleapis.com）：187406357bytes、647members、central143185bytes；5个link的local data长度/CRC已核，Resources/Libraries/Helpers/Framework→Versions/Current对应项，Current→151.0.7922.34。不是完整archive hash/安装/运行证据。清单显式绑定相对target并解析链接图，拒绝越界/循环/悬空/经link写文件；Windows拒绝links。不能展开成regular后未经核验声称保留代码签名。
 - 初始化已完成，Phase 1执行中；01-01至01-08已有124项U/I/macOS原生+10项Chromium UI及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
 - 01-08只完成验签/安全引导/确认范围/初始staging与私有入口，不是安装升级完成。生产信任仍UNESTABLISHED；09须接真正启动、journal、清理与恢复。active hash、Node/resolver/launcher pins作为同一更新集；Windows MCP预览采用固定PowerShell协议，OS argv可显示launcher.mjs，父退出不代表Node子退出，原生Windows留14验收。
