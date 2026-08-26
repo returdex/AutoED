@@ -26,6 +26,12 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Native foundation update — 01-03
+
+Against commit `3d24c06`, the orchestrator independently reran **34 unit +20 integration +7 native =61/61** tests and typecheck under managed Node24.20.0. The 7 native tests executed on macOS26.5.2 arm64; Keychain canary set/read/isolation/delete succeeded and test entries were removed. Path tests include native positive permissions and synthetic negative mount/platform inputs; they are not Windows evidence. See `01-03-SUMMARY.md`.
+
+Windows DACL/Credential Manager, real OS denial/locking and power-loss behavior remain **not_run**. Injected secret-store errors prove fail-closed behavior only. Initialization writes a protected nonsecret receipt before credentials; plans08/09 must wire recovery and prefer valid successful metadata over historical intent. No beta, persistent product installation, Profile or school access was created. Phase-wide requirements remain Pending.
+
 | Property | Planned value |
 |---|---|
 | Framework | Vitest4.1.11 + Playwright Test1.62.1，准确依赖须批准后复核锁定 |
