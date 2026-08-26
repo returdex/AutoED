@@ -9,7 +9,8 @@ it('complete needs matching target, historical feature proof and cleanup, not cu
 });
 it('rollback, no-old failure, unsafe recovery and cleanup remain distinct',()=>{
   const s=complete();s.install!.result='restored';s.install!.stage='rollback';expect(presentInstall(s).message).toContain('升级失败，已恢复旧版');
-  s.install!.result='failed';s.install!.actualBuild=null;expect(presentInstall(s).message).toContain('当前没有可恢复的旧版');
+  s.install!.result='failed';s.install!.actualBuild=null;expect(presentInstall(s).message).not.toContain('当前没有可恢复的旧版');
+  const explicit={...s,install:{...s.install!,previousInstallation:'none' as const}};expect(presentInstall(explicit).message).toContain('当前没有可恢复的旧版');
   s.install!.result='human_needed';expect(presentInstall(s).message).toContain('尚不能确认安全恢复方式');
   s.install!.result='running';s.install!.cleanup='cleanup_pending';expect(presentInstall(s).message).toContain('操作未完成');
 });

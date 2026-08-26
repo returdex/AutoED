@@ -41,6 +41,9 @@ describe('strict application contracts', () => {
   it('rejects sensitive additions in install/selfcheck projections', () => {
     const install = { operationId: randomUUID(), stage: 'verify', result: 'running', targetBuild: build, actualBuild: null, cleanup: 'not_observed', checkedAt: '2026-08-27T00:00:00.000Z' };
     expect(InstallProjectionSchema.parse(install).actualBuild).toBeNull();
+    expect(InstallProjectionSchema.parse(install)).not.toHaveProperty('previousInstallation');
+    for(const previousInstallation of ['none','present','unknown'])expect(InstallProjectionSchema.parse({...install,previousInstallation})).toHaveProperty('previousInstallation',previousInstallation);
+    expect(InstallProjectionSchema.safeParse({...install,previousInstallation:'assumed-none'}).success).toBe(false);
     expect(InstallProjectionSchema.safeParse({ ...install, profilePath: '/not-allowed' }).success).toBe(false);
     const selfcheck = { jobId: randomUUID(), probes: [], featureResult: 'not_observed', checkedAt: null };
     expect(SelfcheckProjectionSchema.parse(selfcheck)).toEqual(selfcheck);
