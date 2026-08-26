@@ -44,6 +44,7 @@ export interface IdentityProbe {
 }
 export interface ProjectionWriteContext { expectedGeneration: number; operationId: string | null }
 export interface StatusProjectionStore {
+  writeManifest(value:import('../../domain/src/model.js').ManifestObservation,context:ProjectionWriteContext):Promise<void>;
   read(): Promise<Status>;
   writeComponent(observation: ComponentObservation, context: ProjectionWriteContext): Promise<void>;
   writeInstall(projection: InstallProjection, context: ProjectionWriteContext): Promise<void>;

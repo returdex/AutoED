@@ -38,7 +38,12 @@ test('offline after actual synthetic successful job labels historical completion
     for(const probe of probes)await f.projections.writeComponent(probe,{operationId,expectedGeneration:gate.generation});
     await f.projections.writeSelfcheck({jobId:j.id,featureResult:'pass',checkedAt,probes},{operationId,expectedGeneration:gate.generation});
     await f.projections.writeInstall({operationId,stage:'complete',result:'succeeded',cleanup:'complete',targetBuild:f.build,actualBuild:f.build,checkedAt},{operationId,expectedGeneration:gate.generation});
-    await page.goto(f.api.origin+'/status');await expect(page.locator('#pair-code')).toHaveText(/^[A-F0-9]{16}$/);await f.approve(await page.locator('#pair-code').innerText());await page.getByRole('button').click();await expect(page.locator('#protected')).toContainText('操作完成：目标版本已启动');
+    await page.goto(f.api.origin+'/status');await expect(page.locator('#pair-code')).toHaveText(/^[A-F0-9]{16}$/);await f.approve(await page.locator('#pair-code').innerText());await page.getByRole('button').click();await expect(page.locator('#protected')).not.toContainText('操作完成：目标版本已启动');
+    await f.projections.writeManifest({build:{...f.build,buildId:'f'.repeat(64)},manifestHash:'e'.repeat(64),checkedAt:new Date().toISOString(),evidence:'build_manifest'},{operationId,expectedGeneration:gate.generation});
+    await page.getByRole('button').click();await expect(page.locator('#protected')).not.toContainText('操作完成：目标版本已启动');
+    const verifiedAt=new Date().toISOString();await f.projections.writeManifest({build:f.build,manifestHash:'e'.repeat(64),checkedAt:verifiedAt,evidence:'build_manifest'},{operationId,expectedGeneration:gate.generation});
+    await f.projections.writeSelfcheck({jobId:j.id,featureResult:'pass',checkedAt:verifiedAt,probes},{operationId,expectedGeneration:gate.generation});
+    await page.getByRole('button').click();await expect(page.locator('#protected')).toContainText('操作完成：目标版本已启动');await expect(page.locator('#protected')).toContainText('build_manifest');
     await context.setOffline(true);await page.getByRole('button').click();await expect(page.getByRole('status')).toContainText('以下为上次读取结果');
     await expect(page.getByRole('heading',{name:'上次操作记录（旧快照）'})).toBeVisible();await expect(page.locator('#protected')).not.toContainText('API 可连接');await expect(page.locator('#protected')).toContainText('当前运行状态未确认');
   }finally{if(f)await f.close();await h.cleanup();}

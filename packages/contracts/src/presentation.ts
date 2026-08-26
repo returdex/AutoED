@@ -2,6 +2,7 @@
 interface DisplayIdentity {version:string;buildId:string;commit:string;tree:string;dependencyHash:string;protocol:number;schemaMin:number;schemaMax:number;capabilities:string[]}
 interface DisplayComponent {role:string;build:DisplayIdentity|null;health:string;freshness?:string|undefined;checkedAt:string|null;evidence:string}
 interface DisplayStatus {
+  manifest?:{build:DisplayIdentity;manifestHash:string;checkedAt:string;evidence:string}|null|undefined;
   api:DisplayComponent|null;worker:DisplayComponent|null;
   install:{stage:string;result:string;cleanup:string;targetBuild:DisplayIdentity|null;actualBuild:DisplayIdentity|null;checkedAt:string|null;previousInstallation?:'none'|'present'|'unknown'|undefined}|null;
   selfcheck:{jobId:string|null;featureResult:string;probes:DisplayComponent[];checkedAt:string|null}|null;
@@ -24,7 +25,8 @@ export function presentInstall(status:DisplayStatus):PublicFeedback&{complete:bo
   const check=status.selfcheck;
   // Historical completion does not expire with heartbeats. Its proof must still
   // describe the target, including all four actual component observations.
-  const proven=check?.featureResult==='pass'&&check.jobId!==null&&check.checkedAt!==null&&check.probes.length===4&&new Set(check.probes.map(p=>p.role)).size===4&&['api','worker','cli','mcp'].every(role=>check.probes.some(p=>p.role===role&&p.health==='healthy'&&p.evidence!=='not_observed'&&p.checkedAt!==null&&displaySame(p.build,i.targetBuild)));
+  const manifest=status.manifest;
+  const proven=manifest&&['build_manifest','verified_release_manifest'].includes(manifest.evidence)&&manifest.manifestHash.length===64&&displaySame(manifest.build,i.targetBuild)&&check?.featureResult==='pass'&&check.jobId!==null&&check.checkedAt!==null&&Date.parse(manifest.checkedAt)<=Date.parse(check.checkedAt)&&check.probes.length===4&&new Set(check.probes.map(p=>p.role)).size===4&&['api','worker','cli','mcp'].every(role=>check.probes.some(p=>p.role===role&&p.health==='healthy'&&p.evidence!=='not_observed'&&p.checkedAt!==null&&displaySame(p.build,i.targetBuild)));
   if(i.result==='succeeded'&&i.stage==='complete'&&i.checkedAt!==null&&i.cleanup==='complete'&&displaySame(i.targetBuild,i.actualBuild)&&proven)return output('INSTALL_COMPLETE','操作完成：目标版本已启动，实际接线自检通过，旧版本清理完成。'+(i.previousInstallation==='none'?'首次安装，无旧版本需要清理。':''),true);
   if(i.targetBuild&&[status.api,status.worker,...(check?.probes??[])].some(c=>c?.build&&!displaySame(c.build,i.targetBuild)))return output('VERSION_MISMATCH','检测到组件版本不一致，操作未完成。请查看差异并通过本安装的升级流程处理。');
   return output('NOT_VERIFIED',`操作未完成。${unverifiedCopy}`);

@@ -2,7 +2,7 @@ import { expect,it } from 'vitest';
 import { presentInstall,presentWorker,presentFailure,presentHumanGate } from '../../packages/contracts/src/presentation.js';
 import type { BuildIdentity, Status } from '../../packages/domain/src/model.js';
 const build:BuildIdentity={version:'0.1.0-beta.1',buildId:'a'.repeat(64),commit:'b'.repeat(40),tree:'c'.repeat(40),dependencyHash:'d'.repeat(64),protocol:1,schemaMin:1,schemaMax:1,capabilities:['echo']};
-function complete():Status {const checkedAt='2026-08-27T00:00:00.000Z';const probes=(['api','worker','cli','mcp'] as const).map(role=>({role,build,health:'healthy' as const,evidence:'authenticated_probe' as const,checkedAt,freshness:'stale' as const}));return {api:probes[0]!,worker:probes[1]!,selfcheck:{jobId:'00000000-0000-4000-8000-000000000001',featureResult:'pass',checkedAt,probes,freshness:'stale'},install:{operationId:'00000000-0000-4000-8000-000000000002',stage:'complete',result:'succeeded',cleanup:'complete',targetBuild:build,actualBuild:build,checkedAt},checkedAt};}
+function complete():Status {const checkedAt='2026-08-27T00:00:00.000Z';const probes=(['api','worker','cli','mcp'] as const).map(role=>({role,build,health:'healthy' as const,evidence:'authenticated_probe' as const,checkedAt,freshness:'stale' as const}));return {manifest:{build,manifestHash:'e'.repeat(64),checkedAt,evidence:'build_manifest'},api:probes[0]!,worker:probes[1]!,selfcheck:{jobId:'00000000-0000-4000-8000-000000000001',featureResult:'pass',checkedAt,probes,freshness:'stale'},install:{operationId:'00000000-0000-4000-8000-000000000002',stage:'complete',result:'succeeded',cleanup:'complete',targetBuild:build,actualBuild:build,checkedAt},checkedAt};}
 it('complete needs matching target, historical feature proof and cleanup, not current heartbeat freshness',()=>{
   expect(presentInstall(complete()).complete).toBe(true);
   for(const change of ['cleanup','proof','target'] as const){const s=complete();if(change==='cleanup')s.install!.cleanup='cleanup_pending';if(change==='proof')s.selfcheck!.featureResult='fail';if(change==='target')s.install!.actualBuild={...build,buildId:'z'.repeat(64)};expect(presentInstall(s).complete).toBe(false);}
@@ -29,3 +29,5 @@ it('human feedback is pending and uses only a validated beta version',()=>{
   expect(presentHumanGate('0.1.0-beta.1').message).toContain('结果等待你的反馈');
   expect(presentHumanGate('/private/secret').message).not.toContain('/private');
 });
+
+it('missing or mismatched manifest cannot complete five identities',()=>{const s=complete();s.manifest=null;expect(presentInstall(s).complete).toBe(false);s.manifest={...complete().manifest!,build:{...build,buildId:'f'.repeat(64)}};expect(presentInstall(s).complete).toBe(false);});

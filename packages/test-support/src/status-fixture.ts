@@ -20,7 +20,7 @@ export async function createStatusFixture(options:{assetsRoot:string;build?:Buil
   const credentials=[await issueCredential(secrets,scope.installationId,'cli',scope,'local_cli')];
   const jobs=new SQLiteJobStore(db),projections=new SQLiteStatusProjectionStore(db),maintenance=new SQLiteMaintenanceStore(db),sessions=new SQLiteSessions(db,scope.installationId);
   let denied=false;let hold:Promise<void>|undefined;let release:(()=>void)|undefined;
-  const reads:StatusProjectionStore={async read(){if(hold)await hold;if(denied)throw new ApplicationError('FORBIDDEN');return projections.read();},writeComponent:(...args)=>projections.writeComponent(...args),writeInstall:(...args)=>projections.writeInstall(...args),writeSelfcheck:(...args)=>projections.writeSelfcheck(...args)};
+  const reads:StatusProjectionStore={writeManifest:(...args)=>projections.writeManifest(...args),async read(){if(hold)await hold;if(denied)throw new ApplicationError('FORBIDDEN');return projections.read();},writeComponent:(...args)=>projections.writeComponent(...args),writeInstall:(...args)=>projections.writeInstall(...args),writeSelfcheck:(...args)=>projections.writeSelfcheck(...args)};
   try{
     const api=await startApi({host:'127.0.0.1',port:0,installationId:scope.installationId,build,secrets,credentials,jobs,projections:reads,maintenance,sessions,shutdown:async()=>{},assetsRoot:options.assetsRoot});
     return {h,db,scope,build,jobs,projections,maintenance,sessions,api,

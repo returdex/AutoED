@@ -49,3 +49,13 @@ it('official stdio exposes only three strict tools, denies browser instructions 
     const stopped=await client.callTool({name:'autoed_status',arguments:{}});expect(stopped.isError).toBe(true);expect(stopped.structuredContent).toMatchObject({code:'BACKEND_UNAVAILABLE'});
   }finally{await client?.close();await f.cleanup();}
 },60000);
+
+it('early actual CLI failure replaces old selfcheck evidence with failure and revokes the exact temporary credential',async()=>{
+  const f=await createNativeRuntime();try{
+    const operationId=await exclusive(f);const broken=join(f.out,'apps/cli/src/broken.js');writeFileSync(broken,'process.exitCode=7;');
+    const {runSelfcheck}=await import(pathToFileURL(join(f.out,'scripts/install/selfcheck.mjs')).href);
+    const result=await runSelfcheck({selection:f.selection,managedNode:process.execPath,cliEntry:broken,mcpEntry:f.entries.mcp,manifestPath:join(f.out,'build/identity.json'),operationId,generation:0});
+    expect(result).toMatchObject({matched:false,featureResult:'fail',code:'CLI_PROBE_FAILED',projectionWritten:true,probes:[]});
+    expect((await (await f.request('/api/status')).json()).selfcheck).toMatchObject({featureResult:'fail',jobId:null,probes:[]});expect(await f.secrets.get(f.metadata.installationId,'selfcheck-'+operationId)===null).toBe(true);
+  }finally{await f.cleanup();}
+},60000);

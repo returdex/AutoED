@@ -3,6 +3,8 @@ import type { OutputPolicy, JobStore, MaintenanceStore, StatusProjectionStore } 
 import type { OutputDestination, OutputOperation, Scope, WriteContext } from '../../domain/src/model.js';
 import { JobRequestSchema, ScopeSchema, OutputDestinationSchema, OutputOperationSchema, ComponentObservationSchema, InstallProjectionSchema, SelfcheckProjectionSchema } from '../../contracts/src/index.js';
 import { Jobs } from './jobs.js';
+import {ManifestObservationSchema} from '../../contracts/src/index.js';
+import {sameIdentity} from './identity.js';
 
 export class ApplicationError extends Error {
   constructor(public readonly code: string, public readonly statusCode = 403) { super(code); }
@@ -40,6 +42,7 @@ const MaintenanceInput = z.discriminatedUnion('action', [
   z.strictObject({ action: z.enum(['exclusive', 'exit']), operationId: z.uuid(), expectedGeneration: generation }),
 ]);
 const ProjectionInput = z.discriminatedUnion('kind', [
+  z.strictObject({kind:z.literal('manifest'),operationId:z.uuid(),expectedGeneration:generation,value:ManifestObservationSchema}),
   z.strictObject({ kind: z.literal('component'), operationId: z.uuid(), expectedGeneration: generation, value: ComponentObservationSchema }),
   z.strictObject({ kind: z.literal('install'), operationId: z.uuid(), expectedGeneration: generation, value: InstallProjectionSchema }),
   z.strictObject({ kind: z.literal('selfcheck'), operationId: z.uuid(), expectedGeneration: generation, value: SelfcheckProjectionSchema }),
@@ -85,10 +88,13 @@ export class ApiApplication {
     await authorize(this.policy, principal, 'installer', 'status'); const value = ProjectionInput.parse(input);
     if(this.runtimeGeneration!==undefined&&value.expectedGeneration!==this.runtimeGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
     const context = { operationId: value.operationId, expectedGeneration: value.expectedGeneration };
-    if (value.kind === 'install') await this.projections.writeInstall(value.value, context);
+    if (value.kind === 'manifest') await this.projections.writeManifest(value.value,context);
+    else if (value.kind === 'install') await this.projections.writeInstall(value.value, context);
     else if (value.kind === 'component') await this.projections.writeComponent(value.value, context);
     else {
       if (value.value.featureResult === 'pass') {
+        const manifest=(await this.projections.read()).manifest;
+        if(!manifest||!value.value.probes.every(p=>sameIdentity(p.build,manifest.build)))throw new ApplicationError('INVALID_SELFCHECK',409);
         const job = value.value.jobId ? await this.store.query(value.value.jobId, principal.scope) : null;
         if (!job || job.state !== 'succeeded' || job.operationId !== value.operationId || job.generation !== value.expectedGeneration) throw new ApplicationError('INVALID_SELFCHECK', 409);
       }

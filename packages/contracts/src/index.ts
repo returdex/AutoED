@@ -55,7 +55,9 @@ export const SelfcheckProjectionSchema: z.ZodType<SelfcheckProjection> = z.stric
   return item.jobId !== null && item.checkedAt !== null && item.probes.length === 4 && new Set(item.probes.map(probe => probe.role)).size === 4 && first != null &&
     item.probes.every(probe => probe.health === 'healthy' && probe.build !== null && sameBuild(first, probe.build) && probe.checkedAt !== null && Date.parse(probe.checkedAt) <= Date.parse(item.checkedAt!));
 }, 'Passing selfcheck requires a job and four consistent actual component observations');
+export const ManifestObservationSchema=z.strictObject({build:BuildIdentitySchema,manifestHash:hash,checkedAt:z.iso.datetime(),evidence:z.enum(['build_manifest','verified_release_manifest']),freshness:projectionFreshness});
 export const StatusSchema: z.ZodType<Status> = z.strictObject({
+  manifest:ManifestObservationSchema.nullable().optional(),
   installationId: z.uuid().optional(),
   api: ComponentObservationSchema.nullable(), worker: ComponentObservationSchema.nullable(),
   install: InstallProjectionSchema.nullable(), selfcheck: SelfcheckProjectionSchema.nullable(), checkedAt: timestamp,

@@ -7,8 +7,8 @@ import {StatusSchema} from '../../contracts/src/index.js';
 import {redactOutput} from '../../application/src/policy.js';
 import type {BuildIdentity} from '../../domain/src/model.js';
 
-const errorCodes=new Set(['BACKEND_UNAVAILABLE','IDENTITY_MISMATCH','AUTH_REQUIRED','FORBIDDEN','RATE_LIMITED','MAINTENANCE_ACTIVE','GENERATION_MISMATCH','JOB_NOT_FOUND','INVALID_REQUEST','SECRET_STORE_UNAVAILABLE','PAIRING_DENIED','QUEUE_FULL','PROCESS_STOP_UNCONFIRMED','PROCESS_OWNERSHIP_UNCONFIRMED','SERVICE_START_UNCONFIRMED']);
-export function clientError(error:unknown){const code=error instanceof Error?error.message:'';return {code:errorCodes.has(code)?code:'REQUEST_FAILED',stage:'client',nextAction:code==='SECRET_STORE_UNAVAILABLE'?'human_os_authorization_required':'check_this_installation'};}
+const errorCodes=new Set(['CREDENTIAL_RECOVERY_REQUIRED','INVALID_CREDENTIAL','BACKEND_UNAVAILABLE','IDENTITY_MISMATCH','AUTH_REQUIRED','FORBIDDEN','RATE_LIMITED','MAINTENANCE_ACTIVE','GENERATION_MISMATCH','JOB_NOT_FOUND','INVALID_REQUEST','SECRET_STORE_UNAVAILABLE','PAIRING_DENIED','QUEUE_FULL','PROCESS_STOP_UNCONFIRMED','PROCESS_OWNERSHIP_UNCONFIRMED','SERVICE_START_UNCONFIRMED']);
+export function clientError(error:unknown){const code=error instanceof Error?error.message:'';return {code:errorCodes.has(code)?code:'REQUEST_FAILED',stage:'client',nextAction:code==='SECRET_STORE_UNAVAILABLE'?'human_os_authorization_required':code==='CREDENTIAL_RECOVERY_REQUIRED'?'preserve_exact_receipt_for_human_recovery':'check_this_installation'};}
 export class HttpClient {
   private endpoint:ReturnType<typeof discover>|undefined;private verified=false;
   constructor(private readonly root:string,private readonly parent:string,private readonly purpose:ClientPurpose,private readonly build:BuildIdentity,private readonly credentialId?:string){}
@@ -31,7 +31,7 @@ export class HttpClient {
     await this.identity();return redactOutput((await this.raw(path,body)).value);
   }
   async status(){const endpoint=await this.identity();const status=StatusSchema.parse(await this.call('/api/status'));if(status.installationId!==endpoint.installationId)throw new Error('IDENTITY_MISMATCH');return status;}
-  async selftest(kind:unknown,value:unknown,idempotencyKey=randomUUID()){const input=z.strictObject({kind:z.enum(['echo','digest']),value:z.string().max(4096),idempotencyKey:z.uuid()}).parse({kind,value,idempotencyKey});const endpoint=await this.identity();return this.call('/api/jobs',{...input,scope:endpoint.scope});}
+  async selftest(kind:unknown,value:unknown,idempotencyKey:string=randomUUID()){const input=z.strictObject({kind:z.enum(['echo','digest']),value:z.string().max(4096),idempotencyKey:z.uuid()}).parse({kind,value,idempotencyKey});const endpoint=await this.identity();return this.call('/api/jobs',{...input,scope:endpoint.scope});}
   job(id:string){return this.call('/api/jobs/'+z.uuid().parse(id));}
   cancel(id:string){return this.call('/api/jobs/'+z.uuid().parse(id)+'/cancel',{});}
 }

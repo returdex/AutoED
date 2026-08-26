@@ -1,7 +1,7 @@
 type Identity = {version:string;buildId:string;commit:string;tree:string;dependencyHash:string;protocol:number;schemaMin:number;schemaMax:number;capabilities:string[]};
 type Component = {role:string;build:Identity|null;health:string;freshness?:string;checkedAt:string|null;evidence:string};
 type Installation = {operationId:string;stage:string;result:string;cleanup:string;targetBuild:Identity|null;actualBuild:Identity|null;checkedAt:string|null;freshness?:string;previousInstallation?:'none'|'present'|'unknown'};
-type Snapshot = {api:Component|null;worker:Component|null;install:Installation|null;selfcheck:{jobId:string|null;featureResult:string;probes:Component[];checkedAt:string|null;freshness?:string}|null;checkedAt:string|null};
+type Snapshot = {manifest?:{build:Identity;manifestHash:string;checkedAt:string;evidence:string}|null;api:Component|null;worker:Component|null;install:Installation|null;selfcheck:{jobId:string|null;featureResult:string;probes:Component[];checkedAt:string|null;freshness?:string}|null;checkedAt:string|null};
 type JobView = {id:string;state:string;attempt:number;updatedAt:number;result:string|null;errorCode:string|null};
 const unknown = '未验证，不代表已通过。';
 const refreshButton = document.querySelector<HTMLButtonElement>('#refresh')!;
@@ -32,7 +32,7 @@ function render(stale=false) {
   rows(attention,[['code',state.code],['stage',state.stage],['影响',state.impact],['下一步',state.nextAction]]);
   attention.append(node('p',presentWorker(s.worker,stale)));
   const health=section('API 与 Worker');for(const [name,c]of [['API',s.api],['Worker',s.worker]] as const)rows(health,[[name,stale?'旧快照，当前未确认':c?`${c.health} · ${c.freshness??'not_observed'}`:'not_observed'],[`${name} 观察时间`,c?.checkedAt??unknown]]);
-  const versions=section('版本身份与差异');rows(versions,[['目标版本',identity(s.install?.targetBuild)],['发布 manifest',unknown]]);
+  const versions=section('版本身份与差异');rows(versions,[['目标版本',identity(s.install?.targetBuild)],['发布 manifest',identity(s.manifest?.build)],['manifest 证据',s.manifest?`${s.manifest.evidence} · ${s.manifest.manifestHash} · ${s.manifest.checkedAt}（构建清单观察不等于发布签名验证）`:unknown]]);
   for(const role of ['api','worker','cli','mcp']){const c=role==='api'?s.api:role==='worker'?s.worker:s.selfcheck?.probes.find(p=>p.role===role);rows(versions,[[role.toUpperCase(),identity(c?.build)],[`${role.toUpperCase()} 检查时间`,c?.checkedAt??unknown],[`${role.toUpperCase()} 目标匹配`,c?.build&&s.install?.targetBuild?(same(c.build,s.install.targetBuild)?'身份一致；不单独代表自检通过':'不一致'):unknown]]);}
   const checks=section(s.selfcheck?'最近一次自检':'尚无自检记录');
   if(!s.selfcheck)checks.append(node('p','安装或升级后将自动启动服务并自检。请先在 Codex 中完成已发布测试版的安装。'));

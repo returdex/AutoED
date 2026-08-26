@@ -20,11 +20,13 @@ export function assertTransport(request: FastifyRequest, origin: string): void {
   if (request.raw.socket.remoteAddress !== '127.0.0.1' || request.headers.host !== origin.slice(7) || request.headers.origin !== undefined && request.headers.origin !== origin) throw new ApplicationError('FORBIDDEN');
   if (request.headers['sec-fetch-site'] && request.headers['sec-fetch-site'] !== 'same-origin' && request.headers['sec-fetch-site'] !== 'none') throw new ApplicationError('FORBIDDEN');
 }
-export async function authenticate(request: FastifyRequest, installationId: string, records: readonly CredentialRecord[], secrets: SecretStore, maintenance: MaintenanceStore): Promise<Principal> {
+export async function authenticate(request: FastifyRequest, installationId: string, records: readonly CredentialRecord[], secrets: SecretStore, maintenance: MaintenanceStore,additional?:()=>Promise<CredentialRecord[]>): Promise<Principal> {
   const header = request.headers.authorization;
   if (!header || !/^Bearer [A-Za-z0-9_-]{43}$/.test(header)) throw new ApplicationError('UNAUTHORIZED', 401);
   const token = header.slice(7); const digest = createHash('sha256').update(token).digest('hex');
-  const record = records.find(item => item.installationId === installationId && item.digest === digest);
+  const match=(item:CredentialRecord)=>item.installationId===installationId&&item.digest===digest;
+  let record = records.find(match);
+  if(!record&&additional){try{record=(await additional()).find(match);}catch{throw new ApplicationError('UNAUTHORIZED',401);}}
   if (!record) throw new ApplicationError('UNAUTHORIZED', 401);
   const gate = record.destination === 'selfcheck' ? await maintenance.read() : null;
   if (gate && gate.state !== 'exclusive' || !await verifyCredential(secrets, record, token, record.scope, record.destination, gate?.operationId ?? null, gate?.generation ?? null)) throw new ApplicationError('UNAUTHORIZED', 401);

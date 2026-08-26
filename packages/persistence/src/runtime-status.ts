@@ -1,7 +1,8 @@
 import type Database from 'better-sqlite3';
 import type { Clock, ProjectionWriteContext, StatusProjectionStore } from '../../application/src/ports.js';
 import type { ComponentObservation, InstallProjection, SelfcheckProjection, Status } from '../../domain/src/model.js';
-import { ComponentObservationSchema, InstallProjectionSchema, SelfcheckProjectionSchema } from '../../contracts/src/index.js';
+import { ComponentObservationSchema, InstallProjectionSchema, SelfcheckProjectionSchema, ManifestObservationSchema } from '../../contracts/src/index.js';
+import type {ManifestObservation} from '../../domain/src/model.js';
 import { readGate, StorageError } from './database.js';
 
 export class SQLiteStatusProjectionStore implements StatusProjectionStore {
@@ -10,7 +11,7 @@ export class SQLiteStatusProjectionStore implements StatusProjectionStore {
     const rows = this.db.prepare('SELECT key,projection,checked_at FROM runtime_status').all() as { key: string; projection: string; checked_at: number | null }[];
     const values = new Map(rows.map(row => [row.key, { ...JSON.parse(row.projection), freshness: row.checked_at === null ? 'not_observed' : this.clock.now() - row.checked_at > this.staleAfterMs || row.checked_at > this.clock.now() ? 'stale' : 'fresh' }]));
     const times = rows.flatMap(row => row.checked_at === null ? [] : [row.checked_at]);
-    return { api: values.get('api') ?? null, worker: values.get('worker') ?? null, install: values.get('install') ?? null, selfcheck: values.get('selfcheck') ?? null,
+    return { manifest:values.get('manifest')??null, api: values.get('api') ?? null, worker: values.get('worker') ?? null, install: values.get('install') ?? null, selfcheck: values.get('selfcheck') ?? null,
       checkedAt: times.length ? new Date(Math.max(...times)).toISOString() : null };
   }
   async writeComponent(observation: ComponentObservation, context: ProjectionWriteContext): Promise<void> {
@@ -24,7 +25,8 @@ export class SQLiteStatusProjectionStore implements StatusProjectionStore {
   async writeSelfcheck(projection: SelfcheckProjection, context: ProjectionWriteContext): Promise<void> {
     const value = SelfcheckProjectionSchema.parse(projection); this.write('selfcheck', value, value.featureResult === 'pass', context);
   }
-  private write(key: string, value: ComponentObservation | InstallProjection | SelfcheckProjection, success: boolean, context: ProjectionWriteContext): void {
+  async writeManifest(value:ManifestObservation,context:ProjectionWriteContext){const parsed=ManifestObservationSchema.parse(value);this.write('manifest',parsed,true,context);}
+  private write(key: string, value: ComponentObservation | InstallProjection | SelfcheckProjection | ManifestObservation, success: boolean, context: ProjectionWriteContext): void {
     this.db.transaction(() => {
       const gate = readGate(this.db);
       if (gate.generation !== context.expectedGeneration) throw new StorageError('GENERATION_MISMATCH');

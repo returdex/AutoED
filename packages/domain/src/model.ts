@@ -63,9 +63,15 @@ export interface SelfcheckProjection {
   featureResult: 'not_observed' | 'pass' | 'fail'; checkedAt: string | null;
 }
 export interface Status {
+  manifest?: ManifestObservation | null | undefined;
   installationId?: string | undefined;
   api: ComponentObservation | null; worker: ComponentObservation | null;
   install: InstallProjection | null; selfcheck: SelfcheckProjection | null; checkedAt: string | null;
+}
+export interface ManifestObservation {
+  build:BuildIdentity; manifestHash:string; checkedAt:string;
+  evidence:'build_manifest'|'verified_release_manifest';
+  freshness?:'not_observed'|'fresh'|'stale'|undefined;
 }
 export interface ProcessIdentity {
   installationId: string; role: 'api' | 'worker'; buildId: string;
