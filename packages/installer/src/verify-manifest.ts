@@ -1,19 +1,20 @@
 import {createHash,createPublicKey,verify} from 'node:crypto';
-import {lstatSync,readFileSync,realpathSync,readdirSync} from 'node:fs';
+import {lstatSync,readFileSync,realpathSync,readdirSync,readlinkSync} from 'node:fs';
 import {join,relative,isAbsolute} from 'node:path';
 import {z} from 'zod';
 import {BuildIdentitySchema} from '../../contracts/src/index.js';
-export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024*1024*1024,unpackedBytes:8*1024*1024*1024,files:100000,artifacts:8});
+export {LIMITS,safeArtifactPath,validateLinkGraph} from './archive-core.js';
+import {LIMITS,safeArtifactPath,validateLinkGraph} from './archive-core.js';
 const hash=z.string().regex(/^[a-f0-9]{64}$/);
-export function safeArtifactPath(path:string):boolean {
-  return path.length<=512&&!path.startsWith('/')&&!path.endsWith('/')&&path.split('/').every(p=>/^[A-Za-z0-9@_+ .-]+$/.test(p)&&p.trim()===p&&p!=='.'&&p!=='..'&&!p.endsWith('.')&&!/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(p));
-}
 const path=z.string().refine(safeArtifactPath);
 const httpsURL=z.url().max(2048).refine(s=>{const u=new URL(s);return u.protocol==='https:'&&!u.username&&!u.password&&!u.hash&&(!u.port||u.port==='443');});
-const file=z.strictObject({path,sha256:hash,bytes:z.number().int().nonnegative().max(LIMITS.unpackedBytes)});
+const file=z.union([
+  z.strictObject({path,sha256:hash,bytes:z.number().int().nonnegative().max(512*1024*1024),type:z.literal('file').optional(),executable:z.boolean().optional()}),
+  z.strictObject({path,sha256:hash,bytes:z.number().int().positive().max(512),type:z.literal('symlink'),target:z.string().min(1).max(512)}),
+]);
 const artifact=z.strictObject({name:path.refine(s=>!s.includes('/')),role:z.enum(['program','node','browser','installer']),url:httpsURL,sha256:hash,bytes:z.number().int().positive().max(LIMITS.archiveBytes),format:z.enum(['tar.gz','zip','file']),unpackedBytes:z.number().int().nonnegative().max(LIMITS.unpackedBytes),files:z.array(file).min(1).max(LIMITS.files)}).refine(a=>{
   const names=a.files.map(f=>f.path.toLowerCase()),seen=new Set(names);return seen.size===names.length&&a.files.reduce((n,f)=>n+f.bytes,0)===a.unpackedBytes&&names.every(name=>{const parts=name.split('/');return parts.every((_,i)=>i===parts.length-1||!seen.has(parts.slice(0,i+1).join('/')));});
-},'Invalid file closure');
+},'Invalid file closure').refine(a=>a.format!=='tar.gz'||a.unpackedBytes<=LIMITS.tarUnpackedBytes,'USTAR decoded size limit');
 const result=z.enum(['pass','fail','not_run','human_needed']);
 export const ReleaseManifestSchema=z.strictObject({
   schema:z.literal(1),product:z.literal('autoed-rebuild'),build:BuildIdentitySchema,
@@ -22,7 +23,7 @@ export const ReleaseManifestSchema=z.strictObject({
   artifacts:z.array(artifact).min(1).max(LIMITS.artifacts),
   dependencySources:z.array(z.strictObject({name:z.string().min(1).max(128),version:z.string().min(1).max(64),url:httpsURL,integrity:z.string().regex(/^(?:sha256-[a-f0-9]{64}|sha512-[A-Za-z0-9+/]+={0,2})$/)})).min(1).max(1000),
   tests:z.strictObject({synthetic:result,integration:result,macosNative:result,windowsNative:result,human:result}),
-}).refine(m=>((m.target.os==='darwin'&&m.target.arch==='arm64')||(m.target.os==='win32'&&m.target.arch==='x64'))&&new Set(m.artifacts.map(a=>a.name.toLowerCase())).size===m.artifacts.length&&m.artifacts.reduce((n,a)=>n+a.unpackedBytes,0)<=LIMITS.unpackedBytes&&m.artifacts.reduce((n,a)=>n+a.files.length,0)<=LIMITS.files,'Unsupported target or duplicate artifact');
+}).refine(m=>((m.target.os==='darwin'&&m.target.arch==='arm64')||(m.target.os==='win32'&&m.target.arch==='x64'))&&new Set(m.artifacts.map(a=>a.name.toLowerCase())).size===m.artifacts.length&&m.artifacts.reduce((n,a)=>n+a.unpackedBytes,0)<=LIMITS.unpackedBytes&&m.artifacts.reduce((n,a)=>n+a.files.length,0)<=LIMITS.files,'Unsupported target or duplicate artifact').refine(m=>{try{for(const artifact of m.artifacts)validateLinkGraph(artifact.files,m.target.os==='darwin'&&artifact.role==='browser');return true;}catch{return false;}},'Invalid link graph');
 export type ReleaseManifest=z.infer<typeof ReleaseManifestSchema>;
 export interface VerificationTarget {os:'darwin'|'win32';arch:'arm64'|'x64';version:string;schema:number;protocol:number;currentVersion?:string}
 export interface VerifiedManifest {readonly manifest:ReleaseManifest;readonly manifestHash:string;readonly keyFingerprint:string;readonly evidence:'synthetic_signature'|'verified_release_manifest'}
@@ -51,9 +52,9 @@ export function verifyArtifactBytes(value:VerifiedManifest,name:string,bytes:Buf
 export function verifyFileTree(value:VerifiedManifest,name:string,root:string){
   const artifact=selected(value,name);try{
     if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error();
-    const expected=new Set(artifact.files.map(f=>f.path)),directories=new Set<string>();let count=0;
+    const expected=new Map(artifact.files.map(f=>[f.path,f])),directories=new Set<string>();let count=0;
     for(const file of artifact.files){const parts=file.path.split('/');for(let i=1;i<parts.length;i++)directories.add(parts.slice(0,i).join('/'));}
-    const walk=(directory:string,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){const path=prefix+entry.name;if(!safeArtifactPath(path)||entry.isSymbolicLink())throw new Error();if(entry.isDirectory()){if(!directories.has(path))throw new Error();walk(join(directory,entry.name),path+'/');}else if(!entry.isFile()||!expected.has(path)||++count>artifact.files.length)throw new Error();}};walk(root);if(count!==artifact.files.length)throw new Error();
-    for(const file of artifact.files){const path=join(root,file.path);const rel=relative(root,path);if(rel.startsWith('..')||isAbsolute(rel)||realpathSync(path)!==path)throw new Error();const st=lstatSync(path);if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size!==file.bytes||digest(readFileSync(path))!==file.sha256)throw new Error();}
+    const walk=(directory:string,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){const path=prefix+entry.name;if(!safeArtifactPath(path))throw new Error();if(entry.isDirectory()){if(!directories.has(path))throw new Error();walk(join(directory,entry.name),path+'/');}else if(!expected.has(path)||entry.isSymbolicLink()!==(expected.get(path)!.type==='symlink')||!entry.isSymbolicLink()&&!entry.isFile()||++count>artifact.files.length)throw new Error();}};walk(root);if(count!==artifact.files.length)throw new Error();
+    for(const file of artifact.files){const path=join(root,file.path);const rel=relative(root,path);if(rel.startsWith('..')||isAbsolute(rel))throw new Error();const st=lstatSync(path);if(file.type==='symlink'){const target=readlinkSync(path);if(!st.isSymbolicLink()||target!==file.target||Buffer.byteLength(target)!==file.bytes||digest(Buffer.from(target))!==file.sha256)throw new Error();}else if(realpathSync(path)!==path||!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size!==file.bytes||digest(readFileSync(path))!==file.sha256)throw new Error();}
   }catch{throw new Error('FILE_INTEGRITY');}
 }
