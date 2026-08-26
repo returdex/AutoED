@@ -1,4 +1,4 @@
-import {lstatSync,readFileSync,readdirSync,readlinkSync,realpathSync} from 'node:fs';
+import {closeSync,lstatSync,openSync,readFileSync,readdirSync,readlinkSync,readSync,realpathSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {join,relative,resolve,isAbsolute} from 'node:path';
 
@@ -16,6 +16,7 @@ export function inspectNativeBinary(bytes,target){
   }
   throw new Error('TARGET_UNSUPPORTED');
 }
+export function inspectTreeMachines(root,files,target){for(const file of files){if(file.type!=='file')continue;const fd=openSync(join(root,file.path),'r'),header=Buffer.alloc(4096);let length=0;try{length=readSync(fd,header,0,header.length,0);}finally{closeSync(fd);}const bytes=header.subarray(0,length),magic=bytes.length>=4&&(bytes.readUInt32LE(0)===0xfeedfacf||bytes.subarray(0,2).toString()==='MZ'),nativeName=/\.(?:node|exe|dll|dylib)$/i.test(file.path);if(magic||nativeName)inspectNativeBinary(bytes,target);}}
 function safeName(name){return name&&name!=='.'&&name!=='..'&&!name.includes('/')&&!name.includes('\\')&&!/[\0-\x1f]/.test(name);}
 export function inventoryTree(root,target){
   if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error('SOURCE_UNSAFE');const files=[];
