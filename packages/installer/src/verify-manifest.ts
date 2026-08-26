@@ -31,6 +31,7 @@ const verifiedObjects=new WeakSet<object>();
 export function isVerifiedManifest(value:unknown):value is VerifiedManifest{return typeof value==='object'&&value!==null&&verifiedObjects.has(value);}
 function digest(bytes:Buffer){return createHash('sha256').update(bytes).digest('hex');}
 function compare(a:string,b:string){const version=(s:string)=>{const match=/^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/.exec(s);if(!match)throw new Error('INCOMPATIBLE');return [Number(match[1]),Number(match[2]),Number(match[3]),match[4]===undefined?Number.MAX_SAFE_INTEGER:Number(match[4])];};const left=version(a),right=version(b);for(let i=0;i<4;i++)if(left[i]!==right[i])return left[i]!>right[i]!?1:-1;return 0;}
+export function assertNoDowngrade(target:string,current:string){if(compare(target,current)<0)throw new Error('DOWNGRADE_REQUIRES_REVIEW');}
 function freeze<T>(value:T):T{if(value&&typeof value==='object'){for(const item of Object.values(value))freeze(item);Object.freeze(value);}return value;}
 function verifier(publicKey:string,fingerprint:string,evidence:VerifiedManifest['evidence']){
   const key=createPublicKey(publicKey);if(key.asymmetricKeyType!=='ed25519'||digest(key.export({type:'spki',format:'der'}))!==hash.parse(fingerprint))throw new Error('TRUST_ROOT_INVALID');
@@ -38,7 +39,7 @@ function verifier(publicKey:string,fingerprint:string,evidence:VerifiedManifest[
     if(!Buffer.isBuffer(bytes)||bytes.length>LIMITS.manifestBytes||!Buffer.isBuffer(signature)||signature.length!==64||!verify(null,bytes,key,signature))throw new Error('SIGNATURE_INVALID');
     let manifest:ReleaseManifest;try{manifest=ReleaseManifestSchema.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}catch{throw new Error('MANIFEST_INVALID');}
     if(manifest.target.os!==target.os||manifest.target.arch!==target.arch||compare(target.version,manifest.target.minVersion)<0||target.schema<manifest.build.schemaMin||target.schema>manifest.build.schemaMax||target.protocol!==manifest.build.protocol)throw new Error('INCOMPATIBLE');
-    if(target.currentVersion&&compare(manifest.build.version,target.currentVersion)<0)throw new Error('DOWNGRADE_REQUIRES_REVIEW');
+    if(target.currentVersion)assertNoDowngrade(manifest.build.version,target.currentVersion);
     const result=freeze({manifest,manifestHash:digest(bytes),keyFingerprint:fingerprint,evidence});verifiedObjects.add(result);return result;
   };
 }

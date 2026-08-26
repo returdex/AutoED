@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 import { dirname } from 'node:path';
 import { z } from 'zod';
 import type { SecretStore } from '../../application/src/ports.js';
-import { NativeSecretStore, issueCredential } from './credentials.js';
+import { NativeSecretStore, issueCredential, assertInstallationId } from './credentials.js';
 import { assertManagedPath, createManagedRoot, managedPaths, preflightRoot, type RootSelection } from './paths.js';
 import { protectPath, verifyProtectedPath } from './permissions.js';
 
@@ -38,10 +38,10 @@ export async function assertPortAvailable(port = 43187): Promise<void> {
   });
 }
 /** Installer must obtain approval for the exact selection first. No persistent default-root side effects. */
-export async function initializeInstallation(selection: RootSelection, store: SecretStore = new NativeSecretStore()): Promise<InstallationMetadata> {
+export async function initializeInstallation(selection: RootSelection, store: SecretStore = new NativeSecretStore(), installationId: string = randomUUID()): Promise<InstallationMetadata> {
+  assertInstallationId(installationId);
   preflightRoot(selection); await assertPortAvailable();
   const paths = createManagedRoot(selection);
-  const installationId = randomUUID();
   const scope = { installationId, source: 'synthetic', courseId: 'selftest' } as const;
   const stat = lstatSync(paths.root);
   const ownership = { device: stat.dev, inode: stat.ino, uid: stat.uid };
