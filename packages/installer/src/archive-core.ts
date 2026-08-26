@@ -6,7 +6,7 @@ import {createHash,createPublicKey,verify} from 'node:crypto';
 import {gunzipSync,inflateRawSync,crc32} from 'node:zlib';
 import {posix,join} from 'node:path';
 import {lstatSync,realpathSync,readdirSync,statfsSync,openSync,closeSync,fsyncSync,writeFileSync,mkdirSync,symlinkSync,chmodSync,readFileSync,readlinkSync,writeSync,fstatSync,unlinkSync} from 'node:fs';
-export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024*1024*1024,unpackedBytes:8*1024*1024*1024,tarUnpackedBytes:512*1024*1024,files:100000,artifacts:8});
+export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024*1024*1024,unpackedBytes:8*1024*1024*1024,tarUnpackedBytes:512*1024*1024,files:100000,links:256,artifacts:8});
 export type ArchiveFile={path:string;sha256:string;bytes:number;type?:'file'|undefined;executable?:boolean|undefined}|{path:string;sha256:string;bytes:number;type:'symlink';target:string};
 const digest=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
 export function safeArtifactPath(path:string):boolean {
@@ -14,6 +14,7 @@ export function safeArtifactPath(path:string):boolean {
 }
 export function validateLinkGraph(files:ArchiveFile[],allowed:boolean){
   const nodes=new Set(files.map(f=>f.path)),directories=new Set<string>(),links=new Map(files.filter(f=>f.type==='symlink').map(f=>[f.path,f.target]));
+  if(links.size>LIMITS.links)throw new Error('LINK_LIMIT');
   for(const f of files){const parts=f.path.split('/');for(let i=1;i<parts.length;i++)directories.add(parts.slice(0,i).join('/'));}
   if(!allowed&&links.size)throw new Error('LINK_DENIED');
   for(const f of files)if(f.type==='symlink'&&(Buffer.byteLength(f.target)!==f.bytes||digest(Buffer.from(f.target))!==f.sha256))throw new Error('LINK_DENIED');
