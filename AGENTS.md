@@ -2,7 +2,7 @@
 
 ## Workspace and workflow
 
-- Only write this new repository: `/Users/yifeng/Documents/ChatGPT/AutoED`.
+- During initialization, write only this new repository: `/Users/yifeng/Documents/ChatGPT/AutoED`. Later approved installation/test plans may write the new product's explicitly selected runtime/test directories and managed dependencies; this never authorizes writes to the legacy product or unrelated user data.
 - `/Users/yifeng/Documents/AutoED` is read-only reference, baseline `726884c`. Do not copy its `.planning`, `.autoed`, Profile, credentials, runtime config, database, logs, exports, builds, dependencies, or installation cache.
 - Inputs remain in `rebuild-2026-08-26/`. Read `.planning/PROJECT.md` and later approved REQUIREMENTS/ROADMAP/STATE before work.
 - This is a greenfield M1. Old completed capabilities are not validated in this repository.
@@ -59,7 +59,7 @@
 - Report discovery/fetch/archive/extraction/model-access separately. Disk limits or unsupported types produce visible pending/errors, not silent loss or deletion of old archives.
 - Course archives/history are retained long-term until user action or applicable material policy; do not silently delete at semester end.
 - Synthetic/contract, integration, synthetic browser E2E and user-run live UAT are different evidence. No fixture success may be labelled real login success.
-- Live auth gate precedes dependent phases: manual login, repeat Profile reopen, restart, Codex exit, cross-day check, reauth and account isolation on declared native platforms. Unrun checks remain not_run/human_needed.
+- Live auth gate precedes dependent phases: manual login, repeat Profile reopen, restart, Codex exit, cross-day check, reauth and actual account binding on declared native platforms. Account-switch isolation/network/permission/parser negatives have a separate mandatory S/I ledger; never fill live cells with those results, provoke school errors, or require an unauthorized second account. Unrun checks remain not_run/human_needed.
 - Failed live gate blocks dependency progression. Windows requires native evidence; Linux/WSL does not substitute.
 - Runtime data, Profile, raw/private samples, keys, database/WAL, backups, logs and exports must never enter Git or unauthorized cloud storage.
 
@@ -82,3 +82,52 @@
 ## Current stop condition
 
 PROJECT is an approved-to-draft planning artifact, not completed initialization. Requirements and roadmap approval remain. License, version details, official research, plan checks, verification, parallel independent research agents, inherited models and sanitized local Git tracking are approved. Do not start implementation or remote publishing.
+
+<!-- GSD:project-start source:PROJECT.md -->
+## Project
+
+Read [.planning/PROJECT.md](.planning/PROJECT.md) for confirmed decisions and remaining approval gates. This is a greenfield M1; no capability has been validated.
+<!-- GSD:project-end -->
+
+<!-- GSD:stack-start source:research/STACK.md -->
+## Technology Stack
+
+SQLite + minimal durable Job + local files is approved. Exact libraries and versions in [.planning/research/STACK.md](.planning/research/STACK.md) are research recommendations, not an installed or validated stack. Lock and verify the actual runtime, SQLite engine, browser and protocol combination before implementation.
+<!-- GSD:stack-end -->
+
+<!-- GSD:conventions-start source:project policy -->
+## Conventions
+
+Follow the privacy, source permissions, evidence, version and identity rules above. No code conventions have been implemented yet. New branches use the codex/ prefix.
+<!-- GSD:conventions-end -->
+
+<!-- GSD:architecture-start source:research/ARCHITECTURE.md -->
+## Architecture
+
+Read [.planning/research/ARCHITECTURE.md](.planning/research/ARCHITECTURE.md) as a proposed design. There is no existing implementation to infer validated behavior from; do not import legacy state.
+<!-- GSD:architecture-end -->
+
+<!-- GSD:skills-start source:project policy -->
+## Project Skills
+
+Use GSD workflows with the project hard gates above. No product AutoED Skill implementation exists yet; installed legacy AutoED tools must not be used to initialize or access new product data.
+<!-- GSD:skills-end -->
+
+<!-- GSD:workflow-start source:GSD defaults -->
+## GSD Workflow Enforcement
+
+Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+
+Use these entry points:
+- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-execute-phase` for planned phase work
+
+Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+<!-- GSD:workflow-end -->
+
+<!-- GSD:profile-start source:project policy -->
+## Developer Profile
+
+No developer profiling has been requested. This documentation section is unrelated to the sensitive browser Profile; do not create or import either during initialization.
+<!-- GSD:profile-end -->
