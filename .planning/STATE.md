@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Resuming01-01 after explicit verifier approval; zero completed tasks at resume
-last_updated: "2026-08-26T15:18:14.641Z"
-last_activity: 2026-08-27 — User approved bootstrap-only verifier after confirming no publication to Node.js/npm.
+stopped_at: 01-01 verified complete; begin01-02, then01-03 sequentially; no school/remote operations
+last_updated: "2026-08-26T15:31:39.065Z"
+last_activity: 2026-08-27 — 01-01 completed with independent20/20test rerun; Windows/live not_run.
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 7
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Resume01-01 with isolated openpgp6.3.1 verification; other human gates unchanged.
+**Current focus:** Implement01-02 actual SQLite durable jobs after20unit tests and typecheck pass for01-01; all phase-wide requirements remain pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 1 of 14
-Status: Executing Phase 1 — bootstrap verifier amendment approved
-Last activity: 2026-08-27 — User approved bootstrap-only verifier after confirming no publication to Node.js/npm.
+Plan: 2 of 14 (01-01 complete; beginning01-02)
+Status: Executing Phase 1 — Wave2 sequential; 1/14 plans complete
+Last activity: 2026-08-27 — 01-01 completed with independent20/20test rerun; Windows/live not_run.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -84,6 +84,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T15:18:14.636Z
-Stopped at: Resuming01-01 after explicit verifier approval; zero completed tasks at resume
-Resume file: .planning/phases/01-beta/01-01-PLAN.md
+Last session: 2026-08-26T15:31:39.059Z
+Stopped at: 01-01 verified complete; begin01-02, then01-03 sequentially; no school/remote operations
+Resume file: .planning/phases/01-beta/01-02-PLAN.md
