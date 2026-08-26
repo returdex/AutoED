@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "status": "unestablished",
+  "approvalReceipt": null,
+  "publicKey": null,
+  "fingerprint": null,
+  "privateKeyStorage": "os_keyring_only",
+  "keyringService": "AutoED-Rebuild-Release",
+  "establishedByPlan": "01-12"
+}
