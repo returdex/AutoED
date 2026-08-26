@@ -26,6 +26,14 @@ See `01-01-SUMMARY.md` and `01-02-SUMMARY.md`. Against code commit738e729, orche
 
 ## Test Infrastructure
 
+### Verified bootstrap and installation preview — 01-08
+
+Against final code commit `78e8220`, the orchestrator independently reran **43 unit +72 integration +9 macOS native =124/124** (103.16s), **10/10 Chromium UI tests** (3.6s), typecheck and the four-entry production build successfully. Build identity: `b043038b35f4e0263b3eb9e09ced3caa7143b1811aa4ce483212f4e102063872`. The preceding code `c1854d8` also independently passed124/124 (108.24s); the final run includes the additional signed257-link rejection assertions. See `01-08-SUMMARY.md`.
+
+Actual synthetic Ed25519 signatures, bounded archive closure/extraction, an independently pinned compiled bootstrap core, no-Node shell fixture execution, explicit same-process confirmation and real macOS private launcher/SDK negotiation were exercised. The shell fixture replaces download transport only; a separate bounded official Node HTTPS check is not full release installation evidence. Official browser link relationships were reproduced synthetically; explicit links are capped at256, with both full and minimal manifest verifiers rejecting257. No school or browser Profile was accessed.
+
+Installation results remain **staged**, not complete. Production release trust remains unestablished pending Plans11/12/13. Plan09 must journal actual startup, maintenance generations, backup/recovery, active and launcher pin changes, cleanup and truthful persisted status. New MCP process success does not prove an existing host reloaded; Windows wrapper/child exit and native installation are still unrun. All51 phase-wide requirements remain Pending; no beta or human UAT is claimed.
+
 ### Actual CLI/MCP update — 01-06
 
 Against code commit `29a958e`, the orchestrator independently reran **43 unit +56 integration +9 macOS native =108/108** (76.43s), **10/10 Chromium UI tests** (3.5s), typecheck and production build successfully. Build contains all four actual API/Worker/CLI/MCP entries and status assets; identity `cbdc255872326530917a5f4393f9ceb2d6d69c7c9c1d3c8bf4671815058bde3a`. See `01-06-SUMMARY.md`.
