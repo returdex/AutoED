@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, posix, resolve } from 'node:path';
+import { posix } from 'node:path';
 
 type Graph = Map<string, string[]>;
 function imports(text: string): string[] {
-  return [...text.matchAll(/(?:\b(?:import|export)\s+(?:[^;'"\n]*?\s+from\s*)?|\b(?:import|require)\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1]!);
+  return [...text.matchAll(/(?:\b(?:import|export)\s+(?:[^;'"]*?\s+from\s*)?|\b(?:import|require)\s*\(\s*)['"]([^'"]+)['"]/g)].map(match => match[1]!);
 }
 function boundaryErrors(graph: Graph): string[] {
   const errors: string[] = [];

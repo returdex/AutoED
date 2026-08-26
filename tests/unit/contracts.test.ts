@@ -34,6 +34,9 @@ describe('strict application contracts', () => {
     const component = { role: 'api', build, checkedAt: '2026-08-27T00:00:00.000Z', health: 'healthy', evidence: 'authenticated_probe' };
     expect(ComponentObservationSchema.parse(component).role).toBe('api');
     expect(ComponentObservationSchema.safeParse({ ...component, secret: 'synthetic-canary' }).success).toBe(false);
+    expect(ComponentObservationSchema.safeParse({ ...component, checkedAt: null }).success).toBe(false);
+    expect(ComponentObservationSchema.safeParse({ ...component, evidence: 'not_observed' }).success).toBe(false);
+    expect(StatusSchema.safeParse({ api: { ...component, role: 'worker' }, worker: null, install: null, selfcheck: null, checkedAt: null }).success).toBe(false);
   });
   it('rejects sensitive additions in install/selfcheck projections', () => {
     const install = { operationId: randomUUID(), stage: 'verify', result: 'running', targetBuild: build, actualBuild: null, cleanup: 'not_observed', checkedAt: '2026-08-27T00:00:00.000Z' };
