@@ -71,6 +71,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ### Blockers/Concerns
 
+- 01-08解包须保留官方macOS headed浏览器的合法Framework links。根于2026-08-27只读核对Playwright固定151.0.7922.34 mac-arm64官方ZIP（cdn.playwright.dev→storage.googleapis.com）：187406357bytes、647members、central143185bytes；5个link的local data长度/CRC已核，Resources/Libraries/Helpers/Framework→Versions/Current对应项，Current→151.0.7922.34。不是完整archive hash/安装/运行证据。清单显式绑定相对target并解析链接图，拒绝越界/循环/悬空/经link写文件；Windows拒绝links。不能展开成regular后未经核验声称保留代码签名。
 - 初始化已完成，Phase 1执行中；01-01至01-07已有108项U/I/macOS原生+10项Chromium UI及类型检查/构建证据，51项阶段级需求仍 Pending；研究/旧commit/文档不等于实现证据。
 - 01-06已接实际构建manifest、API安装身份、短期selfcheck凭据与发token前所有权校验；08/09须由真正verifier建立发行签名证据，journal记录预解析/离线失败，不能将build_manifest改名冒充验签。01-09从真实inventory填写previousInstallation；01-10补实际平台/依赖诊断，UI现明确未验证。
 - 安装自检新spawn的MCP不能证明当前Codex中长期运行的MCP已经重载。01-09/10/14须检查受管旧入口与实际客户端版本；若宿主仍持有旧客户端且无法安全自动重载，明确human_needed/cleanup_pending并给出重载步骤，不能把新子进程自检冒充宿主实际更新完成。
