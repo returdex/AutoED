@@ -129,4 +129,6 @@ Shared STATE/ROADMAP/REQUIREMENTS/VALIDATION changes remain assigned to the orch
 
 ## Self-Check: PASSED
 
-All seven created implementation/test files exist; all six task/support commit hashes resolve to commit objects. Final independent tests/typecheck/build passed as recorded, `git diff --check` passes, and no task commit deleted a tracked file. No generated/private runtime files are untracked. Other pending planning-document edits belong to the orchestrator and are excluded from this summary commit.
+All seven created implementation/test files exist; all six task/support commit hashes resolve to commit objects. Final independent tests/typecheck/build passed as recorded, `git diff --check` passes, and no task commit deleted a tracked file. No generated/private runtime files are untracked.
+
+**Metadata tooling note:** The documented positional `gsd-sdk query commit` invocation interpreted the summary path as part of the message and committed all then-pending planning changes in `1846f8a`: this summary plus the orchestrator's prepared PROJECT, ROADMAP and VALIDATION edits. No content was overwritten or reverted; the orchestrator was notified. STATE remains under the orchestrator's ownership. Subsequent narrow documentation commits use explicit Git staging.
