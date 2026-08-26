@@ -36,13 +36,18 @@ it('ZIP decodes full names and checks local names, CRC and bounded output',()=>{
   for(const name of [Buffer.from('app.js\0evil'),Buffer.from([0xff])])expect(()=>zipEntries(archive(name,Buffer.from('abc')))).toThrow();
   const corrupt=Buffer.from(valid);corrupt[36]=0;expect(()=>zipEntries(corrupt)[0]!.read()).toThrow();
 });
-it('official Framework link layout resolves Current chains but dotdot, cycles, dangling and Windows links are denied',()=>{
+it('official Framework link layout resolves Current chains but dotdot, cycles, dangling, Windows and excessive links are denied',async()=>{
   const base='chrome-mac-arm64/Google Chrome for Testing.app/Contents/Frameworks/Google Chrome for Testing Framework.framework/';
   const paths=['Resources/a','Libraries/a','Google Chrome for Testing Framework','Helpers/a'];
   const regular=paths.map(p=>({path:base+'Versions/151.0.7922.34/'+p,bytes:3,sha256:sha('abc')}));
   const links=Object.entries({Resources:'Versions/Current/Resources','Versions/Current':'151.0.7922.34',Libraries:'Versions/Current/Libraries','Google Chrome for Testing Framework':'Versions/Current/Google Chrome for Testing Framework',Helpers:'Versions/Current/Helpers'}).map(([path,target])=>({path:base+path,target,type:'symlink' as const,bytes:Buffer.byteLength(target),sha256:sha(target)}));
   expect(()=>validateLinkGraph([...regular,...links],true)).not.toThrow();expect(()=>validateLinkGraph([...regular,...links],false)).toThrow('LINK_DENIED');
   for(const target of ['Versions/Current/../outside','missing','Resources']){const bad={...links[0]!,target,bytes:Buffer.byteLength(target),sha256:sha(target)};expect(()=>validateLinkGraph([...regular,bad,...links.slice(1)],true)).toThrow('LINK_DENIED');}
+  const leaf={path:'leaf',data:'abc'},many=Array.from({length:257},(_,i)=>({path:'alias'+i,type:'symlink' as const,target:'leaf',data:'leaf'})),descriptors=[leaf,...many].map(({data,...f})=>({...f,bytes:Buffer.byteLength(data),sha256:sha(data)}));
+  expect(()=>validateLinkGraph(descriptors.slice(0,257),true)).not.toThrow();expect(()=>validateLinkGraph(descriptors,true)).toThrow('LINK_LIMIT');
+  const h=createHarness();try{const root=realpathSync(h.root);protectPath(root);const v=await verified(root,Buffer.from('synthetic archive'),[leaf,...many.slice(0,256)],'browser');const browser={...v.manifest.artifacts[0]!,files:descriptors,unpackedBytes:descriptors.reduce((n,f)=>n+f.bytes,0)},installer={...v.manifest.artifacts[0]!,name:'installer',role:'installer',format:'file',files:[{path:'packages/installer/src/install.js',bytes:3,sha256:sha('abc')}],bytes:3,unpackedBytes:3,sha256:sha('abc')};const bytes=Buffer.from(JSON.stringify({...v.manifest,artifacts:[browser,installer]})),signed=await signSyntheticManifests(root,[bytes]),signature=Buffer.from(signed.signatures[0],'base64');
+    expect(()=>createFixtureVerifier(signed.publicKey,signed.fingerprint)(bytes,signature,{os:'darwin',arch:'arm64',version:'26.5.2',schema:1,protocol:1})).toThrow('MANIFEST_INVALID');expect(()=>verifyBootstrapManifest(bytes,signature,{publicKey:signed.publicKey,fingerprint:signed.fingerprint},{os:'darwin',arch:'arm64',version:'26.5.2'})).toThrow('LINK_LIMIT');
+  }finally{await h.cleanup();}
 });
 it('production bootstrap with no Node on PATH stops at unestablished trust without managed changes',async()=>{
   const h=createHarness();try{let failed=false;try{execFileSync('/bin/sh',['scripts/install/bootstrap.sh','--staging-parent',realpathSync(h.root)],{env:{PATH:'/usr/bin:/bin'},stdio:'pipe'});}catch(error){failed=String((error as {stderr:Buffer}).stderr).includes('RELEASE_TRUST_NOT_ESTABLISHED');}expect(failed).toBe(true);expect(readdirSync(h.root)).toEqual([]);}finally{await h.cleanup();}
