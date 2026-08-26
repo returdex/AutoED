@@ -1,0 +1,18 @@
+import {existsSync,mkdirSync,readFileSync,writeFileSync,copyFileSync,symlinkSync,lstatSync,readdirSync,realpathSync,readlinkSync} from 'node:fs';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {inventoryTree,inspectNativeBinary} from './native-artifacts.mjs';
+const here=dirname(fileURLToPath(import.meta.url)),matrix=JSON.parse(readFileSync(join(here,'platform-matrix.json'),'utf8'));
+const targets=new Set(Object.keys(matrix.targets));
+function safeRole(role){if(!/^[a-z][a-z0-9-]{0,63}$/.test(role))throw new Error('COMPONENT_INVALID');return role;}
+function copyTree(source,destination,target){mkdirSync(destination,{mode:0o700});for(const entry of readdirSync(source,{withFileTypes:true})){const from=join(source,entry.name),to=join(destination,entry.name);if(entry.isDirectory())copyTree(from,to,target);else if(entry.isSymbolicLink()){if(target==='win32-x64')throw new Error('WINDOWS_LINK_FORBIDDEN');symlinkSync(readlinkSync(from),to);}else copyFileSync(from,to,0);}}
+function machineFiles(role,files){if(role==='node'||role==='browser'||role==='better-sqlite3'||role==='keyring'||role==='native')return files.filter(f=>f.type==='file'&&(role!=='browser'||/chrome(?:\.exe)?$/.test(f.path))&&(role!=='node'||/(?:^|\/)node(?:\.exe)?$/.test(f.path))&&(role!=='better-sqlite3'&&!['keyring','native'].includes(role)||f.path.endsWith('.node')));return [];}
+export async function assembleTarget({target,outputRoot,sourceRoot,components,diagnosticsRequired=true}){
+  if(!targets.has(target)||!Array.isArray(components)||!components.length)throw new Error('TARGET_UNSUPPORTED');if(existsSync(outputRoot))throw new Error('OUTPUT_EXISTS');if(realpathSync(sourceRoot)!==sourceRoot)throw new Error('SOURCE_UNSAFE');
+  if(diagnosticsRequired&&!existsSync(join(sourceRoot,'diagnostics','native-report.mjs')))throw new Error('DIAGNOSTICS_MISSING');
+  const validated=components.map(([role,kind])=>{safeRole(role);const source=join(sourceRoot,role);if(!existsSync(source)||!lstatSync(source).isDirectory())throw new Error('DEPENDENCY_CLOSURE_MISSING');const files=inventoryTree(source,target);for(const file of machineFiles(kind,files))inspectNativeBinary(readFileSync(join(source,file.path)),target);const base=matrix.components[kind]??matrix.components['pure-js'],platform=kind==='keyring'?matrix.targets[target].keyringPackage:null;return {role,kind,source,files,meta:{...base,...(platform?{packageName:platform.name,sourceURL:platform.url,integrity:platform.integrity}:{})}};});
+  mkdirSync(outputRoot,{mode:0o700});const root=join(outputRoot,target);mkdirSync(root,{mode:0o700});const reports=[];
+  for(const {role,kind,source,files,meta} of validated){copyTree(source,join(root,role),target);reports.push({role,kind,version:meta.version,packageName:meta.packageName,sourceURL:meta.sourceURL,integrity:meta.integrity,license:meta.license,files:files.length});}
+  const files=inventoryTree(root,target),report={schema:1,target,platform:matrix.targets[target],versions:matrix.versions,nativeEvidence:matrix.targets[target].nativeEvidence,components:reports,files,createdAt:new Date().toISOString()};writeFileSync(join(root,'delivery.json'),JSON.stringify(report));return {root,report};
+}
+export function auditDelivery(root){try{const report=JSON.parse(readFileSync(join(root,'delivery.json'),'utf8')),current=inventoryTree(root,report.target).filter(f=>f.path!=='delivery.json');if(JSON.stringify(current)!==JSON.stringify(report.files))throw new Error();for(const c of report.components)if(!c.sourceURL||!c.integrity||!c.license)throw new Error();return report;}catch{throw new Error('DELIVERY_INTEGRITY');}}

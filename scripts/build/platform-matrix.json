@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "versions": {
+    "node": "24.20.0",
+    "npm": "11.19.0",
+    "playwright": "1.62.1",
+    "browserRevision": "1234",
+    "browserVersion": "151.0.7922.34",
+    "betterSqlite3": "13.0.3",
+    "keyring": "1.3.0",
+    "napi": 10
+  },
+  "targets": {
+    "darwin-arm64": {
+      "os": "darwin",
+      "arch": "arm64",
+      "minimum": "14.0.0",
+      "nativeEvidence": "static_only",
+      "actualNative": { "osVersion": "26.5.2", "status": "pending_task_10_2" },
+      "node": { "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-darwin-arm64.tar.gz", "sha256": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8" },
+      "browser": { "url": "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.34/mac-arm64/chrome-mac-arm64.zip", "integrity": "record-after-full-download" },
+      "keyringPackage": { "name": "@napi-rs/keyring-darwin-arm64", "url": "https://registry.npmjs.org/@napi-rs/keyring-darwin-arm64/-/keyring-darwin-arm64-1.3.0.tgz", "integrity": "sha512-pl76hJvdYUBn6I24bXiOBMA9nbDapo3I5B+f3OorjDU4dUMSypXeKbOVehJe8fhgTiH24flMyTS3aAIy43xegQ==" }
+    },
+    "win32-x64": {
+      "os": "win32",
+      "arch": "x64",
+      "minimum": "10.0.22000",
+      "nativeEvidence": "not_run",
+      "actualNative": { "osVersion": null, "status": "not_run" },
+      "node": { "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-win-x64.zip", "sha256": "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba" },
+      "browser": { "url": "https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.34/win64/chrome-win64.zip", "integrity": "record-after-full-download" },
+      "keyringPackage": { "name": "@napi-rs/keyring-win32-x64-msvc", "url": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/-/keyring-win32-x64-msvc-1.3.0.tgz", "integrity": "sha512-4DnCWXwDc0HRKwyRlG5y0VhKZW2tNRQfKKfyj6IX/KWfDNyq9hn4n+GL1auyDcOO/v8PwnhmYo2+rOOqCkvvOg==" }
+    }
+  },
+  "components": {
+    "pure-js": { "version": "locked-production-closure", "sourceURL": "https://registry.npmjs.org/", "integrity": "package-lock-sha512", "license": "from-package-metadata" },
+    "node": { "version": "24.20.0", "sourceURL": "https://nodejs.org/dist/v24.20.0/", "integrity": "official-SHASUMS256", "license": "Node.js-distribution" },
+    "browser": { "version": "151.0.7922.34", "sourceURL": "https://googlechromelabs.github.io/chrome-for-testing/", "integrity": "signed-release-manifest-sha256", "license": "Chrome-for-Testing-bundle" },
+    "better-sqlite3": { "version": "13.0.3", "sourceURL": "https://registry.npmjs.org/better-sqlite3/-/better-sqlite3-13.0.3.tgz", "integrity": "sha512-RbOBxmLBG8uvFUc15X9+9SFemKcQ0WBuISBVkpuiaUB2qblC8UWlHEjdWVoZ8AdhSwmoEgsiXKfopX0CQxaACQ==", "license": "MIT" },
+    "keyring": { "version": "1.3.0", "sourceURL": "https://registry.npmjs.org/@napi-rs/keyring/-/keyring-1.3.0.tgz", "integrity": "sha512-WrOw/bcXm0f9qHkumlT1QlArXSTWqaY9sunsDpOk+yCCorCKMxvWT/a3xko4EYHVdeZoh00yI2TydXn6eyICDA==", "license": "MIT" }
+  }
+}
