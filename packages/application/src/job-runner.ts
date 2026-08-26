@@ -3,7 +3,7 @@ import type { Job, WriteContext } from '../../domain/src/model.js';
 
 export const LEASE_MS = 30_000;
 export const HEARTBEAT_MS = 5_000;
-const ERROR_CODES = new Set(['JOB_FAILED', 'NETWORK_ERROR', 'PARSER_ERROR', 'PERMISSION_DENIED', 'RIGHTS_RESTRICTED', 'SCOPE_DENIED', 'INVALID_INPUT', 'ABORTED']);
+const ERROR_CODES = new Set(['JOB_FAILED', 'NETWORK_ERROR', 'PARSER_ERROR', 'PERMISSION_DENIED', 'RIGHTS_RESTRICTED', 'SCOPE_DENIED', 'INVALID_INPUT', 'ABORTED', 'UNSUPPORTED_CAPABILITY']);
 export function validErrorCode(code: string): boolean { return ERROR_CODES.has(code); }
 export function retryDelay(attempt: number): number { return Math.min(4000, 1000 * 2 ** Math.max(0, attempt - 1)); }
 export class JobExecutionError extends Error {
