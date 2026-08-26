@@ -27,4 +27,18 @@ describe('job runner attempt semantics', () => {
     await vi.advanceTimersByTimeAsync(5000); expect(aborted).toBe(true); expect(store.acknowledgeCancel).not.toHaveBeenCalled();
     finish!(); await running; expect(store.acknowledgeCancel).toHaveBeenCalledOnce(); expect(store.commit).not.toHaveBeenCalled();
   });
+  it('heartbeats every five seconds and never commits after losing the lease', async () => {
+    vi.useFakeTimers(); const job = { id: 'id', request: { scope: {} }, lease: { owner: 'worker', fence: 1, leaseUntil: 30_000 } } as Job;
+    const lost = Object.assign(new Error('LEASE_LOST'), { code: 'LEASE_LOST' });
+    const store = { recoverExpired: vi.fn().mockResolvedValue(0), claim: vi.fn().mockResolvedValue(job), query: vi.fn().mockResolvedValue(job), heartbeat: vi.fn().mockResolvedValueOnce({ ...job.lease, leaseUntil: 35_000 }).mockRejectedValueOnce(lost), fail: vi.fn(), commit: vi.fn() } as unknown as JobStore;
+    let finish: (() => void) | undefined; let aborted = false;
+    const running = new JobRunner(store, { now: () => 5000 }).runOnce('worker', { expectedGeneration: 0 }, async (_, signal) => {
+      signal.addEventListener('abort', () => { aborted = true; }); await new Promise<void>(resolve => { finish = resolve; }); return 'late';
+    });
+    const result = running.catch(error => error);
+    await vi.advanceTimersByTimeAsync(4999); expect(store.heartbeat).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1); expect(store.heartbeat).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(5000); expect(aborted).toBe(true);
+    finish!(); expect(await result).toBe(lost); expect(store.commit).not.toHaveBeenCalled(); expect(store.fail).not.toHaveBeenCalled();
+  });
 });

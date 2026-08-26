@@ -57,6 +57,8 @@ describe('transactional leases and crash recovery', () => {
     await expect(f.jobs.commit(old.id, old.lease!, 'late', 31_000, context)).rejects.toMatchObject({ code: 'LEASE_LOST' });
     const next = (await f.jobs.claim({ owner: 'replacement', now: 32_000, leaseMs: 30_000 }, context))!;
     expect(next.attempt).toBe(2); expect(next.lease!.fence).toBeGreaterThan(old.lease!.fence);
+    await expect(f.jobs.heartbeat(old.id, old.lease!, 32_000, context)).rejects.toMatchObject({ code: 'LEASE_LOST' });
+    await expect(f.jobs.commit(old.id, old.lease!, 'old fence after new claim', 32_000, context)).rejects.toMatchObject({ code: 'LEASE_LOST' });
     await f.jobs.commit(next.id, next.lease!, '', 32_001, context);
     expect((await f.jobs.query(next.id, f.req.scope))?.result).toBe('');
     expect(f.db.prepare('SELECT count(*) AS n FROM synthetic_results').get()).toEqual({ n: 1 });
@@ -102,6 +104,11 @@ describe('transactional leases and crash recovery', () => {
     const f = fixture(); const job = await running(f);
     expect(await f.jobs.fail(job.id, job.lease!, 'PERMISSION_DENIED', true, 1001, context)).toMatchObject({ state: 'failed', attempt: 1 });
   });
+  it('parser errors stop immediately rather than attempting potentially changed source data', async () => {
+    const f = fixture(); const job = await running(f);
+    expect(await f.jobs.fail(job.id, job.lease!, 'PARSER_ERROR', true, 1001, context)).toMatchObject({ state: 'failed', attempt: 1, nextRunAt: null });
+    expect(await f.jobs.claim({ owner: 'again', now: 99_999, leaseMs: 30_000 }, context)).toBeNull();
+  });
   it('request cancellation is not acknowledgement and cannot race past commit', async () => {
     const f = fixture(); const job = await running(f);
     expect(await f.jobs.requestCancel(job.id, f.req.scope, context)).toMatchObject({ state: 'running', cancelRequested: true });
@@ -117,6 +124,21 @@ describe('transactional leases and crash recovery', () => {
     await f.jobs.requestCancel(other.id, f.req.scope, context); await f.jobs.recoverExpired(31_002, context);
     expect((await f.jobs.query(other.id, f.req.scope))?.state).toBe('cancelled');
     expect(await f.jobs.claim({ owner: 'again', now: 99_999, leaseMs: 30_000 }, context)).toBeNull();
+  });
+  it('serializes cancellation versus completion from separate real processes', async () => {
+    const f = fixture(); const job = await running(f);
+    const commit = f.h.spawn(['--experimental-transform-types', '--input-type=module', '-e', childScript(f.path, `
+      try{await jobs.commit(${JSON.stringify(job.id)},${JSON.stringify(job.lease)},'won',1001,{expectedGeneration:0})}
+      catch(e){if(e.code!=='CANCEL_REQUESTED')throw e;await jobs.acknowledgeCancel(${JSON.stringify(job.id)},${JSON.stringify(job.lease)},1002,{expectedGeneration:0})}db.close();`)]);
+    // Use the same synthetic clock for cancellation so clock-regression protection is not the race winner.
+    const cancel = f.h.spawn(['--experimental-transform-types', '--input-type=module', '-e', childScript(f.path, `
+      const canceller=new SQLiteJobStore(db,{now:()=>1001});await canceller.requestCancel(${JSON.stringify(job.id)},${JSON.stringify(f.req.scope)},{expectedGeneration:0});db.close();`)]);
+    expect((await Promise.all([once(commit, 'exit'), once(cancel, 'exit')])).map(([code]) => code)).toEqual([0, 0]);
+    const outcome = (await f.jobs.query(job.id, f.req.scope))!;
+    if (outcome.state === 'running') await f.jobs.acknowledgeCancel(job.id, job.lease!, 1002, context);
+    const final = (await f.jobs.query(job.id, f.req.scope))!;
+    expect(['succeeded', 'cancelled']).toContain(final.state);
+    expect(f.db.prepare('SELECT count(*) AS n FROM synthetic_results').get()).toEqual({ n: final.state === 'succeeded' ? 1 : 0 });
   });
   it('quiesces workers, drains current work, isolates candidate selfcheck and safely resumes backlog', async () => {
     const f = fixture(); const job = await running(f); const backlog = await f.jobs.enqueue({ ...f.req, idempotencyKey: randomUUID() }, context);

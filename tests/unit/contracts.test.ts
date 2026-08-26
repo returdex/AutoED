@@ -46,4 +46,22 @@ describe('strict application contracts', () => {
     expect(SelfcheckProjectionSchema.parse(selfcheck)).toEqual(selfcheck);
     expect(SelfcheckProjectionSchema.safeParse({ ...selfcheck, token: 'synthetic-canary' }).success).toBe(false);
   });
+  it('separates projection freshness from health and rejects false install success', () => {
+    const component = { role: 'api', build, checkedAt: '2026-08-27T00:00:00.000Z', health: 'healthy', freshness: 'stale', evidence: 'authenticated_probe' };
+    expect(ComponentObservationSchema.parse(component)).toMatchObject({ freshness: 'stale', health: 'healthy' });
+    const install = { operationId: randomUUID(), stage: 'complete', result: 'succeeded', targetBuild: build, actualBuild: build, cleanup: 'complete', checkedAt: '2026-08-27T00:00:00.000Z' };
+    expect(InstallProjectionSchema.safeParse(install).success).toBe(true);
+    for (const change of [{ actualBuild: null }, { targetBuild: null }, { checkedAt: null }, { cleanup: 'cleanup_pending' }, { stage: 'selfcheck' }, { actualBuild: { ...build, buildId: 'e'.repeat(64) } }, { actualBuild: { ...build, dependencyHash: 'e'.repeat(64) } }]) {
+      expect(InstallProjectionSchema.safeParse({ ...install, ...change }).success).toBe(false);
+    }
+  });
+  it('requires actual consistent component evidence for selfcheck pass', () => {
+    const checkedAt = '2026-08-27T00:00:00.000Z';
+    const probes = ['api', 'worker', 'cli', 'mcp'].map(role => ({ role, build, checkedAt, health: 'healthy', evidence: 'authenticated_probe' }));
+    const selfcheck = { jobId: randomUUID(), checkedAt, probes, featureResult: 'pass' };
+    expect(SelfcheckProjectionSchema.safeParse(selfcheck).success).toBe(true);
+    for (const change of [{ jobId: null }, { checkedAt: null }, { probes: [] }, { probes: [probes[0], probes[0], probes[2], probes[3]] }, { probes: probes.map((p, i) => i ? p : { ...p, health: 'error' }) }, { probes: probes.map((p, i) => i ? p : { ...p, build: { ...build, version: '0.1.0-beta.1' } }) }, { probes: probes.map(p => ({ ...p, checkedAt: '2026-08-28T00:00:00.000Z' })) }]) {
+      expect(SelfcheckProjectionSchema.safeParse({ ...selfcheck, ...change }).success).toBe(false);
+    }
+  });
 });

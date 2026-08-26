@@ -4,6 +4,11 @@ import type { BuildIdentity, ComponentObservation, InstallProjection, JobRequest
 const timestamp = z.iso.datetime().nullable();
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const revision = z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/);
+function sameBuild(a: BuildIdentity, b: BuildIdentity): boolean {
+  return a.version === b.version && a.buildId === b.buildId && a.commit === b.commit && a.tree === b.tree &&
+    a.dependencyHash === b.dependencyHash && a.protocol === b.protocol && a.schemaMin === b.schemaMin && a.schemaMax === b.schemaMax &&
+    [...new Set(a.capabilities)].sort().join(',') === [...new Set(b.capabilities)].sort().join(',');
+}
 export const ScopeSchema = z.strictObject({ installationId: z.uuid(), source: z.literal('synthetic'), courseId: z.literal('selftest') });
 export const JobRequestSchema: z.ZodType<JobRequest> = z.strictObject({ kind: z.enum(['echo', 'digest']), value: z.string().max(4096), idempotencyKey: z.uuid(), scope: ScopeSchema });
 export const BuildIdentitySchema: z.ZodType<BuildIdentity> = z.strictObject({
@@ -39,11 +44,16 @@ export const InstallProjectionSchema: z.ZodType<InstallProjection> = z.strictObj
   result: z.enum(['not_observed', 'running', 'succeeded', 'failed', 'restored', 'human_needed']),
   targetBuild: BuildIdentitySchema.nullable(), actualBuild: BuildIdentitySchema.nullable(),
   cleanup: z.enum(['not_observed', 'pending', 'complete', 'cleanup_pending']), checkedAt: timestamp,
-}).refine(item => item.result !== 'succeeded' || (item.stage === 'complete' && item.cleanup === 'complete' && item.targetBuild !== null && item.actualBuild !== null && item.targetBuild.buildId === item.actualBuild.buildId), 'Successful installation requires actual matching build and completed cleanup');
+}).refine(item => item.result !== 'succeeded' || (item.checkedAt !== null && item.stage === 'complete' && item.cleanup === 'complete' && item.targetBuild !== null && item.actualBuild !== null && sameBuild(item.targetBuild, item.actualBuild)), 'Successful installation requires actual matching build, observation time and completed cleanup');
 export const SelfcheckProjectionSchema: z.ZodType<SelfcheckProjection> = z.strictObject({
   freshness: projectionFreshness,
   jobId: z.uuid().nullable(), probes: z.array(ComponentObservationSchema).max(4), featureResult: z.enum(['not_observed', 'pass', 'fail']), checkedAt: timestamp,
-});
+}).refine(item => {
+  if (item.featureResult !== 'pass') return true;
+  const first = item.probes[0]?.build;
+  return item.jobId !== null && item.checkedAt !== null && item.probes.length === 4 && new Set(item.probes.map(probe => probe.role)).size === 4 && first != null &&
+    item.probes.every(probe => probe.health === 'healthy' && probe.build !== null && sameBuild(first, probe.build) && probe.checkedAt !== null && Date.parse(probe.checkedAt) <= Date.parse(item.checkedAt!));
+}, 'Passing selfcheck requires a job and four consistent actual component observations');
 export const StatusSchema: z.ZodType<Status> = z.strictObject({
   api: ComponentObservationSchema.nullable(), worker: ComponentObservationSchema.nullable(),
   install: InstallProjectionSchema.nullable(), selfcheck: SelfcheckProjectionSchema.nullable(), checkedAt: timestamp,
