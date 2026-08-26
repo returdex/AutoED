@@ -213,11 +213,11 @@ updated: 2026-08-26
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8。每次推进须满足当前阶段证据和后继依赖；Phase 2 未通过时不推进依赖。所有阶段未开始，计划数待后续讨论规划，不用预估任务伪装已创建计划。
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8。每次推进须满足当前阶段证据和后继依赖；Phase 2 未通过时不推进依赖。Phase 1 的14份计划已批准并开始执行；其他阶段尚未开始。计划完成数不是阶段需求验收通过数。
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 契约、原生骨架与最小 beta 安装升级 | 0/TBD | Not started | - |
+| 1. 契约、原生骨架与最小 beta 安装升级 | 1/14 | Executing | - |
 | 2. 双来源原生登录 POC 与 live 硬门禁 | 0/TBD | Not started | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
@@ -226,4 +226,4 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** 建项已获批准并完成；下一步讨论/规划 Phase 1，相关 PLAN 仍须用户确认。无已批准 PLAN、无已执行 phase、无已发布版本；不创建 AutoED 后续 AI/作业阶段或云服务。
+**Current stop:** Phase 1全部14份PLAN已于2026-08-27获批，01-01已完成并独立复核，01-02执行中。发布信任/密钥、必要OS授权和真实人工UAT仍为硬门禁；无已完成phase、无已发布版本，不自动推进Phase 2。不创建 AutoED 后续 AI/作业阶段或云服务。
