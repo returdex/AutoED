@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: planning
-stopped_at: "Phase 1 context gathered; next: $gsd-plan-phase 1; no auto execution"
-last_updated: "2026-08-26T14:38:25.789Z"
-last_activity: 2026-08-27 — 生成Phase 1 CONTEXT与讨论日志；设备信息待核验，0实现/验证。
+stopped_at: "Phase 1 UI-SPEC approved by design checker; next: $gsd-plan-phase 1; PLAN approval still required"
+last_updated: "2026-08-26T14:49:09.786Z"
+last_activity: 2026-08-27 — Phase 1 UI设计契约6/6维度通过文本审查；产品测试仍not_run。
 progress:
   total_phases: 8
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Phase 1讨论完成；按已确认上下文研究并规划，相关PLAN须用户确认；不自动执行。
+**Current focus:** Phase 1 CONTEXT与UI-SPEC完成；下一步研究并生成PLAN，须用户确认后执行。
 
 ## Current Position
 
 Phase: 1 of 8 (契约、原生骨架与最小 beta 安装升级；尚未开始)
 Plan: 0 of TBD in current phase
-Status: Ready to plan — Phase 1 context gathered; implementation not started
-Last activity: 2026-08-27 — 生成Phase 1 CONTEXT与讨论日志；设备信息待核验，0实现/验证。
+Status: Ready to plan — Phase 1 UI-SPEC checked; implementation not started
+Last activity: 2026-08-27 — Phase 1 UI设计契约6/6维度通过文本审查；产品测试仍not_run。
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -84,6 +84,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-26T14:38:25.785Z
-Stopped at: Phase 1 context gathered; next: $gsd-plan-phase 1; no auto execution
-Resume file: .planning/phases/01-beta/01-CONTEXT.md
+Last session: 2026-08-26T14:49:09.782Z
+Stopped at: Phase 1 UI-SPEC approved by design checker; next: $gsd-plan-phase 1; PLAN approval still required
+Resume file: .planning/phases/01-beta/01-UI-SPEC.md
