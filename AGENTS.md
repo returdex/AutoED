@@ -81,7 +81,7 @@
 
 ## Current stop condition
 
-Initialization is complete: on 2026-08-26 the user approved all 51 requirements, the eight-phase roadmap and TEXT-01/TEXT-02/SEARCH-01/BUNDLE-01/OPS-01 details. M1 target is 0.1.0; no capability is implemented or validated. Next is Phase 1 discussion/planning, with relevant PLAN approval still required. License, version details, official research, plan checks, verification, parallel independent research agents, inherited models and sanitized local Git tracking remain approved. Do not automatically start a phase, implementation or remote publishing during initialization closeout.
+Initialization is complete: on 2026-08-26 the user approved all 51 requirements, the eight-phase roadmap and TEXT-01/TEXT-02/SEARCH-01/BUNDLE-01/OPS-01 details. On 2026-08-27 the user explicitly approved all fourteen Phase 1 PLAN files at baseline cc88906; see `.planning/phases/01-beta/01-APPROVAL.md`. Execute that approved scope under the rules above. M1 target remains 0.1.0; approval is not validation. Plan 12 release-key custody/initial trust, necessary OS/OAuth actions and Plan 14 actual manual UAT remain hard human gates. Do not advance to Phase 2 or silently change the approved dependency/architecture choices. License, version details, official research, plan checks, verification, parallel independent research agents, inherited models and sanitized local Git tracking remain approved.
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
