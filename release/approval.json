@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "plan": "01-12",
+  "approvedAt": "2026-08-29",
+  "approvalSignal": "确认",
+  "scope": {
+    "algorithm": "Ed25519",
+    "privateKeyStorage": "os_keyring_only",
+    "keyringService": "AutoED-Rebuild-Release",
+    "privateKeyExport": false,
+    "cloudCI": false,
+    "platformCodeSigning": false,
+    "publicTrustUse": "complete_install_prompt_fixed_trust",
+    "githubOwner": "returdex",
+    "repository": "AutoED",
+    "repositoryMutation": "plan_13_after_conflict_check"
+  }
+}

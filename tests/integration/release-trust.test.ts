@@ -1,7 +1,9 @@
 import {expect,it} from 'vitest';
 import {createHash,generateKeyPairSync,randomBytes,sign} from 'node:crypto';
+import {mkdirSync,mkdtempSync,readFileSync,rmSync,writeFileSync} from 'node:fs';
+import {join,resolve} from 'node:path';
 import {buildManifestBytes} from '../../scripts/release/manifest.mjs';
-import {loadTrustPolicy,verifyBootstrapBinding} from '../../scripts/release/trust.mjs';
+import {initializeTrust,loadTrustPolicy,readApproval,selfcheckTrust,signReleaseFile,verifyBootstrapBinding} from '../../scripts/release/trust.mjs';
 import {createFixtureVerifier} from '../../packages/installer/src/verify-manifest.js';
 
 const hash=(value:Buffer|string)=>createHash('sha256').update(value).digest('hex');
@@ -21,4 +23,10 @@ it('signs exact manifest bytes only in an explicit ephemeral synthetic harness',
 
 it('rejects key replacement, downgrade replay, manifest hash drift and bootstrap pin drift',()=>{
   const bytes=buildManifestBytes(manifest()),one=synthetic(),two=synthetic(),signature=one.sign(bytes);expect(()=>two.verify(bytes,signature,{os:'darwin',arch:'arm64',version:'26.5.2',schema:1,protocol:1})).toThrow('SIGNATURE_INVALID');expect(()=>one.verify(buildManifestBytes(manifest('0.1.0-beta.1')),one.sign(buildManifestBytes(manifest('0.1.0-beta.1'))),{os:'darwin',arch:'arm64',version:'26.5.2',schema:1,protocol:1,currentVersion:'0.1.0-beta.2'})).toThrow('DOWNGRADE_REQUIRES_REVIEW');expect(()=>verifyBootstrapBinding({publicKey:one.publicKey,fingerprint:one.fingerprint,nodeSha256:'f'.repeat(64)},{fingerprint:one.fingerprint,nodeSha256:'0'.repeat(64)})).toThrow('BOOTSTRAP_TRUST_MISMATCH');expect(verifyBootstrapBinding({publicKey:one.publicKey,fingerprint:one.fingerprint,nodeSha256:'f'.repeat(64)},{fingerprint:one.fingerprint,nodeSha256:'f'.repeat(64)})).toBe(true);
+});
+
+it('binds the explicit Plan 12 approval and keeps the private release key behind an injected keyring entry',async()=>{
+  mkdirSync(resolve('.runtime'),{recursive:true});const receipt=resolve('release/approval.json'),root=mkdtempSync(join(resolve('.runtime'),'release-trust-test-')),publicPath=join(root,'trust-root.json'),input=join(root,'manifest.json'),output=join(root,'manifest.sig');let password:string|undefined;
+  const entry={async getPassword(){return password},async setPassword(value:string){password=value},async deleteCredential(){password=undefined;return true}};
+  try{expect(readApproval(receipt).scope).toMatchObject({privateKeyStorage:'os_keyring_only',githubOwner:'returdex'});const established=await initializeTrust({receiptPath:receipt,outputPath:publicPath,entry});expect(established.status).toBe('established');expect(readFileSync(publicPath,'utf8')).not.toContain(password!);await expect(initializeTrust({receiptPath:receipt,outputPath:publicPath,entry})).rejects.toThrow('RELEASE_TRUST_ALREADY_ESTABLISHED');expect(await selfcheckTrust({publicPath,receiptPath:receipt,entry})).toMatchObject({status:'pass',fingerprint:established.fingerprint});writeFileSync(input,'exact manifest',{mode:0o600});expect(await signReleaseFile({publicPath,inputPath:input,outputPath:output,entry})).toMatchObject({status:'signed',fingerprint:established.fingerprint});expect(readFileSync(output).length).toBe(64);}finally{rmSync(root,{recursive:true,force:true});}
 });
