@@ -34,7 +34,7 @@ export async function assembleCachedBuild({projectRoot,compiledRoot,cacheRoot,ou
 }
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
-function archiveDirectory(source,destination){const names=readdirSync(source).sort();if(!names.length)throw new Error('DEPENDENCY_CLOSURE_MISSING');execFileSync('/usr/bin/tar',['-czf',destination,'-C',source,...names],{stdio:'pipe',timeout:600000,maxBuffer:1024*1024});const bytes=readFileSync(destination);return{bytes:bytes.length,sha256:sha(bytes)};}
+function archiveDirectory(source,destination){const names=readdirSync(source).sort();if(!names.length)throw new Error('DEPENDENCY_CLOSURE_MISSING');execFileSync('/usr/bin/tar',['-czf',destination,'--format','ustar','-C',source,...names],{env:{...process.env,COPYFILE_DISABLE:'1'},stdio:'pipe',timeout:600000,maxBuffer:1024*1024});const bytes=readFileSync(destination);return{bytes:bytes.length,sha256:sha(bytes)};}
 function bootstrap(template,payload){return template.replace("TRUST_STATE='UNESTABLISHED'","TRUST_STATE='APPROVED'").replace("CORE_SHA256='UNESTABLISHED'",`CORE_SHA256='${payload.sha256}'`).replace("CORE_BASE64='UNESTABLISHED'",`CORE_BASE64='${Buffer.from(payload.source).toString('base64')}'`);}
 function bootstrapPS(template,payload){return template.replace("$TrustState='UNESTABLISHED'","$TrustState='APPROVED'").replace("$CoreSha256='UNESTABLISHED'",`$CoreSha256='${payload.sha256}'`).replace("$CoreBase64='UNESTABLISHED'",`$CoreBase64='${Buffer.from(payload.source).toString('base64')}'`);}
 export async function assembleReleasePair({projectRoot=resolve(here,'../..'),cacheRoot=join(projectRoot,'.runtime/delivery-cache'),outputRoot=join(projectRoot,'.runtime/releases')}={}){
