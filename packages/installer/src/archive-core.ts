@@ -129,7 +129,7 @@ export async function readBoundedReleaseURL(input:string,maximum:number,transpor
 export async function prepareBootstrapInstaller(config:{publicKey:string;fingerprint:string;manifestURL:string;signatureURL:string},root:string,target:{os:string;arch:string;version:string},permissions:{verify:(path:string)=>unknown;protect:(path:string)=>unknown},transport:DownloadTransport=nativeTransport){
   permissions.verify(root);const bytes=await readBoundedReleaseURL(config.manifestURL,LIMITS.manifestBytes,transport),signature=await readBoundedReleaseURL(config.signatureURL,64,transport);
   const {artifact,manifestHash}=verifyBootstrapManifest(bytes,signature,config,target);
-  const entry='packages/installer/src/install.js';if(!artifact.files.some(f=>f.path===entry&&f.type!=='symlink'))throw new Error('INSTALLER_ENTRY_MISSING');
+  const entry='dist/packages/installer/src/install.js';if(!artifact.files.some(f=>f.path===entry&&f.type!=='symlink'))throw new Error('INSTALLER_ENTRY_MISSING');
   const archive=await downloadArchive(artifact,root,permissions,transport),directory=join(root,'verified-installer');mkdirSync(directory,{mode:0o700});permissions.protect(directory);extractArchive(artifact,readFileSync(archive),directory,target.os,permissions);
   for(const [name,data]of [['release-manifest.json',bytes],['release-manifest.sig',signature]] as const){const path=join(root,name),fd=openSync(path,'wx',0o600);try{permissions.protect(path);writeFileSync(fd,data);fsyncSync(fd);}finally{closeSync(fd);}}
   return {entry:join(directory,entry),manifestPath:join(root,'release-manifest.json'),signaturePath:join(root,'release-manifest.sig'),manifestHash};

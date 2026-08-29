@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {createHarness} from '../../packages/test-support/src/harness.js';
 import {protectPath} from '../../packages/platform/src/permissions.js';
 import {signSyntheticManifests} from '../../scripts/build/synthetic-sign.mjs';
-import {createFixtureVerifier,verifyRelease,verifyArtifactBytes,verifyFileTree,isVerifiedManifest,safeArtifactPath} from '../../packages/installer/src/verify-manifest.js';
+import {createFixtureVerifier,verifyRelease,verifyArtifactBytes,verifyFileTree,isVerifiedManifest,safeArtifactPath,RELEASE_FINGERPRINT} from '../../packages/installer/src/verify-manifest.js';
 
 const hash=(value:Buffer|string)=>createHash('sha256').update(value).digest('hex');
 function manifest(variant:'A'|'B'='A'){
@@ -17,7 +17,8 @@ it('real Ed25519 signs exact A/B bytes with a short-lived fixture key; artifacts
     expect(signed.signerExited).toBe(true);expect(JSON.stringify(signed).includes('PRIVATE KEY')).toBe(false);
     const verify=createFixtureVerifier(signed.publicKey,signed.fingerprint);for(let i=0;i<bytes.length;i++){const verified=verify(bytes[i]!,Buffer.from(signed.signatures[i]!,'base64'),target);expect(isVerifiedManifest(verified)).toBe(true);expect(isVerifiedManifest(JSON.parse(JSON.stringify(verified)))).toBe(false);expect(verified.evidence).toBe('synthetic_signature');verifyArtifactBytes(verified,'program.tar.gz',Buffer.from('synthetic archive'));writeFileSync(join(root,'app.js'),'abc');verifyFileTree(verified,'program.tar.gz',root);writeFileSync(join(root,'app.js'),'bad');expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');}
     writeFileSync(join(root,'app.js'),'abc');writeFileSync(join(root,'unlisted.js'),'untrusted');const verified=verify(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target);expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');unlinkSync(join(root,'unlisted.js'));
-    expect(()=>verifyRelease(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target)).toThrow('RELEASE_TRUST_NOT_ESTABLISHED');
+    expect(RELEASE_FINGERPRINT).toBe('fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557');
+    expect(()=>verifyRelease(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target)).toThrow('SIGNATURE_INVALID');
   }finally{await h.cleanup();}
 });
 it('real headed Chrome internal spaces are valid while ancestor conflicts and nested symlinks are rejected',async()=>{

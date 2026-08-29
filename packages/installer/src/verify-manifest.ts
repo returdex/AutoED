@@ -47,8 +47,11 @@ function verifier(publicKey:string,fingerprint:string,evidence:VerifiedManifest[
 }
 /** Only synthetic test composition may select this root. No production CLI flag accepts a key. */
 export function createFixtureVerifier(publicKey:string,fingerprint:string){return verifier(publicKey,fingerprint,'synthetic_signature');}
-/** Plan 12 must establish a separately approved fixed release root. Never trust a downloaded self-supplied key. */
-export function verifyRelease(_bytes:Buffer,_signature:Buffer,_target:VerificationTarget):VerifiedManifest{throw new Error('RELEASE_TRUST_NOT_ESTABLISHED');}
+const RELEASE_PUBLIC_KEY='-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAV12846qnKse5tDgR+d/yLF2yt7mctiKEKqKxUknDZLU=\n-----END PUBLIC KEY-----\n';
+export const RELEASE_FINGERPRINT='fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557';
+const releaseVerifier=verifier(RELEASE_PUBLIC_KEY,RELEASE_FINGERPRINT,'verified_release_manifest');
+/** Fixed Plan 12 root. No downloaded input or CLI option can replace it. */
+export function verifyRelease(bytes:Buffer,signature:Buffer,target:VerificationTarget):VerifiedManifest{return releaseVerifier(bytes,signature,target);}
 function selected(value:VerifiedManifest,name:string){if(!isVerifiedManifest(value))throw new Error('VERIFIED_MANIFEST_REQUIRED');const artifact=value.manifest.artifacts.find(a=>a.name===name);if(!artifact)throw new Error('ARTIFACT_NOT_LISTED');return artifact;}
 export function verifyArtifactBytes(value:VerifiedManifest,name:string,bytes:Buffer){const artifact=selected(value,name);if(bytes.length!==artifact.bytes||digest(bytes)!==artifact.sha256)throw new Error('ARTIFACT_INTEGRITY');return artifact;}
 /** Caller selects a previously empty owned extraction root; every listed regular file is re-read. */

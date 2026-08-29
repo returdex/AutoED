@@ -7,6 +7,7 @@ import {expect,it} from 'vitest';
 import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory,validatePrerequisites} from '../../scripts/release/preflight.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
+import {RELEASE_FINGERPRINT} from '../../packages/installer/src/verify-manifest.js';
 
 const sha=(value:Buffer|string)=>createHash('sha256').update(value).digest('hex');
 function packageFixture(){const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-release-package-')));cpSync(resolve('LICENSE'),join(root,'LICENSE'));cpSync(resolve('LICENSING.md'),join(root,'LICENSING.md'));mkdirSync(join(root,'dist'));writeFileSync(join(root,'dist/program.js'),'safe');return root;}
@@ -18,6 +19,10 @@ it('requires independent returdex identities and refuses an unknown same-name re
 
 it('requires the confirmed public fingerprint, isolated login and an exact-name-free repository prerequisite',()=>{
   const value=JSON.parse(readFileSync(resolve('release/prerequisites.json'),'utf8'));expect(validatePrerequisites(value)).toMatchObject({status:'approved',isolatedLogin:'returdex',fingerprintUserConfirmed:true,repository:{exactNameExists:false}});expect(()=>validatePrerequisites({...value,fingerprintUserConfirmed:false})).toThrow('RELEASE_PREREQUISITES_INVALID');expect(()=>validatePrerequisites({...value,repository:{...value.repository,exactNameExists:true,canonicalObserved:'returdex/AutoED'}})).toThrow('RELEASE_PREREQUISITES_INVALID');expect(()=>validatePrerequisites({...value,isolatedLogin:'ywan1303'})).toThrow('RELEASE_PREREQUISITES_INVALID');
+});
+
+it('binds production installation to the exact user-confirmed release root',()=>{
+  const root=JSON.parse(readFileSync(resolve('release/trust-root.json'),'utf8'));expect(root).toMatchObject({status:'established',algorithm:'Ed25519',fingerprint:'fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557'});expect(RELEASE_FINGERPRINT).toBe(root.fingerprint);expect(JSON.stringify(root)).not.toMatch(/PRIVATE KEY|privateKey/);
 });
 
 it('refuses beta overwrite, license drift, forbidden runtime material and package canaries',()=>{
