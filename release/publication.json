@@ -57,6 +57,56 @@
         "autoed-0.1.0-beta.2-install.md"
       ],
       "publishedAt": "2026-08-29T08:49:49.136Z"
+    },
+    {
+      "version": "0.1.0-beta.3",
+      "tagCommit": "423d30b869aa58d3bf1ac2ce901442e5859269d8",
+      "assets": [
+        "autoed-0.1.0-beta.3-darwin-arm64-installer.tar.gz",
+        "autoed-0.1.0-beta.3-darwin-arm64-program.tar.gz",
+        "autoed-0.1.0-beta.3-darwin-arm64-node.tar.gz",
+        "autoed-0.1.0-beta.3-darwin-arm64-browser.zip",
+        "autoed-0.1.0-beta.3-darwin-arm64-manifest.json",
+        "autoed-0.1.0-beta.3-darwin-arm64-manifest.sig",
+        "autoed-0.1.0-beta.3-darwin-arm64-bootstrap.sh",
+        "autoed-0.1.0-beta.3-win32-x64-installer.tar.gz",
+        "autoed-0.1.0-beta.3-win32-x64-program.tar.gz",
+        "autoed-0.1.0-beta.3-win32-x64-node.tar.gz",
+        "autoed-0.1.0-beta.3-win32-x64-browser.tar.gz",
+        "autoed-0.1.0-beta.3-win32-x64-manifest.json",
+        "autoed-0.1.0-beta.3-win32-x64-manifest.sig",
+        "autoed-0.1.0-beta.3-win32-x64-bootstrap.ps1",
+        "LICENSE",
+        "LICENSING.md",
+        "autoed-0.1.0-beta.3-source.tar.gz",
+        "autoed-0.1.0-beta.3-install.md"
+      ],
+      "publishedAt": "2026-08-29T14:47:52.722Z"
+    },
+    {
+      "version": "0.1.0-beta.4",
+      "tagCommit": "423d30b869aa58d3bf1ac2ce901442e5859269d8",
+      "assets": [
+        "autoed-0.1.0-beta.4-darwin-arm64-installer.tar.gz",
+        "autoed-0.1.0-beta.4-darwin-arm64-program.tar.gz",
+        "autoed-0.1.0-beta.4-darwin-arm64-node.tar.gz",
+        "autoed-0.1.0-beta.4-darwin-arm64-browser.zip",
+        "autoed-0.1.0-beta.4-darwin-arm64-manifest.json",
+        "autoed-0.1.0-beta.4-darwin-arm64-manifest.sig",
+        "autoed-0.1.0-beta.4-darwin-arm64-bootstrap.sh",
+        "autoed-0.1.0-beta.4-win32-x64-installer.tar.gz",
+        "autoed-0.1.0-beta.4-win32-x64-program.tar.gz",
+        "autoed-0.1.0-beta.4-win32-x64-node.tar.gz",
+        "autoed-0.1.0-beta.4-win32-x64-browser.tar.gz",
+        "autoed-0.1.0-beta.4-win32-x64-manifest.json",
+        "autoed-0.1.0-beta.4-win32-x64-manifest.sig",
+        "autoed-0.1.0-beta.4-win32-x64-bootstrap.ps1",
+        "LICENSE",
+        "LICENSING.md",
+        "autoed-0.1.0-beta.4-source.tar.gz",
+        "autoed-0.1.0-beta.4-install.md"
+      ],
+      "publishedAt": "2026-08-29T14:49:48.262Z"
     }
   ]
 }

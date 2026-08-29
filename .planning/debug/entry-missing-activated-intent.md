@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Published 0.1.0-beta.1 first-install bootstrap exits with ENTRY_MISSING_ACTIVATED_INTENT after the user confirms the exact preview scope."
 created: 2026-08-29T13:26:11Z
-updated: 2026-08-30T00:42:00+10:00
+updated: 2026-08-30T00:48:00+10:00
 ---
 
 # Debug Session: ENTRY_MISSING_ACTIVATED_INTENT
@@ -48,6 +48,8 @@ updated: 2026-08-30T00:42:00+10:00
   observation: One full-suite attempt recorded a fail-closed `LOCAL_VOLUME_UNCONFIRMED` while stopping the synthetic Worker. The exact lifecycle test then passed alone, repeated mount-table probes returned immediately, no matching process or fixed-port listener remained, and an unchanged full integration rerun passed all 112 tests in 842.13 seconds. The transient query failure did not recur, so local-volume validation was not cached or weakened.
 - timestamp: 2026-08-30T00:42:00+10:00
   observation: Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and the production build. Port 43187 was clear and no matching synthetic service process remained after integration cleanup.
+- timestamp: 2026-08-30T00:48:00+10:00
+  observation: Immutable replacement releases 0.1.0-beta.3 and 0.1.0-beta.4 were published under the isolated `returdex` identity with 18 assets each. Anonymous full-download verification passed for all 36 assets, including length, SHA-256, signature, exact archive closure and build identity. Windows native and human UAT remain `not_run`.
 
 ## Eliminated
 
@@ -60,5 +62,5 @@ updated: 2026-08-30T00:42:00+10:00
 
 - root_cause: Production packaging adds a `dist/` prefix that the installer runtime and generated launchers did not resolve; fixture archives omitted that packaging boundary. Windows launchers also omitted the packaged Node `bin/` segment.
 - fix: Resolve one complete, non-symlink entry layout from the signed program manifest (`dist/` production or legacy fixture layout), bind launcher/runtime paths to that verified layout, use `bin/node.exe` on Windows, and make the A/B fixture reproduce the production wrapper.
-- verification: Targeted regression first failed with the observed code. Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and production build. Published replacement beta verification remains pending.
+- verification: Targeted regression first failed with the observed code. Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and production build. Anonymous full-download verification passed for all 36 immutable beta.3/beta.4 assets. Actual retry installation and human UAT remain pending.
 - files_changed: packages/installer/src/launchers.ts; packages/installer/src/upgrade.ts; packages/test-support/src/upgrade-fixture.ts; scripts/build/assemble.mjs; scripts/release/materialize.mjs; scripts/release/preflight.mjs; scripts/release/publish.mjs; tests/integration/release-gates.test.ts
