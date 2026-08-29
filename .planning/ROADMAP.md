@@ -217,7 +217,7 @@ updated: 2026-08-26
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 契约、原生骨架与最小 beta 安装升级 | 11/14 | Awaiting human gate | - |
+| 1. 契约、原生骨架与最小 beta 安装升级 | 12/14 | Executing | - |
 | 2. 双来源原生登录 POC 与 live 硬门禁 | 0/TBD | Not started | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
@@ -226,4 +226,4 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已于2026-08-27获批，01-01至01-11已完成并独立复核。当前停在01-12真实发布信任/密钥/returdex账号与远程操作硬门禁，需当前明确批准；必要OS授权和真实人工UAT仍有后续硬门禁。无已完成phase、无已发布版本，不自动推进Phase 2。不创建 AutoED 后续 AI/作业阶段或云服务。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-12已完成并独立复核；真实发布信任和隔离returdex身份已获用户确认。接下来执行01-13两个不可覆盖beta的构建、发布与匿名验证；01-14真实人工UAT仍为硬门禁。无已完成phase、无已发布版本，不自动推进Phase 2。

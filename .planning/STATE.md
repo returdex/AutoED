@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
-status: awaiting_human_gate
-stopped_at: 01-11 independently verified complete; awaiting01-12 real trust/account/remote approval gate
+status: executing
+stopped_at: 01-12 release trust gate complete; executing01-13 signed beta publication
 last_updated: "2026-08-26T18:20:53.636Z"
-last_activity: "2026-08-27 — 01-11 independently verified:164 U/I/macOS native +10 Chromium UI; typecheck, four-entry build and bounded HEAD scan passed."
+last_activity: "2026-08-29 — 01-12 complete: confirmed public fingerprint, real Keychain selfcheck, isolated returdex OAuth and 166 U/I/macOS native +10 UI regression passed."
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 14
-  completed_plans: 11
-  percent: 79
+  completed_plans: 12
+  percent: 86
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Await explicit Plan12 human approval for real release-key custody, fixed public trust receipt, returdex GitHub identity and remote repository actions;164 unit/integration/native plus10 browser tests independently passed. Phase-wide requirements pending.
+**Current focus:** Build, sign, publish and anonymously re-fetch two immutable synthetic betas under the confirmed trust root and isolated returdex identity;166 unit/integration/native plus10 browser tests independently passed. Phase-wide requirements pending.
 
 ## Current Position
 
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 11 of 14 (01-01 through01-11 complete; 01-12 blocked on explicit human gate)
-Status: Awaiting Phase 1 Wave10 human approval; 11/14 plans complete
-Last activity: 2026-08-27 — 01-11 independently verified:164 U/I/macOS native +10 Chromium UI; typecheck, four-entry build and bounded HEAD scan passed.
+Plan: 12 of 14 (01-01 through01-12 complete; beginning01-13)
+Status: Executing Phase 1 Wave11; 12/14 plans complete
+Last activity: 2026-08-29 — 01-12 release trust, Keychain and isolated returdex prerequisites passed.
 
-Plan progress: [████████░░] 79% (11/14); phase acceptance remains 0/8.
+Plan progress: [█████████░] 86% (12/14); phase acceptance remains 0/8.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 12
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,12 +44,12 @@ Plan progress: [████████░░] 79% (11/14); phase acceptance re
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 11 completed / 14 planned | Awaiting human gate | N/A |
+| 1 | 12 completed / 14 planned | Executing | N/A |
 | 2–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-06, 01-08, 01-09, 01-10, 01-11
+- Last 5 plans: 01-08, 01-09, 01-10, 01-11, 01-12
 - Trend: N/A
 
 ## Accumulated Context
@@ -67,13 +67,13 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- 01-01至01-11已完成；01-12将在真实密钥保管、固定公开信任、returdex账号和远程仓库操作前硬停止并取得当前明确批准。
+- 01-01至01-12已完成；真实密钥、公开指纹和隔离returdex身份已获确认并自检通过，正在执行01-13不可覆盖beta发布与匿名可获取性验证。
 
 ### Blockers/Concerns
 
 - 01-09备份/恢复按[SQLite backup](https://www.sqlite.org/backup.html)与[WAL持久状态](https://www.sqlite.org/wal.html#the_wal_file)：完成backup API后才验证一致快照，恢复前证明所有连接/拥有进程退出并正确收束WAL，不直接copy运行主DB或任意删WAL。本地better-sqlite3 13.0.3 backup会允许既有destination，须新建受管目标、前后核对gate/write_generation与完整性。最终projection须处理exit后operationId=null/gen++及严格单调非未来checkedAt，不能吞掉写入失败。
 - 01-08解包须保留官方macOS headed浏览器的合法Framework links。根于2026-08-27只读核对Playwright固定151.0.7922.34 mac-arm64官方ZIP（cdn.playwright.dev→storage.googleapis.com）：187406357bytes、647members、central143185bytes；5个link的local data长度/CRC已核，Resources/Libraries/Helpers/Framework→Versions/Current对应项，Current→151.0.7922.34。不是完整archive hash/安装/运行证据。清单显式绑定相对target并解析链接图，拒绝越界/循环/悬空/经link写文件；Windows拒绝links。不能展开成regular后未经核验声称保留代码签名。
-- 初始化已完成，Phase 1停在真实发行信任门禁；01-01至01-11已有164项U/I/macOS原生+10项Chromium UI及类型检查/构建/HEAD扫描证据，51项阶段级需求仍 Pending；production trust未建立、Windows native仍not_run。
+- 初始化已完成，Phase 1执行中；01-01至01-12已有166项U/I/macOS原生+10项Chromium UI及类型检查/构建/HEAD扫描证据，production trust已建立但尚无发布beta；51项阶段级需求仍 Pending，Windows native仍not_run。
 - 01-08只完成验签/安全引导/确认范围/初始staging与私有入口，不是安装升级完成。生产信任仍UNESTABLISHED；09须接真正启动、journal、清理与恢复。active hash、Node/resolver/launcher pins作为同一更新集；Windows MCP预览采用固定PowerShell协议，OS argv可显示launcher.mjs，父退出不代表Node子退出，原生Windows留14验收。
 - 01-06已接实际构建manifest、API安装身份、短期selfcheck凭据与发token前所有权校验；08/09须由真正verifier建立发行签名证据，journal记录预解析/离线失败，不能将build_manifest改名冒充验签。01-09从真实inventory填写previousInstallation；01-10补实际平台/依赖诊断，UI现明确未验证。
 - 安装自检新spawn的MCP不能证明当前Codex中长期运行的MCP已经重载。01-09/10/14须检查受管旧入口与实际客户端版本；若宿主仍持有旧客户端且无法安全自动重载，明确human_needed/cleanup_pending并给出重载步骤，不能把新子进程自检冒充宿主实际更新完成。
@@ -92,5 +92,5 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-08-26T18:20:53.636Z
-Stopped at: 01-11 independently verified complete; awaiting01-12 real trust/account/remote approval gate
-Resume file: .planning/phases/01-beta/01-12-PLAN.md
+Stopped at: 01-12 release trust gate complete; executing01-13 signed beta publication
+Resume file: .planning/phases/01-beta/01-13-PLAN.md
