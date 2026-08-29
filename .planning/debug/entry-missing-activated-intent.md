@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Published 0.1.0-beta.1 first-install bootstrap exits with ENTRY_MISSING_ACTIVATED_INTENT after the user confirms the exact preview scope."
 created: 2026-08-29T13:26:11Z
-updated: 2026-08-30T00:10:00+10:00
+updated: 2026-08-30T00:42:00+10:00
 ---
 
 # Debug Session: ENTRY_MISSING_ACTIVATED_INTENT
@@ -44,6 +44,10 @@ updated: 2026-08-30T00:10:00+10:00
   observation: The exact owned processes were stopped through `OwnedProcessSupervisor`; five exact synthetic Keychain slots were removed; the temporary root was moved to Trash. Silent cleanup suppression was removed. The 4-test recovery suite passed in 370.83s and left port 43187 clear.
 - timestamp: 2026-08-30T00:10:00+10:00
   observation: Release tooling now accepts a validated next consecutive A/B pair, refuses existing version directories, preserves prior publication receipts, and derives prompts from the pair. Typecheck and the seven release-gate tests pass.
+- timestamp: 2026-08-30T00:41:00+10:00
+  observation: One full-suite attempt recorded a fail-closed `LOCAL_VOLUME_UNCONFIRMED` while stopping the synthetic Worker. The exact lifecycle test then passed alone, repeated mount-table probes returned immediately, no matching process or fixed-port listener remained, and an unchanged full integration rerun passed all 112 tests in 842.13 seconds. The transient query failure did not recur, so local-volume validation was not cached or weakened.
+- timestamp: 2026-08-30T00:42:00+10:00
+  observation: Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and the production build. Port 43187 was clear and no matching synthetic service process remained after integration cleanup.
 
 ## Eliminated
 
@@ -56,5 +60,5 @@ updated: 2026-08-30T00:10:00+10:00
 
 - root_cause: Production packaging adds a `dist/` prefix that the installer runtime and generated launchers did not resolve; fixture archives omitted that packaging boundary. Windows launchers also omitted the packaged Node `bin/` segment.
 - fix: Resolve one complete, non-symlink entry layout from the signed program manifest (`dist/` production or legacy fixture layout), bind launcher/runtime paths to that verified layout, use `bin/node.exe` on Windows, and make the A/B fixture reproduce the production wrapper.
-- verification: Targeted regression first failed with the observed code, then typecheck, 21 affected integration tests, staging compatibility tests, the 4-test recovery suite, and seven release-gate tests passed. Full clean suite and published replacement beta verification remain pending.
+- verification: Targeted regression first failed with the observed code. Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and production build. Published replacement beta verification remains pending.
 - files_changed: packages/installer/src/launchers.ts; packages/installer/src/upgrade.ts; packages/test-support/src/upgrade-fixture.ts; scripts/build/assemble.mjs; scripts/release/materialize.mjs; scripts/release/preflight.mjs; scripts/release/publish.mjs; tests/integration/release-gates.test.ts
