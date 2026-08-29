@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Published 0.1.0-beta.1 first-install bootstrap exits with ENTRY_MISSING_ACTIVATED_INTENT after the user confirms the exact preview scope."
 created: 2026-08-29T13:26:11Z
-updated: 2026-08-30T03:32:00+10:00
+updated: 2026-08-30T03:55:00+10:00
 ---
 
 # Debug Session: ENTRY_MISSING_ACTIVATED_INTENT
@@ -56,6 +56,8 @@ updated: 2026-08-30T03:32:00+10:00
   observation: A clean beta.3 first install after explicit residual cleanup reached `download_verified` and failed closed with `ENTRY_MISSING_DOWNLOAD_VERIFIED_INTENT`. The signed production manifest required `dist/build/identity.json`, but the assembler had omitted the repository build identity from the packaged `dist` tree. The partial root, credentials and journal were preserved; no service listened on 43187.
 - timestamp: 2026-08-30T03:32:00+10:00
   observation: The assembler now copies a trusted identity from the compiled fixture when present, otherwise from the project build output, into `program/dist/build/identity.json`. The production packaging regression passed, including the real A/B closure diagnostic; beta.5/beta.6 publication remains pending full gates.
+- timestamp: 2026-08-30T03:55:00+10:00
+  observation: Final gates passed after the identity packaging fix: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests and production build. Immutable beta.5/beta.6 were published with 18 assets each; anonymous full-download verification passed for all 36 assets. Windows native and human UAT remain `not_run`.
 
 ## Eliminated
 
@@ -68,5 +70,5 @@ updated: 2026-08-30T03:32:00+10:00
 
 - root_cause: Production packaging adds a `dist/` prefix that the installer runtime and generated launchers did not resolve; fixture archives omitted that packaging boundary. Windows launchers also omitted the packaged Node `bin/` segment. The production assembler additionally omitted the required `dist/build/identity.json` file.
 - fix: Resolve one complete, non-symlink entry layout from the signed program manifest (`dist/` production or legacy fixture layout), bind launcher/runtime paths to that verified layout, use `bin/node.exe` on Windows, make the A/B fixture reproduce the production wrapper, and package the trusted build identity into `dist/build/identity.json`.
-- verification: Targeted regression first failed with the observed code. Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and production build. Anonymous full-download verification passed for all 36 immutable beta.3/beta.4 assets. The preserved partial root remains unchanged for human recovery; a fresh-root installation and human UAT remain pending.
+- verification: Targeted regression first failed with the observed code. Final local gates passed: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests, and production build. Anonymous full-download verification passed for all 36 immutable beta.5/beta.6 assets. The current partial root remains preserved for explicit cleanup; beta.5 installation and human UAT remain pending.
 - files_changed: packages/installer/src/launchers.ts; packages/installer/src/upgrade.ts; packages/test-support/src/upgrade-fixture.ts; scripts/build/assemble.mjs; scripts/release/materialize.mjs; scripts/release/preflight.mjs; scripts/release/publish.mjs; tests/integration/release-gates.test.ts; tests/integration/two-build-upgrade.test.ts
