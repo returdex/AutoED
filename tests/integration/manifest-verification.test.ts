@@ -23,6 +23,7 @@ it('real Ed25519 signs exact A/B bytes with a short-lived fixture key; artifacts
 });
 it('real headed Chrome internal spaces are valid while ancestor conflicts and nested symlinks are rejected',async()=>{
   expect(safeArtifactPath('chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing')).toBe(true);
+  expect(safeArtifactPath('Helpers/Google Chrome for Testing Helper (Renderer).app/Contents/Info.plist')).toBe(true);
   for(const path of ['x/../y','x/CON.txt','x/trailing ','x/dot.','x/a\\b','x/a\nb','/absolute','x/C:drive'])expect(safeArtifactPath(path)).toBe(false);
   const h=createHarness();try{const root=realpathSync(h.root);protectPath(root);const original=manifest();const nested={...original,artifacts:original.artifacts.map(a=>({...a,files:[{...a.files[0]!,path:'nested/app.js'}]}))};const conflict={...original,artifacts:original.artifacts.map(a=>({...a,unpackedBytes:9,files:['a','a-b','a/b'].map(path=>({...a.files[0]!,path}))}))};const bytes=[nested,conflict].map(m=>Buffer.from(JSON.stringify(m))),signed=await signSyntheticManifests(root,bytes),verify=createFixtureVerifier(signed.publicKey,signed.fingerprint);
     expect(()=>verify(bytes[1]!,Buffer.from(signed.signatures[1]!,'base64'),target)).toThrow('MANIFEST_INVALID');mkdirSync(join(root,'nested'));writeFileSync(join(root,'nested/app.js'),'abc');symlinkSync(root,join(root,'nested/link'));const verified=verify(bytes[0]!,Buffer.from(signed.signatures[0]!,'base64'),target);expect(()=>verifyFileTree(verified,'program.tar.gz',root)).toThrow('FILE_INTEGRITY');

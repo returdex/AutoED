@@ -10,7 +10,7 @@ export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024
 export type ArchiveFile={path:string;sha256:string;bytes:number;type?:'file'|undefined;executable?:boolean|undefined}|{path:string;sha256:string;bytes:number;type:'symlink';target:string};
 const digest=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
 export function safeArtifactPath(path:string):boolean {
-  return path.length<=512&&!path.startsWith('/')&&!path.endsWith('/')&&path.split('/').every(p=>/^[A-Za-z0-9@_+ .-]+$/.test(p)&&p.trim()===p&&p!=='.'&&p!=='..'&&!p.endsWith('.')&&!/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(p));
+  return path.length<=512&&!path.startsWith('/')&&!path.endsWith('/')&&path.split('/').every(p=>/^[A-Za-z0-9@_+ ().-]+$/.test(p)&&p.trim()===p&&p!=='.'&&p!=='..'&&!p.endsWith('.')&&!/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(p));
 }
 export function validateLinkGraph(files:ArchiveFile[],allowed:boolean){
   const nodes=new Set(files.map(f=>f.path)),directories=new Set<string>(),links=new Map(files.filter(f=>f.type==='symlink').map(f=>[f.path,f.target]));
