@@ -21,7 +21,7 @@ import {runSelfcheck} from '../../../scripts/install/selfcheck.mjs';
 import {approvedManifest,type InstallPreview,type InstallConfirmation} from './preview.js';
 import {isVerifiedManifest,verifyFileTree,verifyArtifactBytes,verifiedEnvelope,type VerifiedManifest} from './verify-manifest.js';
 import {extractVerifiedArchive} from './download.js';
-import {publishLaunchers,assertOwnedLaunchers,writeInstallerRecord,readActive} from './launchers.js';
+import {publishLaunchers,assertOwnedLaunchers,writeInstallerRecord,readActive,programEntryPaths} from './launchers.js';
 import {UpgradeJournal,nextProjectionTime,writeJournalProjection,type JOURNAL_STAGES} from './journal.js';
 import {createSnapshot,type Snapshot} from './snapshot.js';
 import {z} from 'zod';
@@ -30,8 +30,8 @@ export function verifiedRuntime(selection:RootSelection,manifest:VerifiedManifes
   if(!isVerifiedManifest(manifest))throw new Error('VERIFIED_MANIFEST_REQUIRED');const metadata=readInstallation(selection),paths=managedPaths(selection.root),m=manifest.manifest;
   const roots={program:assertManagedPath(paths,`program/${m.build.buildId}`),node:assertManagedPath(paths,`runtime/${m.dependencies.node}`),browser:assertManagedPath(paths,`browser/${m.dependencies.browserRevision}`)};
   for(const role of ['program','node','browser'] as const){const parts=m.artifacts.filter(a=>a.role===role);if(parts.length!==1)throw new Error('ARTIFACT_LAYOUT_INVALID');verifyFileTree(manifest,parts[0]!.name,roots[role]);}
-  const managedNode=join(roots.node,process.platform==='darwin'?'bin/node':'node.exe'),entries={api:join(roots.program,'apps/api/src/main.js'),worker:join(roots.program,'apps/worker/src/main.js'),cli:join(roots.program,'apps/cli/src/main.js'),mcp:join(roots.program,'apps/mcp/src/main.js')};
-  return {metadata,roots,managedNode,entries,manifestPath:join(roots.program,'build/identity.json')};
+  const layout=programEntryPaths(manifest);if(![layout.api,layout.worker,layout.clientHost,layout.identity].every(path=>layout.program.files.some(file=>file.path===path&&file.type!=='symlink')))throw new Error('ENTRY_MISSING');const managedNode=join(roots.node,process.platform==='darwin'?'bin/node':'bin/node.exe'),entries={api:join(roots.program,layout.api),worker:join(roots.program,layout.worker),cli:join(roots.program,layout.cli),mcp:join(roots.program,layout.mcp)};
+  return {metadata,roots,managedNode,entries,manifestPath:join(roots.program,layout.identity),clientHostPath:layout.clientHost};
 }
 /** Only a freshly verified complete inventory can mint an installer endpoint. Never a model selector. */
 export function verifiedInstallerClient(selection:RootSelection,manifest:VerifiedManifest){const runtime=verifiedRuntime(selection,manifest);return new HttpClient(selection.root,selection.parent,'installer',manifest.manifest.build,undefined,discoverBoundClientEndpoint(selection,runtime.entries.api,runtime.managedNode));}
@@ -100,7 +100,7 @@ export async function upgradeConfirmed(preview:InstallPreview,confirmation:Insta
       if(supervisor)for(const identity of supervisor.registered().reverse()){const state=await supervisor.inspect(identity);if(state==='running')await supervisor.stop(identity);else if(state!=='exited')throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');}
       client=undefined;await new SQLiteMaintenanceStore(db).markExclusive(operationId,gate.generation);
       const hosts=await inspectClientHosts(selection);if(hosts.some(h=>h.state!=='exited'))throw new Error('HOST_RELOAD_REQUIRED');
-      if(old&&!old.manifest.artifacts.find(a=>a.role==='program')!.files.some(f=>f.path==='packages/platform/src/client-host.js'))throw new Error('HOST_INVENTORY_UNCONFIRMED');
+      if(old&&!old.manifest.artifacts.find(a=>a.role==='program')!.files.some(f=>f.path===programEntryPaths(old).clientHost))throw new Error('HOST_INVENTORY_UNCONFIRMED');
     });
     await step('snapshot_ready',async()=>{snapshot=await createSnapshot(selection,db,{operationId,generation:gate.generation});});
     await step('migrated',async()=>{if(db.pragma('user_version',{simple:true})!==1||db.pragma('integrity_check',{simple:true})!=='ok')throw new Error('SCHEMA_INCOMPATIBLE');});

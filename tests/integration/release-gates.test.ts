@@ -26,7 +26,7 @@ it('binds production installation to the exact user-confirmed release root',()=>
 });
 
 it('refuses beta overwrite, license drift, forbidden runtime material and package canaries',()=>{
-  expect(()=>assertVersionAvailable('0.1.0-beta.2',['0.1.0-beta.2'])).toThrow('VERSION_ALREADY_EXISTS');expect(()=>assertVersionAvailable('0.1.0',['0.1.0-beta.1'])).toThrow('VERSION_INVALID');const root=packageFixture();try{expect(scanPublicPackage(root)).toMatchObject({status:'pass'});writeFileSync(join(root,'dist/.env'),'CANARY_'+'RELEASE_SECRET');expect(()=>scanPublicPackage(root)).toThrow('PUBLIC_PACKAGE_REJECTED');rmSync(join(root,'dist/.env'));writeFileSync(join(root,'LICENSE'),'Apache-2.0');expect(()=>scanPublicPackage(root)).toThrow('LICENSE_MISMATCH');}finally{rmSync(root,{recursive:true,force:true});}
+  expect(()=>assertVersionAvailable('0.1.0-beta.2',['0.1.0-beta.2'])).toThrow('VERSION_ALREADY_EXISTS');expect(assertVersionAvailable('0.1.0-beta.3',['0.1.0-beta.1','0.1.0-beta.2'])).toBe(true);expect(()=>assertVersionAvailable('0.1.0-beta.3',['0.1.0-beta.4'])).toThrow('VERSION_ALREADY_EXISTS');expect(()=>assertVersionAvailable('0.1.0',['0.1.0-beta.1'])).toThrow('VERSION_INVALID');const root=packageFixture();try{expect(scanPublicPackage(root)).toMatchObject({status:'pass'});writeFileSync(join(root,'dist/.env'),'CANARY_'+'RELEASE_SECRET');expect(()=>scanPublicPackage(root)).toThrow('PUBLIC_PACKAGE_REJECTED');rmSync(join(root,'dist/.env'));writeFileSync(join(root,'LICENSE'),'Apache-2.0');expect(()=>scanPublicPackage(root)).toThrow('LICENSE_MISMATCH');}finally{rmSync(root,{recursive:true,force:true});}
 });
 
 it('limits reviewed fixture exceptions to exact immutable object and path pairs',()=>{
