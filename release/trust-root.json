@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "status": "established",
+  "algorithm": "Ed25519",
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAV12846qnKse5tDgR+d/yLF2yt7mctiKEKqKxUknDZLU=\n-----END PUBLIC KEY-----\n",
+  "fingerprint": "fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557",
+  "approvalSha256": "6825e6accc27549e19efc928822fa126230eb45d0640216e62773dd90b808dfc",
+  "keyringService": "AutoED-Rebuild-Release",
+  "keyringAccount": "release-ed25519-private-v1",
+  "establishedByPlan": "01-12"
+}

@@ -4,7 +4,7 @@ import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,writeFileS
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
-import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory} from '../../scripts/release/preflight.mjs';
+import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory,validatePrerequisites} from '../../scripts/release/preflight.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
 
@@ -14,6 +14,10 @@ function identity(overrides={}){return{authorName:'returdex',committerName:'retu
 
 it('requires independent returdex identities and refuses an unknown same-name repository',()=>{
   expect(assertReleaseIdentity(identity())).toMatchObject({owner:'returdex',repository:'AutoED'});expect(()=>assertReleaseIdentity(identity({login:'ywan1303'}))).toThrow('RELEASE_IDENTITY_MISMATCH');expect(()=>assertReleaseIdentity(identity({repository:{owner:'returdex',name:'AutoED',exists:true,creationReceipt:null}}))).toThrow('REPOSITORY_CONFLICT');
+});
+
+it('requires the confirmed public fingerprint, isolated login and an exact-name-free repository prerequisite',()=>{
+  const value=JSON.parse(readFileSync(resolve('release/prerequisites.json'),'utf8'));expect(validatePrerequisites(value)).toMatchObject({status:'approved',isolatedLogin:'returdex',fingerprintUserConfirmed:true,repository:{exactNameExists:false}});expect(()=>validatePrerequisites({...value,fingerprintUserConfirmed:false})).toThrow('RELEASE_PREREQUISITES_INVALID');expect(()=>validatePrerequisites({...value,repository:{...value.repository,exactNameExists:true,canonicalObserved:'returdex/AutoED'}})).toThrow('RELEASE_PREREQUISITES_INVALID');expect(()=>validatePrerequisites({...value,isolatedLogin:'ywan1303'})).toThrow('RELEASE_PREREQUISITES_INVALID');
 });
 
 it('refuses beta overwrite, license drift, forbidden runtime material and package canaries',()=>{

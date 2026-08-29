@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "plan": "01-12",
+  "status": "approved",
+  "checkedAt": "2026-08-29T07:29:44Z",
+  "approvalSha256": "6825e6accc27549e19efc928822fa126230eb45d0640216e62773dd90b808dfc",
+  "fingerprint": "fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557",
+  "fingerprintUserConfirmed": true,
+  "osKeyAvailable": true,
+  "isolatedLogin": "returdex",
+  "globalLoginObserved": "ywan1303",
+  "isolatedConfigProtection": "0700",
+  "localGit": {
+    "authorName": "returdex",
+    "committerName": "returdex",
+    "authorEmail": "73513006+returdex@users.noreply.github.com",
+    "committerEmail": "73513006+returdex@users.noreply.github.com"
+  },
+  "repository": {
+    "owner": "returdex",
+    "name": "AutoED",
+    "exactNameExists": false,
+    "canonicalObserved": "returdex/AutoED-legacy",
+    "state": "available_after_user_rename"
+  },
+  "localRemoteConfigured": false
+}
