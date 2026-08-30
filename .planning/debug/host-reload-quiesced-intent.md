@@ -2,7 +2,7 @@
 status: verified
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T00:54:00+10:00
+updated: 2026-08-31T01:00:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -44,6 +44,8 @@ updated: 2026-08-31T00:54:00+10:00
   observation: The real beta.9 retry activated and feature-verified the target but stopped at `cleaned/intent` with `CLEANUP_PENDING_CLEANED_INTENT`. All recorded client hosts subsequently inspected as exited, identifying a race between selfcheck child exit and the single cleanup observation.
 - timestamp: 2026-08-31T00:54:00+10:00
   observation: The second repair adds exact cleaned-intent dispatch into the verified snapshot rollback engine, removes only revoked runtime receipts after all owned processes and hosts prove exited, and bounds cleanup waiting without accepting unknown ownership. Full gates pass: typecheck, 43 unit, 115 integration, 12 native macOS, 10 UI, and production build.
+- timestamp: 2026-08-31T01:00:00+10:00
+  observation: Immutable beta.11/beta.12 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. Live beta.9 recovery and fresh beta.11 upgrade remain human_needed.
 
 ## Eliminated
 

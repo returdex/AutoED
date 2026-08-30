@@ -3,85 +3,85 @@
   "status": "pass",
   "repository": "returdex/AutoED",
   "anonymous": true,
-  "checkedAt": "2026-08-30T14:02:56.959Z",
+  "checkedAt": "2026-08-30T15:03:31.034Z",
   "fingerprint": "fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557",
   "versions": [
     {
       "schema": 1,
       "status": "pass",
-      "version": "0.1.0-beta.9",
+      "version": "0.1.0-beta.11",
       "anonymous": true,
-      "manifestHash": "9a6a1706a1fd0f16cfe704804a496793d9ab258c346add2d359345e93da1fcdc",
+      "manifestHash": "0d174336961b94f880cd4e95a299811fdf5a3f7a449affeb9318c52631212343",
       "assets": [
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-installer.tar.gz",
-          "bytes": 13851722,
-          "sha256": "6d538df99087e3e7a333ad0c9d9294aa67dfc60475d1c708047869e59daf820d"
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-installer.tar.gz",
+          "bytes": 13852231,
+          "sha256": "7f2f661b26c2c6a2c1cec5a23477bad2beb62380d3768382d221be5e6de69f94"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-program.tar.gz",
-          "bytes": 13851722,
-          "sha256": "aa07bd8a98a72a7e78ad2bb6e56f9dba369e1d300de2c2ce58b8b1329320b9e6"
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-program.tar.gz",
+          "bytes": 13852231,
+          "sha256": "dab1726f0bd1b1b4ffb1957961c73b3939370c259e99fe758c94f991584f7b53"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-node.tar.gz",
-          "bytes": 39253953,
-          "sha256": "c63f93c803c2bf54b962e9405fd5014b73008daa9e751ec1c255c2541f589b87"
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-node.tar.gz",
+          "bytes": 39253954,
+          "sha256": "4162d8aab74d6fc0c25d85e719c7f04afd55c641d77feb39d1e049ae48e5511a"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-browser.zip",
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-browser.zip",
           "bytes": 174725825,
-          "sha256": "f6c4863dc9ee9576aa901d79ac599d52a1d8da8fc2cf41e20512ad2eb4cc09b1"
+          "sha256": "59596587a3dc10e05ff7f0f245258244b867a886de4120d15af22f7f2635389a"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-manifest.json",
-          "bytes": 1242489,
-          "sha256": "9a7ddeda7629d9c0f9658291b44748fe7b43971e927ea9c5c347ef23fb60a1ea"
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-manifest.json",
+          "bytes": 1242502,
+          "sha256": "20a72e9fe6d7007734f24d65b5c4bca9ec085303f960d909508cf14b2d54fa41"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-manifest.sig",
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-manifest.sig",
           "bytes": 64,
-          "sha256": "f24a56b6ff85a9fb5e115835e12dd2e04da3b7ce0e2795996b08a76f6151bd29"
+          "sha256": "5205db7da7a42c4eb9e59e4f51b10fbf441b8df2f6b76a23f24ef2f7d089d1e1"
         },
         {
-          "name": "autoed-0.1.0-beta.9-darwin-arm64-bootstrap.sh",
-          "bytes": 71120,
-          "sha256": "849cff69c97d32c5f538892949498d305c0df67be3e67d73578f48642f766158"
+          "name": "autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh",
+          "bytes": 71124,
+          "sha256": "9a4f09b8419c77b3e0637df58e5f0a2741abcf83d78a918ecf641b319d3e1be1"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-installer.tar.gz",
-          "bytes": 14399425,
-          "sha256": "ad5f14b95c040d00959fc541106fb18b72a07c240dedd37e0f3b4d3b62a59e8f"
+          "name": "autoed-0.1.0-beta.11-win32-x64-installer.tar.gz",
+          "bytes": 14399744,
+          "sha256": "4120b90af3e3354b42877d396831f9dd18d9023f146d04b3052435fcdb8892ce"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-program.tar.gz",
-          "bytes": 14399425,
-          "sha256": "d0391b313f956cba2591d45e01586076b1eff29171175dcf856df522066748d0"
+          "name": "autoed-0.1.0-beta.11-win32-x64-program.tar.gz",
+          "bytes": 14399744,
+          "sha256": "e01a34eebf8daec5db2b07d971de019e0a595f17c70d7133f5a3ef062fd82fac"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-node.tar.gz",
-          "bytes": 34902464,
-          "sha256": "61df34ea2d4216f814c6b3ec22f661a98e6805d1c646099835557805413101fd"
+          "name": "autoed-0.1.0-beta.11-win32-x64-node.tar.gz",
+          "bytes": 34902472,
+          "sha256": "81a68a6a9679a507bd2d52d02b60cadd904c7fb82b2afd0133369146799fe966"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-browser.tar.gz",
-          "bytes": 201121914,
-          "sha256": "f15ae2705423a887da561c3e9705747e782b7d45ec499da764c4b3827375eb39"
+          "name": "autoed-0.1.0-beta.11-win32-x64-browser.tar.gz",
+          "bytes": 201121212,
+          "sha256": "a7a76ade76dcd740cadb2be52d9c46044a82b0cc6b34459fe34818e49e24a55f"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-manifest.json",
-          "bytes": 1198501,
-          "sha256": "83cd717c4817bebd8dbef7748458fa95ae90ec1678da91ddf1567b36bbfe955e"
+          "name": "autoed-0.1.0-beta.11-win32-x64-manifest.json",
+          "bytes": 1198514,
+          "sha256": "5fce9d9a6895f33ec1e0d96d21dc7f3d2e6075c9b9c217495e64227174de3287"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-manifest.sig",
+          "name": "autoed-0.1.0-beta.11-win32-x64-manifest.sig",
           "bytes": 64,
-          "sha256": "94d33684f60a42d812199019b733a0e37e09eeea950386aecc19807f6cbfd1ce"
+          "sha256": "bd230e777e11b35e78be8334a1b0b39018a31990d98a3bfc99b391e8ee62f723"
         },
         {
-          "name": "autoed-0.1.0-beta.9-win32-x64-bootstrap.ps1",
-          "bytes": 73569,
-          "sha256": "3a9687bedaabda35d48c3cdda3ea5ddd9a8ea5af1876a2d6bb0ea2b49e86ed5c"
+          "name": "autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1",
+          "bytes": 73573,
+          "sha256": "bbe213feaa8e19544525362ac5d50c9b0f6a67229eeeb6f73dc4592193a422d6"
         },
         {
           "name": "LICENSE",
@@ -94,93 +94,93 @@
           "sha256": "6c2ebeac33c85ff1dca2ed6c23b6c4221885313b4b310381c7229f61f6b1cfd0"
         },
         {
-          "name": "autoed-0.1.0-beta.9-source.tar.gz",
-          "bytes": 485720,
-          "sha256": "ca98f9061180e55568d943e066b7c2a5db524340bedcae92cc30588176b9183d"
+          "name": "autoed-0.1.0-beta.11-source.tar.gz",
+          "bytes": 487451,
+          "sha256": "401ad68351246dbff2da5650e06ddda0411833869a281fb3335f58e73053fe54"
         },
         {
-          "name": "autoed-0.1.0-beta.9-install.md",
-          "bytes": 3232,
-          "sha256": "d5f4238b6411a5146a398ad81a8ebc8e9639367e9bf0fd95cb3431cf4e36c8b5"
+          "name": "autoed-0.1.0-beta.11-install.md",
+          "bytes": 3238,
+          "sha256": "b6c15fb374fcadb1b2a7d29c97114abc0fb136c6c552865a3e965eb4e3a27cdd"
         }
       ]
     },
     {
       "schema": 1,
       "status": "pass",
-      "version": "0.1.0-beta.10",
+      "version": "0.1.0-beta.12",
       "anonymous": true,
-      "manifestHash": "f318d9dfeaac7e8cfd64527937a0750f34402201f810ed975b86da1216f03e0b",
+      "manifestHash": "cebc99cb804340b4a9deb7ed5219c40787f95d6ea0539c6294dcede2163e5bed",
       "assets": [
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-installer.tar.gz",
-          "bytes": 13851840,
-          "sha256": "c6e870f875389dd6952b35e8614ed62c6c6d269b3d0a0d64447a0c6e1d083537"
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-installer.tar.gz",
+          "bytes": 13852278,
+          "sha256": "d0308377e7fdcef5748aff69d479afcdbdf18a52e8be61dbbc6c26cb95383426"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-program.tar.gz",
-          "bytes": 13851840,
-          "sha256": "712629324b60ca5a0327e8f014144e107f6a80a43402d35215931b29d0721a34"
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-program.tar.gz",
+          "bytes": 13852278,
+          "sha256": "4803f78326f49e6e2a56367bf78986c55c10343e451416831580370cbff3b67d"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-node.tar.gz",
-          "bytes": 39253954,
-          "sha256": "b4531eb79095e532680b578ef61d7d23a5437c87ee0337f0b659eeb05fc64bfa"
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-node.tar.gz",
+          "bytes": 39253953,
+          "sha256": "5c48e724ee608d613dbba8cd3eaad3363652211b218eef790a1b12fbebe0abcf"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-browser.zip",
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-browser.zip",
           "bytes": 174725825,
-          "sha256": "36a1ca013f1963a3355e08da29f67f8c35ed08f3587b498ae4a4ab15d368a44c"
+          "sha256": "c38a486e1eaeb56135b09c4cd8bd3c015031a5070ffdbb9827cc4e993787df80"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-manifest.json",
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-manifest.json",
           "bytes": 1242511,
-          "sha256": "7fa521b40524c52fea6000da3673dd97553698adb54c546c16572b425ddcd1d0"
+          "sha256": "b14f5d1b1781e400f614e236e3137738869ea18b9437dbd11a0c878e901335cb"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-manifest.sig",
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-manifest.sig",
           "bytes": 64,
-          "sha256": "173db832a51a508176cb9d62266751c6c62814c965ed2232f7dd6d54183c6588"
+          "sha256": "3ce69c415055fec3b9d852014673194a194f662c14440ba1b82085e316b39a4e"
         },
         {
-          "name": "autoed-0.1.0-beta.10-darwin-arm64-bootstrap.sh",
+          "name": "autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh",
           "bytes": 71124,
-          "sha256": "55f65f3f2612ea10536e40795fc8c1871ff3a6ffca25421c8092e30cbc005d41"
+          "sha256": "262639881794ec2e2aa6184fbf6cbf25627eb39733c15733bc18a6b645aa6758"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-installer.tar.gz",
-          "bytes": 14399444,
-          "sha256": "bb1eb0579032b7324bd81fd708f94ddcc2ffe955a90874e515a390e525dc285c"
+          "name": "autoed-0.1.0-beta.12-win32-x64-installer.tar.gz",
+          "bytes": 14399844,
+          "sha256": "c95a9dbbe16539aac0b4405435e27e179a8dd8651ef3fb816a85ad0976a1d0e0"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-program.tar.gz",
-          "bytes": 14399444,
-          "sha256": "5bc1f10c2406a10e5a47a9ef34b3aae3193dafb48cb775ce51af15961413ff32"
+          "name": "autoed-0.1.0-beta.12-win32-x64-program.tar.gz",
+          "bytes": 14399844,
+          "sha256": "468af78ea611be8e8285a3be8708d15b8b43bb44444223ba50cec1fc707f9add"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-node.tar.gz",
-          "bytes": 34902463,
-          "sha256": "63f00700d24acd77fe1e7b8ec51c570501d020a4962db985cd3b6ca8dd2bbcbf"
+          "name": "autoed-0.1.0-beta.12-win32-x64-node.tar.gz",
+          "bytes": 34902488,
+          "sha256": "12eaf22188ead04eddfae0e1bd1173b81c1cb4c607d4c19b9f78684460b82514"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-browser.tar.gz",
-          "bytes": 201121927,
-          "sha256": "cc60943cb8970c57a90348510b8990a0ebc060fac024a4a3a5c1f84c62cfdc2d"
+          "name": "autoed-0.1.0-beta.12-win32-x64-browser.tar.gz",
+          "bytes": 201121806,
+          "sha256": "78a6e0e7c438e1b031a98e970dadb556d396f32db61849b5b079834fd2268297"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-manifest.json",
+          "name": "autoed-0.1.0-beta.12-win32-x64-manifest.json",
           "bytes": 1198523,
-          "sha256": "c67fc81f53fb4bd3c608d19d0e9b2ced95b943f4ce61e5888ee7d9a3ef9b433d"
+          "sha256": "19017deab291975f9a480c16473be22ffa25c9fa926fe19f3483b71a3d9af580"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-manifest.sig",
+          "name": "autoed-0.1.0-beta.12-win32-x64-manifest.sig",
           "bytes": 64,
-          "sha256": "4b24c3d5a4338a5a81f45a0d54df85a5163289c27a6851f43ab754f4dbc7cb01"
+          "sha256": "98ff45bde12a9cef1ea9c8edae6f7552b088c7f774fbfbe65731deedf1048b3b"
         },
         {
-          "name": "autoed-0.1.0-beta.10-win32-x64-bootstrap.ps1",
+          "name": "autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1",
           "bytes": 73573,
-          "sha256": "d807cda6f3e95f374838998f484baa7dbc76b22c5cbc3d634daf2e45723bf5d7"
+          "sha256": "5ed5cb9da689adb0f36f347b8f9df65312df3cb9c252086b819904267f607001"
         },
         {
           "name": "LICENSE",
@@ -193,14 +193,14 @@
           "sha256": "6c2ebeac33c85ff1dca2ed6c23b6c4221885313b4b310381c7229f61f6b1cfd0"
         },
         {
-          "name": "autoed-0.1.0-beta.10-source.tar.gz",
-          "bytes": 485720,
-          "sha256": "ca98f9061180e55568d943e066b7c2a5db524340bedcae92cc30588176b9183d"
+          "name": "autoed-0.1.0-beta.12-source.tar.gz",
+          "bytes": 487451,
+          "sha256": "401ad68351246dbff2da5650e06ddda0411833869a281fb3335f58e73053fe54"
         },
         {
-          "name": "autoed-0.1.0-beta.10-install.md",
-          "bytes": 3404,
-          "sha256": "879caf34a2b533801faab76e994d62e75bba74f03293f40927106e46d885c643"
+          "name": "autoed-0.1.0-beta.12-install.md",
+          "bytes": 3405,
+          "sha256": "33787f2a7e495ed3111b53cdd272b78a2c6f2060405ee4283ea14474d8a8fed0"
         }
       ]
     }
