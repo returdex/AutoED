@@ -2,7 +2,7 @@
 status: fixing
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-30T23:54:00+10:00
+updated: 2026-08-31T00:03:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -38,6 +38,8 @@ updated: 2026-08-30T23:54:00+10:00
   observation: New regressions pass: a real live owned client host returns `HOST_RELOAD_REQUIRED_PRECHECK` with the database gate still open and no update lock, while an exact synthetic quiesced-intent failure restores the old fence and completes the next signed upgrade.
 - timestamp: 2026-08-30T23:54:00+10:00
   observation: Full repaired gates pass: typecheck, 43 unit tests, 114 integration tests, 12 native macOS tests, 10 Playwright UI tests and production build. No live installation mutation was performed by these tests.
+- timestamp: 2026-08-31T00:03:00+10:00
+  observation: Immutable beta.9/beta.10 were signed and published under the isolated returdex identity with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. Live recovery/update remains human_needed.
 
 ## Eliminated
 
