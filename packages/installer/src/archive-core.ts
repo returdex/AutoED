@@ -143,14 +143,14 @@ import {createHash} from 'node:crypto';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {execFileSync} from 'node:child_process';
-const root=process.argv[2];
+const root=process.argv[2],selectedRoot=process.argv[3];
 if(!root||realpathSync(root)!==root||!lstatSync(root).isDirectory()||lstatSync(root).isSymbolicLink())throw new Error('UNSAFE_STAGING');
 for(const module of ${JSON.stringify(modules)}){const bytes=Buffer.from(module.bytes,'base64');if(createHash('sha256').update(bytes).digest('hex')!==module.sha256)throw new Error('BOOTSTRAP_CORE_INTEGRITY');const fd=openSync(join(root,module.name),'wx',0o600);try{writeFileSync(fd,bytes);fsyncSync(fd);}finally{closeSync(fd);}}
 const permissions=await import(pathToFileURL(join(root,'permissions.mjs')).href);permissions.verifyProtectedPath(root);for(const name of ['archive-core.mjs','permissions.mjs'])permissions.protectPath(join(root,name));
 const core=await import(pathToFileURL(join(root,'archive-core.mjs')).href);
 const version=process.platform==='darwin'?execFileSync('/usr/bin/sw_vers',['-productVersion'],{encoding:'utf8',timeout:5000}).trim():execFileSync(join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-Command','[Environment]::OSVersion.Version.ToString(3)'],{encoding:'utf8',timeout:5000}).trim();
 const prepared=await core.prepareBootstrapInstaller(${JSON.stringify(config)},root,{os:process.platform,arch:process.arch,version},{verify:permissions.verifyProtectedPath,protect:permissions.protectPath});
-execFileSync(process.execPath,[prepared.entry,'--preview','--manifest',prepared.manifestPath,'--signature',prepared.signaturePath],{cwd:root,env:process.env,stdio:'inherit',timeout:300000});
+execFileSync(process.execPath,[prepared.entry,'--preview','--manifest',prepared.manifestPath,'--signature',prepared.signaturePath,...(selectedRoot?['--root',selectedRoot]:[])],{cwd:root,env:process.env,stdio:'inherit',timeout:300000});
 `;
   return {source,sha256:digest(Buffer.from(source)),moduleHashes:modules.map(m=>({name:m.name,sha256:m.sha256}))};
 }

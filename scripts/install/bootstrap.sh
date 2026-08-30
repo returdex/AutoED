@@ -9,12 +9,20 @@ CORE_BASE64='UNESTABLISHED'
 NODE_SHA256='40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8'
 fail() { printf '%s\n' "$1" >&2; exit 1; }
 [ "$TRUST_STATE" = 'APPROVED' ] || fail RELEASE_TRUST_NOT_ESTABLISHED
-[ "$#" = 2 ] && [ "$1" = '--staging-parent' ] || fail INVALID_ARGUMENT
 [ "$(/usr/bin/uname -s)" = Darwin ] && [ "$(/usr/bin/uname -m)" = arm64 ] || fail UNSUPPORTED_PLATFORM
-parent=$2
-case "$parent" in /*) ;; *) fail UNSAFE_STAGING ;; esac
 bootstrap_home=$(/usr/bin/dscl . -read "/Users/$(/usr/bin/id -un)" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')
 [ -n "$bootstrap_home" ] || fail UNSAFE_STAGING
+parent=''; selected_root=''; default_parent="$bootstrap_home/Library/Caches/AutoED-Rebuild"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --staging-parent) [ "$#" -ge 2 ] && [ -z "$parent" ] || fail INVALID_ARGUMENT; parent=$2; shift 2 ;;
+    --root) [ "$#" -ge 2 ] && [ -z "$selected_root" ] || fail INVALID_ARGUMENT; selected_root=$2; shift 2 ;;
+    *) fail INVALID_ARGUMENT ;;
+  esac
+done
+if [ -z "$parent" ]; then parent=$default_parent; if [ ! -e "$parent" ]; then /bin/mkdir -m 700 "$parent" || fail STAGING_FAILED; fi; fi
+case "$parent" in /*) ;; *) fail UNSAFE_STAGING ;; esac
+if [ -n "$selected_root" ]; then case "$selected_root" in /*) ;; *) fail UNSAFE_PATH ;; esac; printf '%s' "$selected_root" | LC_ALL=C /usr/bin/grep '[[:cntrl:]]' >/dev/null && fail UNSAFE_PATH; fi
 case "$parent" in "$bootstrap_home/Documents/AutoED"|"$bootstrap_home/Documents/AutoED/"*|"$bootstrap_home/Library/Application Support/AutoED"|"$bootstrap_home/Library/Application Support/AutoED/"*) fail UNSAFE_STAGING ;; esac
 printf '%s' "$parent" | LC_ALL=C /usr/bin/grep '[[:cntrl:]]' >/dev/null && fail UNSAFE_STAGING
 [ -d "$parent" ] && [ ! -L "$parent" ] || fail UNSAFE_STAGING
@@ -67,4 +75,4 @@ printf '%s' "$CORE_BASE64" | /usr/bin/base64 -D > "$stage/bootstrap-core.mjs"
 actual=$(/usr/bin/shasum -a 256 "$stage/bootstrap-core.mjs" | /usr/bin/awk '{print $1}')
 [ "$actual" = "$CORE_SHA256" ] || fail BOOTSTRAP_CORE_INTEGRITY
 [ "$(/usr/bin/env -i PATH=/usr/bin:/bin "$stage/node" --version)" = 'v24.20.0' ] || fail NODE_VERSION_MISMATCH
-exec /usr/bin/env -i PATH=/usr/bin:/bin "$stage/node" "$stage/bootstrap-core.mjs" "$stage"
+exec /usr/bin/env -i PATH=/usr/bin:/bin "$stage/node" "$stage/bootstrap-core.mjs" "$stage" "$selected_root"

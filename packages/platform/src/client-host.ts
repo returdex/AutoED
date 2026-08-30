@@ -36,7 +36,7 @@ export async function registerClientHost(selection:RootSelection,build:BuildIden
 export async function inspectClientHosts(selection:RootSelection){
   const metadata=readInstallation(selection),paths=managedPaths(selection.root),directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory))return [];
   const names=readdirSync(directory);if(names.length>256)throw new Error('HOST_INVENTORY_UNCONFIRMED');const result=[];
-  for(const name of names){if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('HOST_INVENTORY_UNCONFIRMED');const path=assertManagedPath(paths,'runtime/clients/'+name),lease=Lease.parse(read(path));if(lease.installationId!==metadata.installationId||name!==lease.nonce+'.json')throw new Error('HOST_INVENTORY_UNCONFIRMED');const os=await observeProcess(lease.pid);const state=os===null?'exited':matchesProcess({...lease,role:'api',buildId:lease.build.buildId},os)?'running':'unknown';result.push({lease,path,state});}
+  for(const name of names){if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('HOST_INVENTORY_UNCONFIRMED');const path=assertManagedPath(paths,'runtime/clients/'+name),lease=Lease.parse(read(path));if(lease.installationId!==metadata.installationId||name!==lease.nonce+'.json')throw new Error('HOST_INVENTORY_UNCONFIRMED');const os=await observeProcess(lease.pid);const state=os===null?'exited':matchesProcess({...lease,role:'api',buildId:lease.build.buildId},os)?'running':'replaced';result.push({lease,path,state});}
   return result;
 }
 export {Admission as ClientAdmissionSchema};

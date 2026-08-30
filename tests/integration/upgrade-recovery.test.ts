@@ -1,13 +1,13 @@
 import {expect,it} from 'vitest';
-import {recoverUpgrade,RecoveryError} from '../../packages/installer/src/recovery.js';
+import {pendingCleanupRecovery,recoverUpgrade,resumeCleanupUpgrade,RecoveryError} from '../../packages/installer/src/recovery.js';
 import {createRecoveryFixture} from '../../packages/test-support/src/upgrade-fixture.js';
 
 it('restores a verified old snapshot only before any new-generation business write and probes the old build twice',async()=>{
   const f=await createRecoveryFixture();try{const failed=await f.failUpgrade('feature_verified','intent');expect(f.failureReceipt(failed.operationId)).toMatchObject({projectionWritten:true,projectionCode:'AUTHENTICATED_ROUTE'});const result=await recoverUpgrade(f.selection,failed.operationId,{verify:f.verify,secrets:f.secrets});expect(result).toMatchObject({code:'UPGRADE_FAILED_ROLLED_BACK',actualBuild:f.old.build,generation:2,automaticRetry:false});expect(await f.status()).toMatchObject({install:{result:'restored',actualBuild:{buildId:f.old.build.buildId}},selfcheck:{featureResult:'pass'}});expect(f.archiveCanary()).toBe('retained');expect(f.profileCanary()).toBe('retained');}finally{await f.cleanup();}
 },180000);
 
-it('recognizes the exact cleaned-intent failure and restores through the normal installer entrypoint before any new download',async()=>{
-  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();const {pendingCleanupRecovery}=await import('../../packages/installer/src/recovery.js');expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);const dispatch=await f.runUpgradeCLI(0,true);expect(dispatch).toMatchObject({type:'install_result',state:'restored',code:'UPGRADE_FAILED_ROLLED_BACK',actualBuild:f.old.build,automaticRetry:false});const result=await recoverUpgrade(f.selection,failed.operationId,{verify:f.verify,secrets:f.secrets});expect(result).toMatchObject({code:'UPGRADE_FAILED_ROLLED_BACK',actualBuild:f.old.build,automaticRetry:false});expect(pendingCleanupRecovery(f.selection)).toBeNull();expect(f.archiveCanary()).toBe('retained');expect(f.profileCanary()).toBe('retained');}finally{await f.cleanup();}
+it('recognizes the exact cleaned-intent failure and resumes the feature-verified target without another download',async()=>{
+  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);const result=await resumeCleanupUpgrade(f.selection,failed.operationId,{verify:f.verify,secrets:f.secrets});expect(result).toMatchObject({state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});expect(pendingCleanupRecovery(f.selection)).toBeNull();expect(await f.status()).toMatchObject({install:{result:'succeeded',actualBuild:{buildId:f.target.build.buildId}},selfcheck:{featureResult:'pass'}});expect(f.archiveCanary()).toBe('retained');expect(f.profileCanary()).toBe('retained');}finally{await f.cleanup();}
 },180000);
 
 it('renews an expired exclusive recovery lease before rollback selfcheck',async()=>{
