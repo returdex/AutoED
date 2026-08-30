@@ -1,8 +1,8 @@
 ---
-status: fixing
+status: verified
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T04:02:00+10:00
+updated: 2026-08-31T04:09:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -20,7 +20,7 @@ updated: 2026-08-31T04:02:00+10:00
 - hypothesis: Confirmed root cause: host inventory was checked only after durable exclusive maintenance, but retry required an open gate and absent update lock; the documented reload action therefore had no continuation path.
 - test: Require live owned client hosts to fail before journal/maintenance mutation, and allow only the exact pre-activation `quiesced/intent` state to restore its fence and continue after all hosts exit.
 - expecting: Live-host preflight leaves the gate open and creates no update lock; exact interrupted state resumes to a complete target upgrade; altered fence, write generation, journal, active build, host or process evidence still fails closed.
-- next_action: Commit the fully tested repair, build/sign/publish the next immutable beta pair, anonymously verify every asset, then provide the user the terminal-only closed-Codex recovery/update step.
+- next_action: Ask the user to run the simplified beta.15 bootstrap once. It must resume beta.13 cleanup and continue to beta.15 in the same confirmed invocation; then verify status, echo, cleanup and the actual build.
 - reasoning_checkpoint: Live operation `41aa02c0-3b8a-48e5-9334-d19728f56615` is preserved. Active beta.7 and data remain present; API/Worker are stopped; three old MCP hosts remain owned by Codex. Do not delete the lock, edit SQLite, kill hosts, or rerun bootstrap blindly.
 - tdd_checkpoint: Two regressions pass: fail-before-mutation with a live client host, and exact quiesced-intent recovery through a complete A-to-B upgrade.
 
@@ -60,6 +60,8 @@ updated: 2026-08-31T04:02:00+10:00
   observation: Process identity analysis identifies the repeated root cause: a stale MCP receipt PID can be reused by an unrelated process. The inspector labelled the proven PID/start/executable mismatch as unknown, so cleanup failed closed. The correct terminal state is replaced: remove only the stale AutoED receipt and never signal the unrelated replacement process.
 - timestamp: 2026-08-31T04:02:00+10:00
   observation: The third repair passes typecheck, 43 unit tests, 117 integration tests, 12 native macOS tests, 10 UI tests and production build. Regressions prove a live owned host still blocks, a PID-reused stale receipt is removed without stopping the replacement, cleanup is idempotent, and exact cleaned-intent recovery completes the feature-verified target without another download. The bootstrap now supports a default protected cache and an explicit root in one invocation.
+- timestamp: 2026-08-31T04:09:00+10:00
+  observation: Immutable beta.15/beta.16 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. The beta.15 macOS bootstrap SHA-256 is f435868bc78f3600ecc8112a3c26954a6156db3ae41421688b2801caf75cab4f. Real beta.13 cleanup continuation and beta.15 upgrade remain human_needed.
 
 ## Eliminated
 
@@ -72,5 +74,5 @@ updated: 2026-08-31T04:02:00+10:00
 
 - root_cause: Three independent defects were exposed in sequence. Client-host inventory was originally checked only after exclusive maintenance; cleaned-intent had no public continuation; and, after those were repaired, a stale MCP receipt whose PID had been reused was incorrectly classified as unknown even though its start identity/executable mismatch proved that the recorded host had exited. That last classification caused the repeated immediate beta.13 cleanup failure.
 - fix: Check owned client hosts before mutation; provide exact quiesced-intent and cleaned-intent continuation; classify a PID identity mismatch as replaced, remove only the stale installation-owned receipt, and never signal the replacement process. Cleanup is idempotent after writing the inactive rollback record and reports bounded cause codes. A retry now finishes the already feature-verified target and, when the requested manifest is newer, continues in the same confirmed bootstrap invocation. The macOS bootstrap accepts a protected default cache and `--root`, removing the separate cache creation/chmod and root prompt.
-- verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, cleaned-intent target completion, PID reuse without replacement-process termination, idempotent cleanup, expired recovery lease, interruption after old-active restoration, revoked selfcheck receipt cleanup, delayed child exit, transient process observation, and unchanged fail-closed write/schema/snapshot/signature/host/process cases. All automated gates pass. A new immutable signed beta and real native retry remain required before this session returns to verified.
+- verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, cleaned-intent target completion, PID reuse without replacement-process termination, idempotent cleanup, expired recovery lease, interruption after old-active restoration, revoked selfcheck receipt cleanup, delayed child exit, transient process observation, and unchanged fail-closed write/schema/snapshot/signature/host/process cases. All automated gates pass, and beta.15/beta.16 passed anonymous public availability verification. The real installed beta.13 continuation remains a required human test; it is not claimed as passed.
 - files_changed: packages/installer/src/journal.ts; packages/installer/src/upgrade.ts; packages/installer/src/install.ts; packages/installer/src/recovery.ts; packages/installer/src/cleanup.ts; packages/test-support/src/upgrade-fixture.ts; tests/integration/two-build-upgrade.test.ts; tests/integration/upgrade-recovery.test.ts; tests/integration/managed-cleanup.test.ts
