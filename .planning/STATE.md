@@ -67,7 +67,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-30用户确认已安装的0.1.0-beta.7在Codex重载后真实MCP状态、stdio、后端连接、持久echo任务与Worker链路通过；见`01-macos-UAT.md`。01-14仍为部分通过：macOS A→B升级/退出Codex独立存活等清单及原生Windows证据仍是硬门禁。
+- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-30用户确认已安装的0.1.0-beta.7在Codex重载后真实MCP状态、stdio、后端连接通过，并确认完全退出Codex时独立API/Worker仍健康且持久echo任务成功执行；见`01-macos-UAT.md`。01-14仍为部分通过：macOS A→B升级、故障/UI/完整native清单及原生Windows证据仍是硬门禁。
 
 ### Blockers/Concerns
 
@@ -92,5 +92,5 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-08-26T18:20:53.636Z
-Stopped at: 01-14 macOS MCP reload/execution slice passed on beta.7; remaining macOS and Windows human UAT still required
+Stopped at: 01-14 beta.7 macOS MCP reload and Codex-exit service-survival slices passed; A-to-B and remaining macOS/Windows UAT required
 Resume file: .planning/phases/01-beta/01-14-PLAN.md
