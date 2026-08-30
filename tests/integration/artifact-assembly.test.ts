@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {existsSync,mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,realpathSync} from 'node:fs';
+import {existsSync,mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,realpathSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {assembleTarget,auditDelivery} from '../../scripts/build/assemble.mjs';
@@ -10,13 +10,13 @@ function fixture(target:'darwin-arm64'|'win32-x64'){
   const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-assembly-'))),source=join(root,'source'),output=join(root,'output');mkdirSync(source);for(const name of ['program','node','browser','native'])mkdirSync(join(source,name));
   writeFileSync(join(source,'program','main.js'),"import 'zod';\n");writeFileSync(join(source,'program','package.json'),JSON.stringify({type:'module',dependencies:{zod:'4.4.3'}}));
   const machine=target==='darwin-arm64'?Buffer.from([0xcf,0xfa,0xed,0xfe,0x0c,0,0,1]):(()=>{const b=Buffer.alloc(80);b.write('MZ');b.writeUInt32LE(64,0x3c);b.write('PE\0\0',64);b.writeUInt16LE(0x8664,68);return b;})();
-  writeFileSync(join(source,'node',target==='darwin-arm64'?'node':'node.exe'),machine);writeFileSync(join(source,'native',target==='darwin-arm64'?'sqlite.darwin-arm64.node':'sqlite.win32-x64.node'),machine);writeFileSync(join(source,'browser',target==='darwin-arm64'?'chrome':'chrome.exe'),machine);
+  const nodePath=join(source,'node',target==='darwin-arm64'?'node':'node.exe'),browserPath=join(source,'browser',target==='darwin-arm64'?'chrome':'chrome.exe');writeFileSync(nodePath,machine);chmodSync(nodePath,0o700);writeFileSync(join(source,'native',target==='darwin-arm64'?'sqlite.darwin-arm64.node':'sqlite.win32-x64.node'),machine);writeFileSync(browserPath,machine);chmodSync(browserPath,0o700);
   if(target==='darwin-arm64'){mkdirSync(join(source,'browser','Versions'));mkdirSync(join(source,'browser','Versions','151.0.7922.34'));symlinkSync('151.0.7922.34',join(source,'browser','Versions','Current'));}
   return {root,source,output,target,components:[['program','pure-js'],['node','node'],['browser','browser'],['native','better-sqlite3']] as const};
 }
 
 it.each(['darwin-arm64','win32-x64'] as const)('writes an auditable, target-specific dependency closure for %s',async target=>{
-  const f=fixture(target),result=await assembleTarget({target,outputRoot:f.output,sourceRoot:f.source,components:f.components,diagnosticsRequired:false});expect(result.report.target).toBe(target);expect(result.report.nativeEvidence).toBe(target==='darwin-arm64'?'static_only':'not_run');expect(result.report.nativeEvidence).not.toBe('passed');expect(result.report.platform.actualNative.status).toBe('not_run');expect(result.report.files.length).toBeGreaterThan(4);expect(result.report.components.every(c=>c.sourceURL&&c.integrity&&c.license)).toBe(true);expect(auditDelivery(result.root).target).toBe(target);
+  const f=fixture(target),result=await assembleTarget({target,outputRoot:f.output,sourceRoot:f.source,components:f.components,diagnosticsRequired:false});expect(result.report.target).toBe(target);expect(result.report.nativeEvidence).toBe(target==='darwin-arm64'?'static_only':'not_run');expect(result.report.nativeEvidence).not.toBe('passed');expect(result.report.platform.actualNative.status).toBe('not_run');expect(result.report.files.length).toBeGreaterThan(4);expect(result.report.files.find(file=>file.path===`node/${target==='darwin-arm64'?'node':'node.exe'}`)?.executable).toBe(true);expect(result.report.components.every(c=>c.sourceURL&&c.integrity&&c.license)).toBe(true);expect(auditDelivery(result.root).target).toBe(target);
 });
 
 it('rejects wrong machine types, tampering, missing closure and Windows links without running foreign binaries',async()=>{
