@@ -2,7 +2,7 @@
 status: verified
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T02:24:00+10:00
+updated: 2026-08-31T02:31:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -52,6 +52,8 @@ updated: 2026-08-31T02:24:00+10:00
   observation: New regressions pass for an expired exclusive recovery lease and for interruption after the old-active rollback boundary followed by exact resumption. The implementation renews only an unchanged installer-owned exclusive fence, preserves displaced recovery-attempt databases, and reports the bounded internal recovery cause instead of only HUMAN_RECOVERY_REQUIRED.
 - timestamp: 2026-08-31T02:24:00+10:00
   observation: Final gates pass after also bounding transient macOS process-observation failures: typecheck, 43 unit tests, 117 integration tests, 12 native macOS tests, 10 UI tests and production build. The full integration rerun, not the earlier failed run, is the release evidence.
+- timestamp: 2026-08-31T02:31:00+10:00
+  observation: Immutable beta.13/beta.14 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. Live old-active recovery and fresh beta.13 upgrade remain human_needed.
 
 ## Eliminated
 
