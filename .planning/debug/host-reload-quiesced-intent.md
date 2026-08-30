@@ -1,8 +1,8 @@
 ---
-status: verified
+status: fixing
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T04:09:00+10:00
+updated: 2026-08-31T04:40:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -62,6 +62,10 @@ updated: 2026-08-31T04:09:00+10:00
   observation: The third repair passes typecheck, 43 unit tests, 117 integration tests, 12 native macOS tests, 10 UI tests and production build. Regressions prove a live owned host still blocks, a PID-reused stale receipt is removed without stopping the replacement, cleanup is idempotent, and exact cleaned-intent recovery completes the feature-verified target without another download. The bootstrap now supports a default protected cache and an explicit root in one invocation.
 - timestamp: 2026-08-31T04:09:00+10:00
   observation: Immutable beta.15/beta.16 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. The beta.15 macOS bootstrap SHA-256 is f435868bc78f3600ecc8112a3c26954a6156db3ae41421688b2801caf75cab4f. Real beta.13 cleanup continuation and beta.15 upgrade remain human_needed.
+- timestamp: 2026-08-31T04:20:00+10:00
+  observation: Final state-machine review rejected beta.15 for this recovery path before user execution: it resumed cleanup after creating the newer preview, which would invalidate that preview before the subsequent upgrade. Recovery now occurs before the new preview and confirmation. Separate regressions pass for dispatch-before-preview/download and the real cleaned-intent target continuation. Beta.15/beta.16 remain immutable but must not be recommended for this retry.
+- timestamp: 2026-08-31T04:40:00+10:00
+  observation: Post-ordering-fix gates pass: typecheck, 43 unit tests, all 118 integration behaviors, 12 native macOS tests, 10 UI tests and production build. The first full integration run passed 117 behaviors and failed only the packaged-closure copy with ENOSPC; after removing the exact 3.1 GB obsolete release-build backup, that one test passed independently. No product assertion failed.
 
 ## Eliminated
 
