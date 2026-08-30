@@ -5,21 +5,21 @@
   "fingerprint": "fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557",
   "versions": [
     {
-      "version": "0.1.0-beta.11",
+      "version": "0.1.0-beta.13",
       "variant": "A",
-      "commit": "854100d8bca41f52a85c473eefe2f420ecf261ed",
-      "tree": "f8a66ab40e3c0d272d8716c798f261ec09cc0dcf",
-      "buildId": "d4afd759ed413c26dd3586c9cf2aecd4128793faa26093a6807a5d354acfea20",
+      "commit": "e2c936195a1fa4bcc5e6fac4b9816a0972ca50da",
+      "tree": "2777c24d77e480a1f41021717a57f08f94eb64b8",
+      "buildId": "86bc10e709324addba3db467d02d262666053f72ac8621f7fded88b85765c3dc",
       "capabilities": [
         "echo"
       ],
       "targets": [
         {
           "target": "darwin-arm64",
-          "buildId": "d4afd759ed413c26dd3586c9cf2aecd4128793faa26093a6807a5d354acfea20",
-          "manifest": "autoed-0.1.0-beta.11-darwin-arm64-manifest.json",
-          "signature": "autoed-0.1.0-beta.11-darwin-arm64-manifest.sig",
-          "bootstrap": "autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh",
+          "buildId": "86bc10e709324addba3db467d02d262666053f72ac8621f7fded88b85765c3dc",
+          "manifest": "autoed-0.1.0-beta.13-darwin-arm64-manifest.json",
+          "signature": "autoed-0.1.0-beta.13-darwin-arm64-manifest.sig",
+          "bootstrap": "autoed-0.1.0-beta.13-darwin-arm64-bootstrap.sh",
           "evidence": {
             "synthetic": "pass",
             "integration": "pass",
@@ -29,69 +29,69 @@
           },
           "assets": [
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-installer.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-installer.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-installer.tar.gz",
-              "bytes": 13852231,
-              "sha256": "7f2f661b26c2c6a2c1cec5a23477bad2beb62380d3768382d221be5e6de69f94",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-installer.tar.gz"
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-installer.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-installer.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-installer.tar.gz",
+              "bytes": 13852811,
+              "sha256": "ce87e2edf9ebe696fbf721840a0f6c76c92de53fb75490084d76b87f9730b29a",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-installer.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-program.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-program.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-program.tar.gz",
-              "bytes": 13852231,
-              "sha256": "dab1726f0bd1b1b4ffb1957961c73b3939370c259e99fe758c94f991584f7b53",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-program.tar.gz"
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-program.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-program.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-program.tar.gz",
+              "bytes": 13852811,
+              "sha256": "f75d7b78e05d6b0aafa6ed89b138c20477623a94da2c5e311d5951f0a5cc707c",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-program.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-node.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-node.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-node.tar.gz",
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-node.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-node.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-node.tar.gz",
               "bytes": 39253954,
-              "sha256": "4162d8aab74d6fc0c25d85e719c7f04afd55c641d77feb39d1e049ae48e5511a",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-node.tar.gz"
+              "sha256": "068df302e300581542a9748447db0ba036a33355af19c36032af446b99cc4fc8",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-node.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-browser.zip",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-browser.zip",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-browser.zip",
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-browser.zip",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-browser.zip",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-browser.zip",
               "bytes": 174725825,
-              "sha256": "59596587a3dc10e05ff7f0f245258244b867a886de4120d15af22f7f2635389a",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-browser.zip"
+              "sha256": "0ddf07f490c2d53c5816521355c0d06a0c7152eec44d0510a67ba0d0a67daf29",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-browser.zip"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-manifest.json",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-manifest.json",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-manifest.json",
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-manifest.json",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-manifest.json",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-manifest.json",
               "bytes": 1242502,
-              "sha256": "20a72e9fe6d7007734f24d65b5c4bca9ec085303f960d909508cf14b2d54fa41",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-manifest.json"
+              "sha256": "8c65b36cdd17bd2d318e154305154acfed371bffbd74e330a87963d4932e870e",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-manifest.json"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-manifest.sig",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-manifest.sig",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-manifest.sig",
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-manifest.sig",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-manifest.sig",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-manifest.sig",
               "bytes": 64,
-              "sha256": "5205db7da7a42c4eb9e59e4f51b10fbf441b8df2f6b76a23f24ef2f7d089d1e1",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-manifest.sig"
+              "sha256": "9df9496f2e3421492f5cf0419fc08c876eb603517b61fc44b25e6b004745dd27",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-manifest.sig"
             },
             {
-              "name": "autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh",
+              "name": "autoed-0.1.0-beta.13-darwin-arm64-bootstrap.sh",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-bootstrap.sh",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-darwin-arm64-bootstrap.sh",
               "bytes": 71124,
-              "sha256": "9a4f09b8419c77b3e0637df58e5f0a2741abcf83d78a918ecf641b319d3e1be1",
-              "localPath": ".runtime/releases/0.1.0-beta.11/darwin-arm64/autoed-0.1.0-beta.11-darwin-arm64-bootstrap.sh"
+              "sha256": "5908d59f234864c957a147a13488be564755087863e5ed56cfd59095a4a93248",
+              "localPath": ".runtime/releases/0.1.0-beta.13/darwin-arm64/autoed-0.1.0-beta.13-darwin-arm64-bootstrap.sh"
             }
           ]
         },
         {
           "target": "win32-x64",
-          "buildId": "d4afd759ed413c26dd3586c9cf2aecd4128793faa26093a6807a5d354acfea20",
-          "manifest": "autoed-0.1.0-beta.11-win32-x64-manifest.json",
-          "signature": "autoed-0.1.0-beta.11-win32-x64-manifest.sig",
-          "bootstrap": "autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1",
+          "buildId": "86bc10e709324addba3db467d02d262666053f72ac8621f7fded88b85765c3dc",
+          "manifest": "autoed-0.1.0-beta.13-win32-x64-manifest.json",
+          "signature": "autoed-0.1.0-beta.13-win32-x64-manifest.sig",
+          "bootstrap": "autoed-0.1.0-beta.13-win32-x64-bootstrap.ps1",
           "evidence": {
             "synthetic": "pass",
             "integration": "pass",
@@ -101,60 +101,60 @@
           },
           "assets": [
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-installer.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-installer.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-installer.tar.gz",
-              "bytes": 14399744,
-              "sha256": "4120b90af3e3354b42877d396831f9dd18d9023f146d04b3052435fcdb8892ce",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-installer.tar.gz"
+              "name": "autoed-0.1.0-beta.13-win32-x64-installer.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-installer.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-installer.tar.gz",
+              "bytes": 14399817,
+              "sha256": "b271c7993d6d9115269573992d5ec722f77551410252cf902add9b8f6c51923d",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-installer.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-program.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-program.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-program.tar.gz",
-              "bytes": 14399744,
-              "sha256": "e01a34eebf8daec5db2b07d971de019e0a595f17c70d7133f5a3ef062fd82fac",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-program.tar.gz"
+              "name": "autoed-0.1.0-beta.13-win32-x64-program.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-program.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-program.tar.gz",
+              "bytes": 14399817,
+              "sha256": "e0d2dc4207ee7ad0c8b56a6362336592b335ddea999ef1dedf5857da52a04fa2",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-program.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-node.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-node.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-node.tar.gz",
+              "name": "autoed-0.1.0-beta.13-win32-x64-node.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-node.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-node.tar.gz",
               "bytes": 34902472,
-              "sha256": "81a68a6a9679a507bd2d52d02b60cadd904c7fb82b2afd0133369146799fe966",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-node.tar.gz"
+              "sha256": "389c3447eb56f046bd729b57f73394943f319e251d15b06728b19d7a68fa0536",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-node.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-browser.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-browser.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-browser.tar.gz",
-              "bytes": 201121212,
-              "sha256": "a7a76ade76dcd740cadb2be52d9c46044a82b0cc6b34459fe34818e49e24a55f",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-browser.tar.gz"
+              "name": "autoed-0.1.0-beta.13-win32-x64-browser.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-browser.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-browser.tar.gz",
+              "bytes": 201121953,
+              "sha256": "67062742e022be758d6833525f58aef2cdde0fa35e431e8c503f08a2931c5fb8",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-browser.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-manifest.json",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-manifest.json",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-manifest.json",
+              "name": "autoed-0.1.0-beta.13-win32-x64-manifest.json",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-manifest.json",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-manifest.json",
               "bytes": 1198514,
-              "sha256": "5fce9d9a6895f33ec1e0d96d21dc7f3d2e6075c9b9c217495e64227174de3287",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-manifest.json"
+              "sha256": "4f32ce20d504e05dcfd79f8650405b38877513fb6d6a89ac0c1647f80167f066",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-manifest.json"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-manifest.sig",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-manifest.sig",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-manifest.sig",
+              "name": "autoed-0.1.0-beta.13-win32-x64-manifest.sig",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-manifest.sig",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-manifest.sig",
               "bytes": 64,
-              "sha256": "bd230e777e11b35e78be8334a1b0b39018a31990d98a3bfc99b391e8ee62f723",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-manifest.sig"
+              "sha256": "822d6b102ce9c5e35597c6d2e6113adea4c0fc6566c000a85420fd1a51997ebd",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-manifest.sig"
             },
             {
-              "name": "autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1",
+              "name": "autoed-0.1.0-beta.13-win32-x64-bootstrap.ps1",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-bootstrap.ps1",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-win32-x64-bootstrap.ps1",
               "bytes": 73573,
-              "sha256": "bbe213feaa8e19544525362ac5d50c9b0f6a67229eeeb6f73dc4592193a422d6",
-              "localPath": ".runtime/releases/0.1.0-beta.11/win32-x64/autoed-0.1.0-beta.11-win32-x64-bootstrap.ps1"
+              "sha256": "557673a46e174a84a18819f663d44b803c838e8f39469dc195b7f47fde279441",
+              "localPath": ".runtime/releases/0.1.0-beta.13/win32-x64/autoed-0.1.0-beta.13-win32-x64-bootstrap.ps1"
             }
           ]
         }
@@ -162,40 +162,40 @@
       "shared": [
         {
           "name": "LICENSE",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/LICENSE",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/LICENSE",
           "bytes": 4563,
           "sha256": "c0ea4a896d2c8c394b29f9427589996db826cd501c512279ff0ed3ef48fabbe5",
-          "localPath": ".runtime/releases/0.1.0-beta.11/LICENSE"
+          "localPath": ".runtime/releases/0.1.0-beta.13/LICENSE"
         },
         {
           "name": "LICENSING.md",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/LICENSING.md",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/LICENSING.md",
           "bytes": 1211,
           "sha256": "6c2ebeac33c85ff1dca2ed6c23b6c4221885313b4b310381c7229f61f6b1cfd0",
-          "localPath": ".runtime/releases/0.1.0-beta.11/LICENSING.md"
+          "localPath": ".runtime/releases/0.1.0-beta.13/LICENSING.md"
         },
         {
-          "name": "autoed-0.1.0-beta.11-source.tar.gz",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-source.tar.gz",
-          "bytes": 487451,
-          "sha256": "401ad68351246dbff2da5650e06ddda0411833869a281fb3335f58e73053fe54",
-          "localPath": ".runtime/releases/0.1.0-beta.11/autoed-0.1.0-beta.11-source.tar.gz"
+          "name": "autoed-0.1.0-beta.13-source.tar.gz",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-source.tar.gz",
+          "bytes": 489088,
+          "sha256": "7eba9c3dd96a88e99f6693b7983165232684f826987497138c815cf12b425295",
+          "localPath": ".runtime/releases/0.1.0-beta.13/autoed-0.1.0-beta.13-source.tar.gz"
         },
         {
-          "name": "autoed-0.1.0-beta.11-install.md",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.11/autoed-0.1.0-beta.11-install.md",
+          "name": "autoed-0.1.0-beta.13-install.md",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.13/autoed-0.1.0-beta.13-install.md",
           "bytes": 3238,
-          "sha256": "b6c15fb374fcadb1b2a7d29c97114abc0fb136c6c552865a3e965eb4e3a27cdd",
-          "localPath": ".runtime/releases/0.1.0-beta.11/autoed-0.1.0-beta.11-install.md"
+          "sha256": "60675eda5135bc3c4300cb6c64f2a031bec7b11506592c2ef2478947b7a19416",
+          "localPath": ".runtime/releases/0.1.0-beta.13/autoed-0.1.0-beta.13-install.md"
         }
       ]
     },
     {
-      "version": "0.1.0-beta.12",
+      "version": "0.1.0-beta.14",
       "variant": "B",
-      "commit": "854100d8bca41f52a85c473eefe2f420ecf261ed",
-      "tree": "f8a66ab40e3c0d272d8716c798f261ec09cc0dcf",
-      "buildId": "b48d25ea547209629bd6b5e31bc39825eb71545d79752815fbedf7e421d01d28",
+      "commit": "e2c936195a1fa4bcc5e6fac4b9816a0972ca50da",
+      "tree": "2777c24d77e480a1f41021717a57f08f94eb64b8",
+      "buildId": "fa63fe345e57e14a0c939a3932d559b48d6bab39c1fd9b9596b8d057d3445d14",
       "capabilities": [
         "echo",
         "digest"
@@ -203,10 +203,10 @@
       "targets": [
         {
           "target": "darwin-arm64",
-          "buildId": "b48d25ea547209629bd6b5e31bc39825eb71545d79752815fbedf7e421d01d28",
-          "manifest": "autoed-0.1.0-beta.12-darwin-arm64-manifest.json",
-          "signature": "autoed-0.1.0-beta.12-darwin-arm64-manifest.sig",
-          "bootstrap": "autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh",
+          "buildId": "fa63fe345e57e14a0c939a3932d559b48d6bab39c1fd9b9596b8d057d3445d14",
+          "manifest": "autoed-0.1.0-beta.14-darwin-arm64-manifest.json",
+          "signature": "autoed-0.1.0-beta.14-darwin-arm64-manifest.sig",
+          "bootstrap": "autoed-0.1.0-beta.14-darwin-arm64-bootstrap.sh",
           "evidence": {
             "synthetic": "pass",
             "integration": "pass",
@@ -216,69 +216,69 @@
           },
           "assets": [
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-installer.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-installer.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-installer.tar.gz",
-              "bytes": 13852278,
-              "sha256": "d0308377e7fdcef5748aff69d479afcdbdf18a52e8be61dbbc6c26cb95383426",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-installer.tar.gz"
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-installer.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-installer.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-installer.tar.gz",
+              "bytes": 13852785,
+              "sha256": "0d063b2ba749844082ccd0a3d97ebd2f40f67c107f532659943aee20ad698192",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-installer.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-program.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-program.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-program.tar.gz",
-              "bytes": 13852278,
-              "sha256": "4803f78326f49e6e2a56367bf78986c55c10343e451416831580370cbff3b67d",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-program.tar.gz"
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-program.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-program.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-program.tar.gz",
+              "bytes": 13852785,
+              "sha256": "37023e42132a3088c712e9fdfad65657a689f4f85cfbbdc75c4659b863e0752f",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-program.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-node.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-node.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-node.tar.gz",
-              "bytes": 39253953,
-              "sha256": "5c48e724ee608d613dbba8cd3eaad3363652211b218eef790a1b12fbebe0abcf",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-node.tar.gz"
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-node.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-node.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-node.tar.gz",
+              "bytes": 39253954,
+              "sha256": "6d5ea9d3a55c2d4a28414086247e783e709c06ba6aa3f8a2efac8a9f488e1d38",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-node.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-browser.zip",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-browser.zip",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-browser.zip",
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-browser.zip",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-browser.zip",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-browser.zip",
               "bytes": 174725825,
-              "sha256": "c38a486e1eaeb56135b09c4cd8bd3c015031a5070ffdbb9827cc4e993787df80",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-browser.zip"
+              "sha256": "2ccdbba4ab906cdb3445021fcf6022cc9e1d2c6782f139a51fdb29c4d8ce5ea0",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-browser.zip"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-manifest.json",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-manifest.json",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-manifest.json",
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-manifest.json",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-manifest.json",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-manifest.json",
               "bytes": 1242511,
-              "sha256": "b14f5d1b1781e400f614e236e3137738869ea18b9437dbd11a0c878e901335cb",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-manifest.json"
+              "sha256": "b899a10f1164925b95e19f0ee6cea44cf3192092a477963fe22d37553683fd0b",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-manifest.json"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-manifest.sig",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-manifest.sig",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-manifest.sig",
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-manifest.sig",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-manifest.sig",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-manifest.sig",
               "bytes": 64,
-              "sha256": "3ce69c415055fec3b9d852014673194a194f662c14440ba1b82085e316b39a4e",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-manifest.sig"
+              "sha256": "70de6bdc032fe3804e489b23673d8f0f88ea9d7e11db56e0672e25ac2d00fe60",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-manifest.sig"
             },
             {
-              "name": "autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh",
+              "name": "autoed-0.1.0-beta.14-darwin-arm64-bootstrap.sh",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-bootstrap.sh",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-darwin-arm64-bootstrap.sh",
               "bytes": 71124,
-              "sha256": "262639881794ec2e2aa6184fbf6cbf25627eb39733c15733bc18a6b645aa6758",
-              "localPath": ".runtime/releases/0.1.0-beta.12/darwin-arm64/autoed-0.1.0-beta.12-darwin-arm64-bootstrap.sh"
+              "sha256": "f30aa7af78ac7445b63d5655086cb1fe9af085768169e791486028bb7baafe91",
+              "localPath": ".runtime/releases/0.1.0-beta.14/darwin-arm64/autoed-0.1.0-beta.14-darwin-arm64-bootstrap.sh"
             }
           ]
         },
         {
           "target": "win32-x64",
-          "buildId": "b48d25ea547209629bd6b5e31bc39825eb71545d79752815fbedf7e421d01d28",
-          "manifest": "autoed-0.1.0-beta.12-win32-x64-manifest.json",
-          "signature": "autoed-0.1.0-beta.12-win32-x64-manifest.sig",
-          "bootstrap": "autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1",
+          "buildId": "fa63fe345e57e14a0c939a3932d559b48d6bab39c1fd9b9596b8d057d3445d14",
+          "manifest": "autoed-0.1.0-beta.14-win32-x64-manifest.json",
+          "signature": "autoed-0.1.0-beta.14-win32-x64-manifest.sig",
+          "bootstrap": "autoed-0.1.0-beta.14-win32-x64-bootstrap.ps1",
           "evidence": {
             "synthetic": "pass",
             "integration": "pass",
@@ -288,60 +288,60 @@
           },
           "assets": [
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-installer.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-installer.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-installer.tar.gz",
-              "bytes": 14399844,
-              "sha256": "c95a9dbbe16539aac0b4405435e27e179a8dd8651ef3fb816a85ad0976a1d0e0",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-installer.tar.gz"
+              "name": "autoed-0.1.0-beta.14-win32-x64-installer.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-installer.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-installer.tar.gz",
+              "bytes": 14399819,
+              "sha256": "57edc0756c17586979aa847b3ffb759adb2ff383ca08c2a86892f3b243bf7bfd",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-installer.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-program.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-program.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-program.tar.gz",
-              "bytes": 14399844,
-              "sha256": "468af78ea611be8e8285a3be8708d15b8b43bb44444223ba50cec1fc707f9add",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-program.tar.gz"
+              "name": "autoed-0.1.0-beta.14-win32-x64-program.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-program.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-program.tar.gz",
+              "bytes": 14399819,
+              "sha256": "69a49b0524e27f0496c83f7051b21bdcba9181d2582524c6cdfb046e00213be5",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-program.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-node.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-node.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-node.tar.gz",
-              "bytes": 34902488,
-              "sha256": "12eaf22188ead04eddfae0e1bd1173b81c1cb4c607d4c19b9f78684460b82514",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-node.tar.gz"
+              "name": "autoed-0.1.0-beta.14-win32-x64-node.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-node.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-node.tar.gz",
+              "bytes": 34902522,
+              "sha256": "3dcb3746e64fb494369bb40859fceadb0592afd62be0d7b5daae67d9a1fbfe98",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-node.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-browser.tar.gz",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-browser.tar.gz",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-browser.tar.gz",
-              "bytes": 201121806,
-              "sha256": "78a6e0e7c438e1b031a98e970dadb556d396f32db61849b5b079834fd2268297",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-browser.tar.gz"
+              "name": "autoed-0.1.0-beta.14-win32-x64-browser.tar.gz",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-browser.tar.gz",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-browser.tar.gz",
+              "bytes": 201121632,
+              "sha256": "679811e8a5bb27daf5c34207dc2dbb8eb369eec142b6989eb7677cf33718c71b",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-browser.tar.gz"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-manifest.json",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-manifest.json",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-manifest.json",
+              "name": "autoed-0.1.0-beta.14-win32-x64-manifest.json",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-manifest.json",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-manifest.json",
               "bytes": 1198523,
-              "sha256": "19017deab291975f9a480c16473be22ffa25c9fa926fe19f3483b71a3d9af580",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-manifest.json"
+              "sha256": "7853dae437f58fbdc79530eef04e4e4a5e5b76644e2c4d30ab6a8db635867102",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-manifest.json"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-manifest.sig",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-manifest.sig",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-manifest.sig",
+              "name": "autoed-0.1.0-beta.14-win32-x64-manifest.sig",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-manifest.sig",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-manifest.sig",
               "bytes": 64,
-              "sha256": "98ff45bde12a9cef1ea9c8edae6f7552b088c7f774fbfbe65731deedf1048b3b",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-manifest.sig"
+              "sha256": "fa66d20c1da34b79cc2ff01ec0191139ccff43382d413a593f6f4f3d59950dc6",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-manifest.sig"
             },
             {
-              "name": "autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1",
-              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1",
-              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1",
+              "name": "autoed-0.1.0-beta.14-win32-x64-bootstrap.ps1",
+              "path": "/Users/yifeng/Documents/ChatGPT/AutoED/.runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-bootstrap.ps1",
+              "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-win32-x64-bootstrap.ps1",
               "bytes": 73573,
-              "sha256": "5ed5cb9da689adb0f36f347b8f9df65312df3cb9c252086b819904267f607001",
-              "localPath": ".runtime/releases/0.1.0-beta.12/win32-x64/autoed-0.1.0-beta.12-win32-x64-bootstrap.ps1"
+              "sha256": "b18a9a0da994daee0527e70fec2fadeb6661a1794dd0e974b038b486ed6fb962",
+              "localPath": ".runtime/releases/0.1.0-beta.14/win32-x64/autoed-0.1.0-beta.14-win32-x64-bootstrap.ps1"
             }
           ]
         }
@@ -349,31 +349,31 @@
       "shared": [
         {
           "name": "LICENSE",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/LICENSE",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/LICENSE",
           "bytes": 4563,
           "sha256": "c0ea4a896d2c8c394b29f9427589996db826cd501c512279ff0ed3ef48fabbe5",
-          "localPath": ".runtime/releases/0.1.0-beta.12/LICENSE"
+          "localPath": ".runtime/releases/0.1.0-beta.14/LICENSE"
         },
         {
           "name": "LICENSING.md",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/LICENSING.md",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/LICENSING.md",
           "bytes": 1211,
           "sha256": "6c2ebeac33c85ff1dca2ed6c23b6c4221885313b4b310381c7229f61f6b1cfd0",
-          "localPath": ".runtime/releases/0.1.0-beta.12/LICENSING.md"
+          "localPath": ".runtime/releases/0.1.0-beta.14/LICENSING.md"
         },
         {
-          "name": "autoed-0.1.0-beta.12-source.tar.gz",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-source.tar.gz",
-          "bytes": 487451,
-          "sha256": "401ad68351246dbff2da5650e06ddda0411833869a281fb3335f58e73053fe54",
-          "localPath": ".runtime/releases/0.1.0-beta.12/autoed-0.1.0-beta.12-source.tar.gz"
+          "name": "autoed-0.1.0-beta.14-source.tar.gz",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-source.tar.gz",
+          "bytes": 489088,
+          "sha256": "7eba9c3dd96a88e99f6693b7983165232684f826987497138c815cf12b425295",
+          "localPath": ".runtime/releases/0.1.0-beta.14/autoed-0.1.0-beta.14-source.tar.gz"
         },
         {
-          "name": "autoed-0.1.0-beta.12-install.md",
-          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.12/autoed-0.1.0-beta.12-install.md",
+          "name": "autoed-0.1.0-beta.14-install.md",
+          "url": "https://github.com/returdex/AutoED/releases/download/0.1.0-beta.14/autoed-0.1.0-beta.14-install.md",
           "bytes": 3405,
-          "sha256": "33787f2a7e495ed3111b53cdd272b78a2c6f2060405ee4283ea14474d8a8fed0",
-          "localPath": ".runtime/releases/0.1.0-beta.12/autoed-0.1.0-beta.12-install.md"
+          "sha256": "b34851186897f43835c13e66925cc26022a8ecceb189a834160f29ce8e58d7e4",
+          "localPath": ".runtime/releases/0.1.0-beta.14/autoed-0.1.0-beta.14-install.md"
         }
       ]
     }
