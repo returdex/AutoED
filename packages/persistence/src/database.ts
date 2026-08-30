@@ -82,6 +82,11 @@ export class SQLiteMaintenanceStore implements MaintenanceStore {
       return readGate(this.db);
     }).immediate();
   }
+  /** Recovery may renew only the same already-exclusive installer fence; it cannot acquire or change ownership. */
+  async renewExclusive(operationId: string, expectedGeneration: number, leaseUntil: number): Promise<MaintenanceGate> {
+    if(!Number.isSafeInteger(leaseUntil)||leaseUntil<=Date.now()||leaseUntil>Date.now()+300_000)throw new StorageError('INVALID_MAINTENANCE_LEASE');
+    return this.db.transaction(()=>{const gate=readGate(this.db);if(gate.state!=='exclusive'||gate.operationId!==operationId||gate.generation!==expectedGeneration||gate.owner!=='installer')throw new StorageError('MAINTENANCE_OWNERSHIP_MISMATCH');this.db.prepare('UPDATE maintenance_generation SET lease_until=? WHERE id=1').run(leaseUntil);return readGate(this.db);}).immediate();
+  }
   async exitMaintenance(operationId: string, expectedGeneration: number): Promise<MaintenanceGate> {
     return this.db.transaction(() => {
       this.assertOwned(operationId, expectedGeneration);

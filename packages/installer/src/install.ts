@@ -17,7 +17,7 @@ import {publishLaunchers,assertOwnedLaunchers,writeInstallerRecord,launcherRegis
 import {upgradeConfirmed} from './upgrade.js';
 import {cleanupManaged,cleanupRuntimeInventory} from './cleanup.js';
 import {assertManagedPath,managedPaths} from '../../platform/src/paths.js';
-import {pendingCleanupRecovery,recoverUpgrade} from './recovery.js';
+import {pendingCleanupRecovery,recoverUpgrade,RecoveryError} from './recovery.js';
 export async function installConfirmed(preview:InstallPreview,confirmation:InstallConfirmation,options:{store?:SecretStore;archives:Record<string,Buffer>}){
   const manifest=approvedManifest(preview,confirmation,false),selection=preview.selection,parts=manifest.manifest.artifacts.filter(a=>a.role!=='installer');
   if(parts.length!==3||['program','node','browser'].some(role=>parts.filter(a=>a.role===role).length!==1)||Object.keys(options.archives).sort().join(',')!==parts.map(a=>a.name).sort().join(','))throw new Error('ARTIFACT_LAYOUT_INVALID');
@@ -51,4 +51,4 @@ export async function runInstallerCLI(dependencies:InstallerDependencies={},args
     const execute=dependencies.execute??upgradeConfirmed,result=await execute(preview,confirmation,{archives,...(oldManifest?{oldManifest}:{}),...(dependencies.store?{store:dependencies.store}:{}),cleanup:async context=>context.oldManifest?cleanupManaged({selection:context.selection,operationId:context.journal.header.operationId,currentManifest:context.manifest,oldManifest:context.oldManifest}):cleanupRuntimeInventory(context.selection).then(()=>({complete:true})).catch(()=>({complete:false,code:'CLEANUP_PENDING'}))});process.stdout.write(JSON.stringify({type:'install_result',...result})+'\n');return result;
   }finally{lines.close();}
 }
-if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1])void runInstallerCLI().catch(error=>{const code=error instanceof Error&&/^[A-Z_]+$/.test(error.message)?error.message:'INSTALLATION_FAILED';process.stderr.write(code+'\n');process.exitCode=1;});
+if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1])void runInstallerCLI().catch(error=>{const code=error instanceof RecoveryError&&/^[A-Z_]+$/.test(error.causeCode)?`${error.code}_${error.causeCode}`:error instanceof Error&&/^[A-Z_]+$/.test(error.message)?error.message:'INSTALLATION_FAILED';process.stderr.write(code+'\n');process.exitCode=1;});

@@ -2,7 +2,7 @@
 status: verified
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T01:00:00+10:00
+updated: 2026-08-31T02:24:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -46,6 +46,12 @@ updated: 2026-08-31T01:00:00+10:00
   observation: The second repair adds exact cleaned-intent dispatch into the verified snapshot rollback engine, removes only revoked runtime receipts after all owned processes and hosts prove exited, and bounds cleanup waiting without accepting unknown ownership. Full gates pass: typecheck, 43 unit, 115 integration, 12 native macOS, 10 UI, and production build.
 - timestamp: 2026-08-31T01:00:00+10:00
   observation: Immutable beta.11/beta.12 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. Live beta.9 recovery and fresh beta.11 upgrade remain human_needed.
+- timestamp: 2026-08-31T01:30:00+10:00
+  observation: Live beta.11 restored beta.7 launchers and the snapshot, then failed its operation-bound rollback selfcheck. The restored database remained exclusive at generation 2/write generation 15, but its lease expired at 2026-08-30T14:12:54.640Z, about 78 minutes before retry. Selfcheck projection recorded jobId null, empty probes and featureResult fail; beta.7 API/Worker were left running in the operation context.
+- timestamp: 2026-08-31T01:36:00+10:00
+  observation: New regressions pass for an expired exclusive recovery lease and for interruption after the old-active rollback boundary followed by exact resumption. The implementation renews only an unchanged installer-owned exclusive fence, preserves displaced recovery-attempt databases, and reports the bounded internal recovery cause instead of only HUMAN_RECOVERY_REQUIRED.
+- timestamp: 2026-08-31T02:24:00+10:00
+  observation: Final gates pass after also bounding transient macOS process-observation failures: typecheck, 43 unit tests, 117 integration tests, 12 native macOS tests, 10 UI tests and production build. The full integration rerun, not the earlier failed run, is the release evidence.
 
 ## Eliminated
 
@@ -57,6 +63,6 @@ updated: 2026-08-31T01:00:00+10:00
 ## Resolution
 
 - root_cause: Client-host inventory was checked after API/Worker shutdown and transition to exclusive maintenance. The failure correctly preserved a journal and lock, but normal upgrade admission rejected both, and the recovery implementation only handled post-activation rollback.
-- fix: Check owned client hosts before any managed mutation. Add narrowly typed recovery for exact quiesced-intent and cleaned-intent failures. The latter reuses the verified snapshot rollback engine, requires unchanged write generation and signed old/target manifests, stops only owned processes, removes only exited/revoked runtime receipts, restores the old build, and probes it in maintenance and normal generations. Cleanup now waits a bounded interval for genuinely running hosts but rejects unknown ownership immediately.
-- verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, cleaned-intent installer dispatch, revoked selfcheck receipt cleanup, real verified rollback, delayed child exit, and unchanged fail-closed ownership cases. All automated gates pass. Live beta.9 recovery and a fresh repaired upgrade remain a required human terminal test after the next signed beta is anonymously available.
+- fix: Check owned client hosts before any managed mutation. Add narrowly typed recovery for exact quiesced-intent and cleaned-intent failures. The latter now recognizes both candidate-active and old-active hash-pinned boundaries, revalidates unchanged exclusive/write-generation fences, preserves displaced databases, restores the signed snapshot idempotently, renews only the same installer-owned exclusive lease, and probes the old build in maintenance and normal generations. Cleanup bounds running and transient macOS observation waits but rejects unknown ownership. Recovery errors expose a bounded internal cause code.
+- verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, cleaned-intent installer dispatch, expired recovery lease, interruption after old-active restoration, revoked selfcheck receipt cleanup, delayed child exit, transient process observation, and unchanged fail-closed write/schema/snapshot/signature/host/process cases. All automated gates pass. Live beta.9 recovery from its now old-active boundary and a fresh repaired upgrade remain a required human terminal test after the next signed beta is anonymously available.
 - files_changed: packages/installer/src/journal.ts; packages/installer/src/upgrade.ts; packages/installer/src/install.ts; packages/installer/src/recovery.ts; packages/installer/src/cleanup.ts; packages/test-support/src/upgrade-fixture.ts; tests/integration/two-build-upgrade.test.ts; tests/integration/upgrade-recovery.test.ts; tests/integration/managed-cleanup.test.ts
