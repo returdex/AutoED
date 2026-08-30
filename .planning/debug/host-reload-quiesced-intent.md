@@ -1,8 +1,8 @@
 ---
-status: fixing
+status: verified
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T00:03:00+10:00
+updated: 2026-08-31T00:54:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -40,6 +40,10 @@ updated: 2026-08-31T00:03:00+10:00
   observation: Full repaired gates pass: typecheck, 43 unit tests, 114 integration tests, 12 native macOS tests, 10 Playwright UI tests and production build. No live installation mutation was performed by these tests.
 - timestamp: 2026-08-31T00:03:00+10:00
   observation: Immutable beta.9/beta.10 were signed and published under the isolated returdex identity with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. Live recovery/update remains human_needed.
+- timestamp: 2026-08-31T00:12:00+10:00
+  observation: The real beta.9 retry activated and feature-verified the target but stopped at `cleaned/intent` with `CLEANUP_PENDING_CLEANED_INTENT`. All recorded client hosts subsequently inspected as exited, identifying a race between selfcheck child exit and the single cleanup observation.
+- timestamp: 2026-08-31T00:54:00+10:00
+  observation: The second repair adds exact cleaned-intent dispatch into the verified snapshot rollback engine, removes only revoked runtime receipts after all owned processes and hosts prove exited, and bounds cleanup waiting without accepting unknown ownership. Full gates pass: typecheck, 43 unit, 115 integration, 12 native macOS, 10 UI, and production build.
 
 ## Eliminated
 
@@ -51,6 +55,6 @@ updated: 2026-08-31T00:03:00+10:00
 ## Resolution
 
 - root_cause: Client-host inventory was checked after API/Worker shutdown and transition to exclusive maintenance. The failure correctly preserved a journal and lock, but normal upgrade admission rejected both, and the recovery implementation only handled post-activation rollback.
-- fix: Check owned client hosts before any managed mutation. Add a narrowly typed recovery path for only the exact `HOST_RELOAD_REQUIRED_QUIESCED_INTENT` boundary, requiring unchanged write generation, matching operation/generation, verified old active build, no snapshot/activation, and all owned hosts/processes exited before reopening the gate and resolving the old journal.
-- verification: Two new regressions and all existing automated gates pass. Live beta.7 recovery/update remains a required human terminal test after the repaired signed beta is anonymously available.
-- files_changed: packages/installer/src/journal.ts; packages/installer/src/upgrade.ts; packages/test-support/src/upgrade-fixture.ts; tests/integration/two-build-upgrade.test.ts
+- fix: Check owned client hosts before any managed mutation. Add narrowly typed recovery for exact quiesced-intent and cleaned-intent failures. The latter reuses the verified snapshot rollback engine, requires unchanged write generation and signed old/target manifests, stops only owned processes, removes only exited/revoked runtime receipts, restores the old build, and probes it in maintenance and normal generations. Cleanup now waits a bounded interval for genuinely running hosts but rejects unknown ownership immediately.
+- verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, cleaned-intent installer dispatch, revoked selfcheck receipt cleanup, real verified rollback, delayed child exit, and unchanged fail-closed ownership cases. All automated gates pass. Live beta.9 recovery and a fresh repaired upgrade remain a required human terminal test after the next signed beta is anonymously available.
+- files_changed: packages/installer/src/journal.ts; packages/installer/src/upgrade.ts; packages/installer/src/install.ts; packages/installer/src/recovery.ts; packages/installer/src/cleanup.ts; packages/test-support/src/upgrade-fixture.ts; tests/integration/two-build-upgrade.test.ts; tests/integration/upgrade-recovery.test.ts; tests/integration/managed-cleanup.test.ts
