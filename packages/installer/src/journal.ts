@@ -20,7 +20,7 @@ const hash=z.string().regex(/^[a-f0-9]{64}$/),generation=z.number().int().nonneg
 const Platform=z.strictObject({os:z.enum(['darwin','win32']),arch:z.enum(['arm64','x64']),version:z.string().min(1).max(64)});
 const Header=z.strictObject({operationId:z.uuid(),scopeHash:hash,manifestHash:hash,target:BuildIdentitySchema,platform:Platform,previousInstallation:z.enum(['none','present']),generation,installationId:z.uuid()});
 const Entry=z.strictObject({sequence:z.number().int().nonnegative(),stage:z.enum(JOURNAL_STAGES),phase:z.enum(['intent','done']),previousHash:hash,checkedAt:z.number().int().nonnegative()});
-const Recovery=z.strictObject({operationId:z.uuid(),code:z.enum(['UPGRADE_FAILED_ROLLED_BACK','INSTALL_FAILED_NO_PREVIOUS']),checkedAt:z.number().int().nonnegative(),journalHash:hash});
+const Recovery=z.strictObject({operationId:z.uuid(),code:z.enum(['UPGRADE_FAILED_ROLLED_BACK','INSTALL_FAILED_NO_PREVIOUS','HOST_RELOAD_REQUIRED_RESTORED']),checkedAt:z.number().int().nonnegative(),journalHash:hash});
 const Lock=z.strictObject({operationId:z.uuid(),installationId:z.uuid(),pid:z.number().int().positive(),osStartIdentity:z.string(),executable:z.string()});
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export type JournalInput=Omit<z.infer<typeof Header>,'installationId'>;
@@ -60,7 +60,7 @@ export class UpgradeJournal {
   }
   async clientAdmission(mode:'blocked'|'selfcheck'|'normal_probe',buildId=this.header.target.buildId){this.assertOwner();await withClientAdmission(this.selection,async()=>{const path=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock/admission.json'),prior=ClientAdmissionSchema.parse(readRecord(path));replaceJournalRecord(path,prior,ClientAdmissionSchema.parse({operationId:this.header.operationId,buildId,mode}));});}
   async release(){this.assertOwner();const last=UpgradeJournal.read(this.selection,this.header.operationId).entries.at(-1);if(last?.stage!=='complete'||last.phase!=='done')throw new Error('UPGRADE_INCOMPLETE');await withClientAdmission(this.selection,async()=>{const path=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock');unlinkSync(join(path,'admission.json'));unlinkSync(join(path,'owner.json'));rmdirSync(path);});}
-  async resolve(code:'UPGRADE_FAILED_ROLLED_BACK'|'INSTALL_FAILED_NO_PREVIOUS'){
+  async resolve(code:'UPGRADE_FAILED_ROLLED_BACK'|'INSTALL_FAILED_NO_PREVIOUS'|'HOST_RELOAD_REQUIRED_RESTORED'){
     this.assertOwner();const root=journalPath(this.selection,this.header.operationId),path=join(root,'recovery.json');if(existsSync(path))throw new Error('RECOVERY_ALREADY_RESOLVED');writeInstallerRecord(path,{operationId:this.header.operationId,code,checkedAt:Date.now(),journalHash:digest(UpgradeJournal.read(this.selection,this.header.operationId).entries.at(-1)??this.header)});await withClientAdmission(this.selection,async()=>{const lock=assertManagedPath(managedPaths(this.selection.root),'installer-staging/update.lock');unlinkSync(join(lock,'admission.json'));unlinkSync(join(lock,'owner.json'));rmdirSync(lock);});
   }
 }
