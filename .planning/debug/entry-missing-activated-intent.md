@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: resolved
 trigger: "Published 0.1.0-beta.1 first-install bootstrap exits with ENTRY_MISSING_ACTIVATED_INTENT after the user confirms the exact preview scope."
 created: 2026-08-29T13:26:11Z
-updated: 2026-08-30T22:18:00+10:00
+updated: 2026-08-30T22:31:00+10:00
 ---
 
 # Debug Session: ENTRY_MISSING_ACTIVATED_INTENT
@@ -66,6 +66,8 @@ updated: 2026-08-30T22:18:00+10:00
   observation: Root cause is confirmed in the build-to-archive boundary: `inventoryTree` omitted executable metadata, while the verified extractor intentionally creates files as `0600` and only restores `f.executable`. The source fix records executable bits and adds a darwin/windows artifact-assembly regression assertion; typecheck, all 43 unit tests and the affected 5 integration tests pass under the managed Node 24.20.0 toolchain.
 - timestamp: 2026-08-30T22:17:00+10:00
   observation: Full repaired gates passed: 112 integration, 12 native macOS, 10 UI, typecheck, 43 unit and production build. Immutable beta.7/beta.8 were published without overwriting beta.1–6; anonymous verification passed all 36 new assets, including byte length, SHA-256, signatures and exact archive closures.
+- timestamp: 2026-08-30T22:31:00+10:00
+  observation: After exact beta.5 credential cleanup and recoverable Trash moves, a fresh beta.7 install completed with operation `d5ffd3bc-3eba-4df7-9d5e-fc36754dad79`, generation 1 and `cleanup=complete`. The managed Node and CLI are mode `0700`; authenticated status reports manifest/API/Worker/selfcheck fresh and healthy, install `complete/succeeded`, and the explicit echo job completed with result `beta`.
 
 ## Eliminated
 
@@ -78,5 +80,5 @@ updated: 2026-08-30T22:18:00+10:00
 
 - root_cause: Production packaging adds a `dist/` prefix that the installer runtime and generated launchers did not resolve; fixture archives omitted that packaging boundary. Windows launchers also omitted the packaged Node `bin/` segment. The production assembler additionally omitted the required `dist/build/identity.json` file. Finally, executable mode metadata was omitted from release inventories, so verified extraction left the managed Node runtime non-executable.
 - fix: Resolve one complete, non-symlink entry layout from the signed program manifest (`dist/` production or legacy fixture layout), bind launcher/runtime paths to that verified layout, use `bin/node.exe` on Windows, make the A/B fixture reproduce the production wrapper, package the trusted build identity into `dist/build/identity.json`, and preserve executable bits in the signed inventory so extraction restores them.
-- verification: The mode regression and all repaired gates pass under the managed Node 24.20.0 toolchain: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests and production build. Anonymous full-download verification passes all 36 immutable beta.7/beta.8 assets. Beta.5 remains a failed diagnostic attempt; it is not treated as an install result.
+- verification: The mode regression and all repaired gates pass under the managed Node 24.20.0 toolchain: typecheck, 43 unit tests, 112 integration tests, 12 native macOS tests, 10 Playwright UI tests and production build. Anonymous full-download verification passes all 36 immutable beta.7/beta.8 assets. A clean beta.7 native installation then returned `state=complete`, `cleanup=complete`; independent permission, authenticated status, listener/process and echo-result checks passed. Course login/live UAT remains outside this synthetic beta gate.
 - files_changed: packages/installer/src/launchers.ts; packages/installer/src/upgrade.ts; packages/test-support/src/upgrade-fixture.ts; scripts/build/assemble.mjs; scripts/build/native-artifacts.mjs; scripts/release/materialize.mjs; scripts/release/preflight.mjs; scripts/release/publish.mjs; tests/integration/artifact-assembly.test.ts; tests/integration/release-gates.test.ts; tests/integration/two-build-upgrade.test.ts
