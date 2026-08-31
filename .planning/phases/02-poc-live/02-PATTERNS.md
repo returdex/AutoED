@@ -1,8 +1,8 @@
 # Phase 2: 双来源原生登录 POC 与 live 硬门禁 - Pattern Map
 
 **Mapped:** 2026-09-01
-**Files analyzed:** 28 anticipated new/modified files
-**Analogs found:** 24 / 28
+**Files analyzed:** 28 original anticipated files plus the exhaustive Plans 35–41 revision surface
+**Analogs found:** 24 / 28 in the original map; every revision-surface file is classified below as an exact/role analog or explicit research-contract-first/no-analog case
 
 This map treats the file list below as the implementation surface implied by `02-CONTEXT.md` and `02-RESEARCH.md`. The planner may co-locate a narrowly scoped implementation, but it must preserve the listed layer boundaries and evidence semantics. In particular, a synthetic fixture is never a live BrowserProvider or live login result.
 
@@ -506,12 +506,107 @@ Apply to receipts, UI, tests, release, and planning:
 | `tests/integration/source-adapters.test.ts` | test | request-response | No source fixtures exist. Build local-only positive and malicious fixtures; never contact school origins in automated tests. |
 | Runtime UAT ledger/receipt implementation within `packages/persistence/src/auth.ts` | store | event-driven | Existing status projections are only a partial analog. Encode platform/scenario/evidence-class cells explicitly and preserve `not_run/human_needed`; never infer live evidence. |
 
+## Plans 35–41 Revision Surface
+
+The following mapping is exhaustive for every file created or modified by Plans 35–41. A row marked **existing mapping** inherits the exact excerpt and constraints earlier in this document. A row marked **research-contract-first** has no implementation analog and must follow the cited Phase 2 contract rather than improvise a broad API.
+
+| File | Plan(s) | Deterministic analog or explicit no-analog classification |
+|---|---:|---|
+| `packages/domain/src/live-evidence.ts` | 35 | **Research-contract-first, no file analog.** Use `packages/domain/src/model.ts`’s orthogonal literal-union/interface style (excerpt below), but requiredness/count semantics come only from `02-CONTEXT.md` D-12–D-18 and `02-RESEARCH.md` Validation Architecture. |
+| `packages/contracts/src/live-evidence.ts` | 35 | **Research-contract-first, no file analog.** Use `packages/contracts/src/index.ts` strict `z.strictObject` + typed cross-field refine pattern already excerpted above; do not use permissive records or caller-selected cells. |
+| `packages/application/src/live-checkpoints.ts` | 35, 36 | **Research-contract-first, no workflow analog.** Ports follow `packages/application/src/ports.ts`; orchestration/abort/fence shape follows `packages/application/src/job-runner.ts` lines 16–53. Live authority and predecessor rules come only from the closed scenario contract in Plans 35/36. |
+| `packages/persistence/src/database.ts` | 35 | **Existing mapping.** Use the transactional ordered migration excerpt earlier in this document; do not rebuild existing tables. |
+| `packages/persistence/src/auth.ts` | 35 | **Existing mapping plus no-analog live store.** Use `packages/persistence/src/sessions.ts` IMMEDIATE transaction pattern; exact pending-action/consume-and-append semantics are research-contract-first and payload authority remains external. |
+| `tests/unit/live-evidence.test.ts` | 35 | **Analog:** `tests/unit/auth-contracts.test.ts` table-driven strict/cross-field rejection; registry count/duplicate/requiredness assertions are research-contract-first. |
+| `tests/integration/live-checkpoint-store.test.ts` | 35 | **Analog:** `tests/integration/job-recovery.test.ts` real SQLite reopen/crash/fence/last-success pattern already excerpted above; add atomic pending-action consume/append cases, never a live fixture. |
+| `apps/api/src/auth.ts` | 36 | **Existing mapping:** fixed paired routes use `apps/api/src/main.ts` and `tests/integration/pairing.test.ts`; no dynamic operation/cell route. |
+| `apps/api/src/main.ts` | 36 | **Existing mapping:** exact middleware/error excerpt earlier in this document. |
+| `apps/status/src/main.ts` | 36 | **Existing mapping:** safe `textContent`, paired request, 401/403 purge excerpt earlier in this document. |
+| `tests/integration/live-checkpoint-workflows.test.ts` | 36 | **Analog:** `tests/integration/auth-worker.test.ts` plus `tests/integration/pairing.test.ts`; durable A–D/reauth scenario table and payload-external L authority are research-contract-first. |
+| `tests/ui/auth-live-actions.spec.ts` | 36 | **Analog:** `tests/ui/auth-status.spec.ts` / `tests/ui/status.spec.ts` paired real-browser HTTP pattern; durable action recovery and exact checkpoint CTAs follow `02-UI-SPEC.md`. |
+| `scripts/release/phase2-live-gate.mjs` | 37 | **Research-contract-first, no gate analog.** The finite record/verify/audit/final grammar comes from Plans 16–34 and Plan 37. Reuse only the closed argv/safe-error pattern from `scripts/release/preflight.mjs` and atomic no-replace record publication from `packages/installer/src/launchers.ts` (excerpts below). |
+| `scripts/release/phase2-native-evidence.mjs` | 37 | **Research-contract-first, no producer analog.** Native platform/build attestation shape follows `scripts/test/native-report.mjs`; fixed argv and safe output follow `scripts/release/preflight.mjs`. It must use only named `signed_automated` S/I/N obligations and has no L route. |
+| `scripts/release/verify-phase2-update-gate.mjs` | 37 | **Analog:** `scripts/release/preflight.mjs` exact identity/schema/closed argv checks. Phase 2 macOS/Windows pre/post conjunctions are research-contract-first; the verifier has zero installation/runtime/evidence mutation authority. |
+| `tests/integration/phase2-live-gate.test.ts` | 37 | **Analog:** `tests/integration/release-gates.test.ts` fixture-driven CLI/identity/negative style. The four record branches, exact event digests, no-write snapshots and all downstream command enumerations are research-contract-first. |
+| `release/phase2-build-selection.json` | 38 | **Generated-artifact contract-first; no source analog.** Shape follows strict public identity fields in `release/beta-artifacts.json`, but Plan 38’s one-version/commit/tree/build selection schema is authoritative. |
+| `release/phase2-test-report.json` | 38 | **Generated-artifact contract-first; no source analog.** Use only command/source hashes, bounded counts and pass/gap enums; never captured raw output or live evidence. |
+| `release/phase2-beta-artifacts.json` | 39 | **Analog:** `release/beta-artifacts.json` and `scripts/release/preflight.mjs#artifactPreflight`; extend with exact Phase 2 member hashes/capability closure without weakening immutable identity/signature checks. |
+| `release/phase2-install-prompt.md` | 39 | **Analog:** `release/install-prompts.md`; exact selected identity/asset hashes and current support gaps only, with no credential/source/live-result content. |
+| `.planning/phases/02-poc-live/02-40-WINDOWS-NATIVE-RECEIPT.json` | 40 | **Generated planning handoff, research-contract-first.** Public build/platform, named S/I/N obligation counts and safe codes only; no device/path/PID/source/identity/Profile or L fields. |
+| `scripts/release/phase2-gate.mjs` | 41 | **Analog:** `scripts/release/preflight.mjs` for exact repository/version/commit/tree/build identity, closed argv and safe errors; Phase 2 suite/capability closure is contract-first. |
+| `scripts/build/assemble.mjs` | 41 | **Existing exact modification:** retain `assembleTarget`/`stageProductionClosure` inventory, no-existing-destination and member/hash checks; add Phase 2 capabilities without broad copying or alternate signing. |
+| `scripts/release/preflight.mjs` | 41 | **Existing exact modification:** retain `exactKeys`, `assertReleaseIdentity`, `assertVersionAvailable`, history/package scans and safe CLI dispatch. |
+| `scripts/release/publish.mjs` | 41 | **Existing exact modification:** retain fixed `returdex/AutoED`, preflight-before-network and no existing version; replace any overwriting receipt helper with the no-replace record pattern for new Phase 2 outputs. |
+| `scripts/release/verify-availability.mjs` | 41 | **Existing exact modification:** retain clean anonymous full-byte fetch, redirect allowlist, byte/hash/signature/member verification and bounded output. |
+| `tests/integration/phase2-release-gates.test.ts` | 41 | **Analog:** `tests/integration/release-gates.test.ts`; add Phase 2 identity/capability/member/publish/availability negatives and assert zero remote mutation in fixtures. |
+
+### Exact analog excerpts for the revised surface
+
+**Closed argv and safe errors — `scripts/release/preflight.mjs` lines 15, 24, 58:**
+
+```javascript
+function reject(code){throw new Error(code);}
+function exactKeys(value,keys){
+  return value&&typeof value==='object'&&!Array.isArray(value)&&
+    Object.keys(value).sort().join(',')===[...keys].sort().join(',');
+}
+if (args.join(' ')==='--identity-only') result=identityOnly();
+else if(args[0]==='--artifacts'&&args.length===2) result=artifactPreflight(args[1]);
+else reject('RELEASE_ARGUMENT_INVALID');
+```
+
+Phase 2 gate scripts must preserve the same closed-dispatch property. They may add only the finite forms enumerated in the plans; no generic option parser, endpoint/path/operation override or ignored extra flag.
+
+**Atomic no-replace planning record — `packages/installer/src/launchers.ts` line 21:**
+
+```typescript
+export function writeInstallerRecord(path:string,value:unknown){
+  if(existsSync(path))throw new Error('ENTRY_OWNERSHIP_UNCONFIRMED');
+  const temporary=join(dirname(path),'.record-'+randomUUID()),fd=openSync(temporary,'wx',0o600);
+  try{protectPath(temporary);writeFileSync(fd,JSON.stringify(value));fsyncSync(fd);}finally{closeSync(fd);}
+  linkSync(temporary,path); unlinkSync(temporary);
+  if(process.platform==='darwin'){
+    const directory=openSync(dirname(path),'r'); try{fsyncSync(directory);}finally{closeSync(directory);}
+  }
+}
+```
+
+`phase2-live-gate.mjs` A1/A2 must use this no-replace durability shape with an exact allowlisted planning path and canonical schema re-parse. B3/reauth have an explicitly empty filesystem-output set and must reject `--out`.
+
+**Native bounded report shape — `scripts/test/native-report.mjs` line 20:**
+
+```javascript
+const fd=openSync(intent,'r');
+try{fsyncSync(fd);}finally{closeSync(fd);}
+renameSync(intent,done);
+const directory=openSync(owned,'r');
+try{fsyncSync(directory);}finally{closeSync(directory);}
+```
+
+This is only a durability/native-test analog. `phase2-native-evidence.mjs` must additionally prove current signed build and actual declared OS through the Phase 2 contract; it may not treat a file transition as platform or live evidence.
+
+**Anonymous full-byte verification — `scripts/release/verify-availability.mjs` lines 8–11:**
+
+```javascript
+const response=await fetch(asset.url,{redirect:'manual',headers:{accept:'application/octet-stream'},signal:AbortSignal.timeout(300000)});
+const bytes=Buffer.from(await response.arrayBuffer());
+if(bytes.length!==asset.bytes||digest(bytes)!==asset.sha256)throw new Error();
+```
+
+Retain the existing redirect host allowlist and manifest/signature/member checks; Phase 2 capability metadata never substitutes for downloaded-byte verification.
+
+### Plan-reference rule
+
+Plans 35–41 must cite this section in each implementation action that owns one of the files above. Plans 16/17/20/23 only consume the already tested and signed `phase2-live-gate.mjs`; they must never extend the no-analog gate during live execution.
+
 ## Metadata
 
 **Analog search scope:** `packages/domain`, `packages/contracts`, `packages/application`, `packages/persistence`, `packages/platform`, `packages/test-support`, `apps/api`, `apps/worker`, `apps/status`, `tests/unit`, `tests/integration`, `tests/native`, `tests/ui`, root Playwright configuration
 
 **Files scanned:** 81 repository source/test/config files; 20 files read for concrete excerpts
 
+**Revision inspection:** Added exact excerpts from `scripts/release/preflight.mjs`, `packages/installer/src/launchers.ts`, `scripts/test/native-report.mjs`, and `scripts/release/verify-availability.mjs`; classified every `files_modified` entry from Plans 35–41.
+
 **Strong analog set:** strict contracts/model; application admission/output policy; SQLite transaction/session/job recovery; managed process/path ownership; paired API/status UI and layered tests
 
-**Pattern extraction date:** 2026-09-01
+**Pattern extraction date:** 2026-09-01 (revised for Plans 35–41 checker feedback)
