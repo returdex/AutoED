@@ -33,3 +33,17 @@ Status: **pass for the user-run status UI slice**
 After the successful `0.1.0-beta.19` installation, MCP reload, durable echo job, and independent-service checks, the user followed the supplied status-page checklist and reported “管理页面通过”. The checklist covered local pairing, beta/API/Worker status presentation, keyboard-only navigation with Tab/Shift+Tab/Enter, approximately 320 CSS-pixel width at 200% zoom, refresh without creating a new job, and non-success treatment of `stale`/`unknown` states.
 
 This is user-reported native macOS UAT; no screenshot, browser secret, Profile data, or school data was requested or recorded. It closes only the beta.19 status UI slice. OS-authorization denial and controlled synthetic recovery remain `human_needed`; Windows 11 native evidence remains `not_run / human_needed`, and Phase 1 is not complete.
+
+## 2026-08-31 — beta.19 packaged native diagnostics
+
+Status: **pass for all three packaged synthetic scenarios on native macOS arm64**
+
+The user ran the diagnostics shipped inside the installed beta.19 program with its managed Node 24.20.0. Each run used a fresh protected directory below the OS temporary directory and targeted `darwin-arm64`.
+
+| Scenario | Result | Reported codes |
+|---|---|---|
+| `install-recovery` | pass | `OWNED_ROOT_PROTECTED`, `NO_USER_DATA`, `INTENT_DURABLE`, `RECOVERY_REOPENED` |
+| `permissions` | pass | `OWNED_ROOT_PROTECTED`, `NO_USER_DATA`, `ACL_PROTECTED` |
+| `jobs` | pass | `OWNED_ROOT_PROTECTED`, `NO_USER_DATA`, `MODULE_CLOSURE_LOCAL`, `DUAL_CONNECTION_FENCED`, `CANCEL_CONFIRMED` |
+
+These are packaged synthetic diagnostics executed on the declared native OS; they confirm the installed diagnostic closure, protected temporary-root behavior, durable recovery-journal primitive, permission-mode probe, local SQLite dependency closure, competing-claim fencing, and confirmed cancellation behavior. They do not constitute a real Keychain authorization denial, destructive failure injection against the active installation, clean-account/no-Node evidence, school login/live evidence, or Windows native evidence. Those unrun gates retain their prior states.
