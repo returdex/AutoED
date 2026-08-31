@@ -5,7 +5,7 @@ milestone_name: milestone
 status: completed
 stopped_at: Phase 2 context gathered; macOS-priority planning permitted, Phase 3 remains blocked
 last_updated: "2026-08-31T18:01:24.257Z"
-last_activity: 2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open.
+last_activity: 2026-09-01 — Phase 2 context captured and roadmap synchronized for the approved macOS-first sequencing exception; Phase 3 remains blocked.
 progress:
   total_phases: 9
   completed_phases: 0
@@ -90,6 +90,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 | 260831-ho4 | Record beta.19 macOS status UI human UAT pass while preserving Windows as not_run/human_needed | 2026-08-31 | 61adf70 | [260831-ho4-record-beta-19-macos-status-ui-human-uat](./quick/260831-ho4-record-beta-19-macos-status-ui-human-uat/) |
 | 260831-hru | Record beta.19 packaged macOS native diagnostics pass with correct synthetic evidence boundary | 2026-08-31 | 86eb22b | [260831-hru-record-beta-19-packaged-macos-native-dia](./quick/260831-hru-record-beta-19-packaged-macos-native-dia/) |
 | 260831-o7k | Record beta.19 separate macOS standard-account install UAT and restore primary service with honest no-Node and authorization boundaries | 2026-08-31 | eae6eaa | [260831-o7k-record-beta-19-separate-macos-standard-a](./quick/260831-o7k-record-beta-19-separate-macos-standard-a/) |
+| 260901-5lh | Synchronize roadmap with user-approved macOS-first Phase 2 sequencing exception while preserving Windows and Phase 3 gates | 2026-09-01 | f41c535 | [260901-5lh-synchronize-roadmap-with-user-approved-m](./quick/260901-5lh-synchronize-roadmap-with-user-approved-m/) |
 
 ## Deferred Items
 
