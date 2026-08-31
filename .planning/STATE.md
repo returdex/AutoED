@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: 01-13 signed beta publication complete; awaiting01-14 human update UAT
 last_updated: "2026-08-26T18:20:53.636Z"
-last_activity: "2026-08-29 — 01-12 complete: confirmed public fingerprint, real Keychain selfcheck, isolated returdex OAuth and 166 U/I/macOS native +10 UI regression passed."
+last_activity: "2026-08-31 — beta.19 macOS status UI human UAT passed; recovery/authorization and Windows native evidence remain open."
 progress:
   total_phases: 8
   completed_phases: 0
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
 Plan: 13 of 14 (01-01 through01-13 complete; awaiting01-14 human gate)
 Status: Awaiting Phase 1 Wave12 human update/native UAT; 13/14 plans complete
-Last activity: 2026-08-29 — 01-12 release trust, Keychain and isolated returdex prerequisites passed.
+Last activity: 2026-08-31 — beta.19 macOS status UI human UAT passed; recovery/authorization and Windows native evidence remain open.
 
 Plan progress: [█████████░] 93% (13/14); phase acceptance remains pending human/native evidence.
 
@@ -67,7 +67,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-30用户确认已安装的0.1.0-beta.7在Codex重载后真实MCP状态、stdio、后端连接通过，并确认完全退出Codex时独立API/Worker仍健康且持久echo任务成功执行；见`01-macos-UAT.md`。01-14仍为部分通过：macOS A→B升级、故障/UI/完整native清单及原生Windows证据仍是硬门禁。
+- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-31用户确认beta.19安装/清理、Codex重载MCP、持久echo、退出Codex后API/Worker独立存活及状态UI人工清单通过；见`01-macos-UAT.md`。01-14仍为部分通过：macOS权限拒绝/受控恢复及完整native清单仍待验证；原生Windows证据按用户要求暂缓并保持`not_run / human_needed`。
 
 ### Blockers/Concerns
 
@@ -83,6 +83,12 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260831-ho4 | Record beta.19 macOS status UI human UAT pass while preserving Windows as not_run/human_needed | 2026-08-31 | 61adf70 | [260831-ho4-record-beta-19-macos-status-ui-human-uat](./quick/260831-ho4-record-beta-19-macos-status-ui-human-uat/) |
+
 ## Deferred Items
 
 | Category | Item | Status | Deferred At |
@@ -92,5 +98,5 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-08-26T18:20:53.636Z
-Stopped at: 01-14 beta.7 macOS MCP reload and Codex-exit service-survival slices passed; A-to-B and remaining macOS/Windows UAT required
+Stopped at: 01-14 beta.19 macOS install, MCP, Codex-exit survival and status UI slices passed; macOS recovery/authorization and Windows native UAT remain
 Resume file: .planning/phases/01-beta/01-14-PLAN.md
