@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: completed
-stopped_at: Phase 2 context gathered; macOS-priority planning permitted, Phase 3 remains blocked
-last_updated: "2026-08-31T18:01:24.257Z"
-last_activity: 2026-09-01 — Phase 2 context captured and roadmap synchronized for the approved macOS-first sequencing exception; Phase 3 remains blocked.
+stopped_at: Phase 2 UI-SPEC approved
+last_updated: "2026-08-31T18:19:18.134Z"
+last_activity: 2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open.
 progress:
   total_phases: 9
   completed_phases: 0
@@ -100,6 +100,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-08-31T18:01:24.250Z
-Stopped at: Phase 2 context gathered; macOS-priority planning permitted, Phase 3 remains blocked
-Resume file: .planning/phases/02-poc-live/02-CONTEXT.md
+Last session: 2026-08-31T18:19:18.127Z
+Stopped at: Phase 2 UI-SPEC approved
+Resume file: .planning/phases/02-poc-live/02-UI-SPEC.md
