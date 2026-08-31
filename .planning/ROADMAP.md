@@ -95,7 +95,7 @@ updated: 2026-08-26
   4. **[S/I/N]** 用户同时登录/同步只产生一个 Profile 持有者；崩溃、取消、失租后旧 Worker 不再请求或提交，仅回收本安装/任务拥有的进程，不终止日常浏览器，不因 lease 到期删除仍在用的锁。
   5. **[S/N/L]** 每个人工场景开始前用户已收到可获取 beta、更新提示词和测试预期；用户实际更新、登录并反馈后才记录 L。缺设备/发布失败/无法更新/跨日未到/失败均保持 human_needed、not_run 或 failed，阻止所有依赖阶段；synthetic 测试不能填写 live pass。
 
-**Plans**: TBD
+**Plans**: 41 plans (see `.planning/phases/02-poc-live/02-PLAN-OUTLINE.md` for the dependency-ordered list)
 **UI hint**: yes
 
 **Hard stop**: 采用 VALIDATION-STRATEGY 的 G3 live 矩阵及独立自动故障台账。换号/绑定不匹配、权限拒绝、网络中断、parser drift 和旧 Worker 并发反例必须有 S/I 证据，但不填写任何 L 格；真实登录/复用及绑定仍逐格实测，不要求故意制造学校错误或未授权第二个真实账号。只诊断批准范围内连接方案，不自动推进 P3。
