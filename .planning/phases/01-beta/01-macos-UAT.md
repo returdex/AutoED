@@ -25,3 +25,11 @@ The user fully exited Codex and used the installed absolute CLI entry from Termi
 While Codex was exited, the user submitted echo job `767ec4fc-0f6c-4975-b3fe-5c811911ec24` with value `after-codex-exit`. The submitted state was `queued`. A subsequent authenticated read observed terminal state `succeeded`, attempt `1`, result `after-codex-exit`, and error code `null`.
 
 This closes the macOS beta.7 evidence slice for API/Worker independence from the Codex process and persistent Worker execution. It does not close the remaining A-to-B update/digest, denial/recovery, UI, complete packaged diagnostics, clean-account/no-Node, or Windows 11 native checks.
+
+## 2026-08-31 — beta.19 status UI accessibility and refresh
+
+Status: **pass for the user-run status UI slice**
+
+After the successful `0.1.0-beta.19` installation, MCP reload, durable echo job, and independent-service checks, the user followed the supplied status-page checklist and reported “管理页面通过”. The checklist covered local pairing, beta/API/Worker status presentation, keyboard-only navigation with Tab/Shift+Tab/Enter, approximately 320 CSS-pixel width at 200% zoom, refresh without creating a new job, and non-success treatment of `stale`/`unknown` states.
+
+This is user-reported native macOS UAT; no screenshot, browser secret, Profile data, or school data was requested or recorded. It closes only the beta.19 status UI slice. OS-authorization denial and controlled synthetic recovery remain `human_needed`; Windows 11 native evidence remains `not_run / human_needed`, and Phase 1 is not complete.
