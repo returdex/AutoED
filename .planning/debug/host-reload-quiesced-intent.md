@@ -1,8 +1,8 @@
 ---
-status: verified
+status: fixing
 trigger: "Published beta.8 A-to-B upgrade stops with HOST_RELOAD_REQUIRED_QUIESCED_INTENT after confirmation while Codex MCP hosts still use beta.7."
 created: 2026-08-30T23:25:00+10:00
-updated: 2026-08-31T04:46:00+10:00
+updated: 2026-08-31T12:26:00+10:00
 ---
 
 # Debug Session: HOST_RELOAD_REQUIRED_QUIESCED_INTENT
@@ -68,6 +68,12 @@ updated: 2026-08-31T04:46:00+10:00
   observation: Post-ordering-fix gates pass: typecheck, 43 unit tests, all 118 integration behaviors, 12 native macOS tests, 10 UI tests and production build. The first full integration run passed 117 behaviors and failed only the packaged-closure copy with ENOSPC; after removing the exact 3.1 GB obsolete release-build backup, that one test passed independently. No product assertion failed.
 - timestamp: 2026-08-31T04:46:00+10:00
   observation: Immutable beta.17/beta.18 were published with 18 assets each. Anonymous full-download verification passed all 36 assets, including byte length, SHA-256, release signatures and exact archive closure. The beta.17 macOS bootstrap SHA-256 is 2cb7de7fb7c6f22776763497610e7e68cf6c2404b677bcc5356033b299a78b52. Real beta.13 cleanup continuation followed by beta.17 upgrade remains human_needed.
+- timestamp: 2026-08-31T12:02:00+10:00
+  observation: The real beta.17 recovery entered the exact pending cleanup path but returned HUMAN_RECOVERY_REQUIRED_CLEANUP_PENDING_OWNERSHIP_UNCONFIRMED. All active, pins, receipt and launcher entries were regular, private, single-link files. Both old and candidate launcher hashes exactly matched their activation pins.
+- timestamp: 2026-08-31T12:06:00+10:00
+  observation: Confirmed root cause: cleanup.regular imposed its 64 KiB metadata limit while hashing pinned launcher files. The real old/candidate launcher.mjs files are 579426/579427 bytes, while synthetic fixtures had smaller manifests and launchers. Upgrade pin creation already permits and hashes launcher files up to 1 MiB. Cleanup now uses that identical 1 MiB bound only for pinned file hashing, retaining 64 KiB for metadata. A regression with valid 70 KiB-padded launchers passes.
+- timestamp: 2026-08-31T12:26:00+10:00
+  observation: Full post-size-bound gates pass without exceptions: typecheck, 43 unit tests, 118 integration tests in one complete run, 12 native macOS tests, 10 UI tests and production build. The integration run includes the large pinned launcher regression, all cleanup fail-closed cases, recovery, packaged closure and real A-to-B CLI/MCP/API/Worker upgrade.
 
 ## Eliminated
 
@@ -78,7 +84,7 @@ updated: 2026-08-31T04:46:00+10:00
 
 ## Resolution
 
-- root_cause: Three independent defects were exposed in sequence. Client-host inventory was originally checked only after exclusive maintenance; cleaned-intent had no public continuation; and, after those were repaired, a stale MCP receipt whose PID had been reused was incorrectly classified as unknown even though its start identity/executable mismatch proved that the recorded host had exited. That last classification caused the repeated immediate beta.13 cleanup failure.
-- fix: Check owned client hosts before mutation; provide exact quiesced-intent and cleaned-intent continuation; classify a PID identity mismatch as replaced, remove only the stale installation-owned receipt, and never signal the replacement process. Cleanup is idempotent after writing the inactive rollback record and reports bounded cause codes. A retry now finishes the already feature-verified target and, when the requested manifest is newer, continues in the same confirmed bootstrap invocation. The macOS bootstrap accepts a protected default cache and `--root`, removing the separate cache creation/chmod and root prompt.
+- root_cause: Four independent defects were exposed in sequence. Client-host inventory was originally checked only after exclusive maintenance; cleaned-intent had no public continuation; stale MCP receipt PID reuse was classified as unknown; and cleanup reused a 64 KiB metadata reader to hash launcher files even though activation pin creation permits 1 MiB. The last size-bound mismatch caused the beta.17 OWNERSHIP_UNCONFIRMED result on the real 579 KiB launcher.
+- fix: Check owned client hosts before mutation; provide exact quiesced-intent and cleaned-intent continuation; classify PID identity mismatch as replaced without signalling the replacement; and use the same 1 MiB bound at activation pin creation and cleanup verification while retaining 64 KiB for metadata. Cleanup is idempotent and reports bounded cause codes. Recovery occurs before a new preview, and the macOS bootstrap uses a protected default cache plus explicit `--root`.
 - verification: Regression tests cover pre-mutation live-host refusal, quiesced-intent continuation, dispatch-before-preview/download, cleaned-intent target completion, PID reuse without replacement-process termination, idempotent cleanup, expired recovery lease, interruption after old-active restoration, revoked selfcheck receipt cleanup, delayed child exit, transient process observation, and unchanged fail-closed write/schema/snapshot/signature/host/process cases. All automated gates pass, and beta.17/beta.18 passed anonymous public availability verification. The real installed beta.13 continuation remains a required human test; it is not claimed as passed.
 - files_changed: packages/installer/src/journal.ts; packages/installer/src/upgrade.ts; packages/installer/src/install.ts; packages/installer/src/recovery.ts; packages/installer/src/cleanup.ts; packages/test-support/src/upgrade-fixture.ts; tests/integration/two-build-upgrade.test.ts; tests/integration/upgrade-recovery.test.ts; tests/integration/managed-cleanup.test.ts

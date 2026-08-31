@@ -8,9 +8,12 @@ import {realpathSync,readFileSync,readdirSync,writeFileSync,existsSync} from 'no
 import {join} from 'node:path';
 import {once} from 'node:events';
 import {spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
+
+const digest=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex');
 
 it('completes only after old owned entries are inactive and preserves archives and unknown files',async()=>{
-  const f=await createRecoveryFixture();try{const failed=await f.failUpgrade('cleaned','intent'),context=await f.cleanupContext(failed.operationId);const result=await cleanupManaged(context);expect(result).toEqual({complete:true,code:'CLEANUP_COMPLETE'});expect(f.archiveCanary()).toBe('retained');expect(f.unrelatedCanary()).toBe('retained');expect(f.oldActiveEntryExists()).toBe(false);}finally{await f.cleanup();}
+  const f=await createRecoveryFixture();try{const failed=await f.failUpgrade('cleaned','intent'),context=await f.cleanupContext(failed.operationId),activation=join(f.selection.root,'installer-staging','activation-'+failed.operationId),pinsPath=join(activation,'pins.json'),pins=JSON.parse(readFileSync(pinsPath,'utf8'));for(const [side,bin]of [['old',join(activation,'old-bin')],['candidate',join(f.selection.root,'bin')]]as const){const launcher=join(bin,'launcher.mjs'),large=Buffer.concat([readFileSync(launcher),Buffer.from('\n/*'+'.'.repeat(70000)+'*/\n')]);expect(large.length).toBeGreaterThan(65536);expect(large.length).toBeLessThan(1024*1024);writeFileSync(launcher,large);const ownershipPath=join(bin,'ownership.json'),ownership=JSON.parse(readFileSync(ownershipPath,'utf8')),entry=ownership.files.find((file:{name:string})=>file.name==='launcher.mjs');entry.sha256=digest(large);writeFileSync(ownershipPath,JSON.stringify(ownership));for(const file of pins[side].files)file.hash=digest(readFileSync(join(bin,file.name)));}writeFileSync(pinsPath,JSON.stringify(pins));const result=await cleanupManaged(context);expect(result).toEqual({complete:true,code:'CLEANUP_COMPLETE'});expect(f.archiveCanary()).toBe('retained');expect(f.unrelatedCanary()).toBe('retained');expect(f.oldActiveEntryExists()).toBe(false);}finally{await f.cleanup();}
 },180000);
 
 it.each(['host_receipt_unknown','process_receipt_unknown','startup_ref','mixed_pins','access_denied'] as const)('returns a bounded cleanup_pending cause for %s',async fault=>{
