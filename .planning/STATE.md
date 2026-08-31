@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
-status: completed
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-08-31T18:19:18.134Z"
-last_activity: 2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open.
+status: planned
+stopped_at: Phase 2 plans ready for user review; execution remains unapproved
+last_updated: "2026-08-31T21:43:34.624Z"
+last_activity: 2026-09-01 — Phase 2 planning complete and independently verified; awaiting explicit approval of 41 PLAN files
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 14
+  total_plans: 55
   completed_plans: 13
-  percent: 93
+  percent: 24
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Build, sign, publish and anonymously re-fetch two immutable synthetic betas under the confirmed trust root and isolated returdex identity;166 unit/integration/native plus10 browser tests independently passed. Phase-wide requirements pending.
+**Current focus:** Review the 41 independently verified Phase 2 PLAN files. No Phase 2 execution, source login, publication or live evidence is authorized until the user explicitly approves the plans; Phase 1 remains partially passed with Windows and named observations still open.
 
 ## Current Position
 
-Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
-Plan: 13 of 14 (01-01 through01-13 complete; awaiting01-14 human gate)
-Status: Awaiting Phase 1 Wave12 human update/native UAT; 13/14 plans complete
-Last activity: 2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open.
+Phase: 2 (双来源原生登录 POC 与 live 硬门禁) — PLANNED, UNAPPROVED
+Plan: 0 of 41 executed; all 41 PLAN files are ready for user review
+Status: Awaiting explicit user approval; Phase 1 remains 13/14 with its Windows and other named human/native gaps visible
+Last activity: 2026-09-01 — planning and checker revision loop complete
 
-Plan progress: [█████████░] 93% (13/14); phase acceptance remains pending human/native evidence.
+Plan progress: Phase 2 execution 0/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -44,8 +44,9 @@ Plan progress: [█████████░] 93% (13/14); phase acceptance re
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 12 completed / 14 planned | Executing | N/A |
-| 2–8 | Not yet planned | Not started | N/A |
+| 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
+| 2 | 0 completed / 41 planned | Plans verified; awaiting approval | N/A |
+| 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
@@ -101,5 +102,5 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-08-31T18:19:18.127Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-poc-live/02-UI-SPEC.md
+Stopped at: Phase 2 plans verified; awaiting explicit user approval before execution
+Resume file: .planning/phases/02-poc-live/02-PLAN-OUTLINE.md
