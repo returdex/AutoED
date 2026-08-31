@@ -227,3 +227,14 @@ updated: 2026-08-26
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
 **Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；`0.1.0-beta.1`与`0.1.0-beta.2`已在公开`returdex/AutoED`发布并通过匿名全资产验证。01-14真实人工更新、macOS/Windows原生UAT仍为硬门禁；不自动推进Phase 2。
+
+## Backlog
+
+### Phase 999.1: GitHub 多账号与仓库身份显式配置 (BACKLOG)
+
+**Goal:** 允许用户显式配置并核对 GitHub 用户与目标仓库身份，避免多 GitHub 账号环境中选择错误账号、同步或发布到错误仓库；不得与学校来源 Profile 或 Phase 2 认证状态混合。
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with `$gsd-review-backlog` when ready)
