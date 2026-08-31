@@ -5,7 +5,7 @@ milestone_name: milestone
 status: executing
 stopped_at: 01-13 signed beta publication complete; awaiting01-14 human update UAT
 last_updated: "2026-08-26T18:20:53.636Z"
-last_activity: "2026-08-31 — beta.19 packaged install-recovery, permissions and jobs diagnostics passed on native macOS arm64; remaining human gates stay open."
+last_activity: "2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open."
 progress:
   total_phases: 8
   completed_phases: 0
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 Phase: 1 (契约、原生骨架与最小 beta 安装升级) — EXECUTING
 Plan: 13 of 14 (01-01 through01-13 complete; awaiting01-14 human gate)
 Status: Awaiting Phase 1 Wave12 human update/native UAT; 13/14 plans complete
-Last activity: 2026-08-31 — beta.19 packaged install-recovery, permissions and jobs diagnostics passed on native macOS arm64; remaining human gates stay open.
+Last activity: 2026-08-31 — beta.19 separate macOS standard-account install/stop passed and primary service was restored; no-Node and authorization denial remain open.
 
 Plan progress: [█████████░] 93% (13/14); phase acceptance remains pending human/native evidence.
 
@@ -67,7 +67,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ### Pending Todos
 
 - TEXT-01、TEXT-02、SEARCH-01、BUNDLE-01、OPS-01 已随全部51项需求获批，仍未实现/验证。
-- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-31用户确认beta.19安装/清理、Codex重载MCP、持久echo、退出Codex后API/Worker独立存活、状态UI人工清单，以及包内install-recovery/permissions/jobs三项原生macOS synthetic诊断通过；见`01-macos-UAT.md`。01-14仍为部分通过：真实权限拒绝与干净账户/no-Node等人工项仍待验证；原生Windows证据按用户要求暂缓并保持`not_run / human_needed`。
+- 01-01至01-13已完成；已发布beta由returdex提供并通过相应匿名资产验签/hash/闭包验证。2026-08-31用户确认beta.19安装/清理、Codex重载MCP、持久echo、退出Codex后API/Worker独立存活、状态UI、包内三项诊断，以及新标准账户首次安装/受管停服通过；主账户服务已恢复健康。测试账户发现宿主Node26且没有OS授权提示，因此no-Node和真实拒绝仍未建立；Windows按用户要求暂缓并保持`not_run / human_needed`。
 
 ### Blockers/Concerns
 
@@ -89,6 +89,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 |---|-------------|------|--------|-----------|
 | 260831-ho4 | Record beta.19 macOS status UI human UAT pass while preserving Windows as not_run/human_needed | 2026-08-31 | 61adf70 | [260831-ho4-record-beta-19-macos-status-ui-human-uat](./quick/260831-ho4-record-beta-19-macos-status-ui-human-uat/) |
 | 260831-hru | Record beta.19 packaged macOS native diagnostics pass with correct synthetic evidence boundary | 2026-08-31 | 86eb22b | [260831-hru-record-beta-19-packaged-macos-native-dia](./quick/260831-hru-record-beta-19-packaged-macos-native-dia/) |
+| 260831-o7k | Record beta.19 separate macOS standard-account install UAT and restore primary service with honest no-Node and authorization boundaries | 2026-08-31 | eae6eaa | [260831-o7k-record-beta-19-separate-macos-standard-a](./quick/260831-o7k-record-beta-19-separate-macos-standard-a/) |
 
 ## Deferred Items
 
@@ -99,5 +100,5 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-08-26T18:20:53.636Z
-Stopped at: 01-14 beta.19 macOS install, MCP, Codex-exit survival, status UI and packaged diagnostics passed; real denial/clean-account and Windows native UAT remain
+Stopped at: 01-14 beta.19 macOS separate-account install and restoration passed; no-Node, real authorization denial and Windows native UAT remain
 Resume file: .planning/phases/01-beta/01-14-PLAN.md
