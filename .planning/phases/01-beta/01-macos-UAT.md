@@ -47,3 +47,19 @@ The user ran the diagnostics shipped inside the installed beta.19 program with i
 | `jobs` | pass | `OWNED_ROOT_PROTECTED`, `NO_USER_DATA`, `MODULE_CLOSURE_LOCAL`, `DUAL_CONNECTION_FENCED`, `CANCEL_CONFIRMED` |
 
 These are packaged synthetic diagnostics executed on the declared native OS; they confirm the installed diagnostic closure, protected temporary-root behavior, durable recovery-journal primitive, permission-mode probe, local SQLite dependency closure, competing-claim fencing, and confirmed cancellation behavior. They do not constitute a real Keychain authorization denial, destructive failure injection against the active installation, clean-account/no-Node evidence, school login/live evidence, or Windows native evidence. Those unrun gates retain their prior states.
+
+## 2026-08-31 — separate standard-account installation
+
+Status: **pass for separate-account installation and managed stop; no-Node and authorization-denial gates remain open**
+
+The user created a new macOS standard account and followed the shared beta.19 installation guide. `command -v node` found a host Node 26, so this run does not establish the clean-account/no-Node condition. The verified beta.19 bootstrap nevertheless completed through its managed runtime and returned:
+
+- operation ID `4d41d661-fb22-4569-aa25-9d30d3139f63`
+- generation `1`
+- build ID `77548191f4a238a94c7ec0525ca8e51719c138040b9a1a489bea52a086e56741`
+- state `complete`
+- cleanup `complete`
+
+No macOS password or Keychain authorization prompt appeared. Therefore authorization denial is `not_observed`, not pass or fail; the user did not manufacture a denial by locking or damaging the Keychain. The test-account API and Worker continued to own the fixed port after account switching, which safely prevented the primary account from starting. The agent did not kill those other-user processes. The user returned to the test account and used its managed CLI `stop`, reporting the normal stopped result. The primary beta.19 installation then started successfully; its CLI, API and Worker were observed as beta.19, with API and Worker `healthy/fresh`.
+
+This closes the separate-standard-account installation, successful first-install identity/cleanup, managed stop, cross-user ownership-safe handling, and primary-service restoration slices. It does not close no-Node, real OS authorization denial, Windows native, or Phase 1 overall acceptance.
