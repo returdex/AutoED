@@ -112,7 +112,9 @@ export interface ProtectedAuthStatusProjection {
   sources: readonly {
     source: SourceId;
     officialOrigin: string;
-    identity: { displayName: string; schoolEmail: string } | null;
+    approvedScopeId: string;
+    identity: { displayName: string; schoolEmail: string; selectedCourseName: string | null } | null;
+    identityFingerprint: string | null;
     auth: SourceObservation['auth'];
     capability: SourceObservation['capability'];
     health: SourceObservation['health'];
@@ -120,11 +122,12 @@ export interface ProtectedAuthStatusProjection {
     completeness: SourceObservation['completeness'];
     checkedAt: string | null;
     resultCode: SafeAuthErrorCode;
+    courseAccess: 'allowed' | 'blocked';
     sharedProfile: 'candidate' | 'observed' | 'unverified';
   }[];
   binding: { consistency: 'not_observed' | 'candidate' | 'confirmed' | 'mismatch'; identityFingerprint: string | null };
   nextAction:
-    | { kind: 'open_login'; source: SourceId; approvedConfigId: string }
+    | { kind: 'open_login'; source: SourceId; approvedConfigId: string; approvedScopeId: string }
     | { kind: 'confirm_binding'; candidateBindingId: string }
     | { kind: 'wait' | 'none' };
 }
@@ -159,6 +162,7 @@ export interface RedactedEvidenceReceipt {
   identityFingerprint: string | null;
   gaps: readonly string[];
   checkedAt: string;
+  earliestRecheckAt: string | null;
   nextAction: 'none' | 'resolve_gaps' | 'human_action_required';
 }
 
@@ -178,7 +182,9 @@ const overallSchema = z.strictObject({ code: SafeAuthErrorCodeSchema, phase3Elig
 const protectedSourceSchema = z.strictObject({
   source: sourceId,
   officialOrigin: z.url().refine(value => new URL(value).origin === value, 'Canonical origin required'),
-  identity: z.strictObject({ displayName: z.string().min(1).max(256), schoolEmail: z.email().max(320) }).nullable(),
+  approvedScopeId: z.uuid(),
+  identity: z.strictObject({ displayName: z.string().min(1).max(256), schoolEmail: z.email().max(320), selectedCourseName: z.string().min(1).max(512).nullable() }).nullable(),
+  identityFingerprint: displayFingerprint,
   auth: sourceAuth,
   capability: sourceCapability,
   health: sourceHealth,
@@ -186,6 +192,7 @@ const protectedSourceSchema = z.strictObject({
   completeness: sourceCompleteness,
   checkedAt: timestamp,
   resultCode: SafeAuthErrorCodeSchema,
+  courseAccess: z.enum(['allowed', 'blocked']),
   sharedProfile: z.enum(['candidate', 'observed', 'unverified']),
 });
 const redactedSourceSchema = z.strictObject({
@@ -200,7 +207,7 @@ const redactedSourceSchema = z.strictObject({
   identityFingerprint: displayFingerprint,
 });
 const protectedNextActionSchema = z.union([
-  z.strictObject({ kind: z.literal('open_login'), source: sourceId, approvedConfigId: z.uuid() }),
+  z.strictObject({ kind: z.literal('open_login'), source: sourceId, approvedConfigId: z.uuid(), approvedScopeId: z.uuid() }),
   z.strictObject({ kind: z.literal('confirm_binding'), candidateBindingId: z.uuid() }),
   z.strictObject({ kind: z.enum(['wait', 'none']) }),
 ]);
@@ -232,6 +239,7 @@ export const RedactedEvidenceReceiptSchema: z.ZodType<RedactedEvidenceReceipt> =
   identityFingerprint: displayFingerprint,
   gaps: z.array(gapCode).max(32),
   checkedAt: z.iso.datetime(),
+  earliestRecheckAt: z.iso.datetime().nullable(),
   nextAction: z.enum(['none', 'resolve_gaps', 'human_action_required']),
 });
 
@@ -341,8 +349,12 @@ export function presentProtectedAuthStatus(
   const sources = (['moodle', 'edstem'] as const).flatMap(source => {
     const value = input.sources[source];
     if (!value.config) return [];
-    const identityValue = value.identity ? { displayName: value.identity.displayName, schoolEmail: value.identity.schoolEmail } : null;
-    return [{ ...sourceDefaults(source, value.observation), officialOrigin: value.config.officialOrigin, identity: identityValue, sharedProfile: value.sharedProfile }];
+    const identityValue = value.identity ? { displayName: value.identity.displayName, schoolEmail: value.identity.schoolEmail, selectedCourseName: value.identity.selectedCourseName ?? null } : null;
+    return [{
+      ...sourceDefaults(source, value.observation), officialOrigin: value.config.officialOrigin, approvedScopeId: value.config.approvedScopeId,
+      identity: identityValue, identityFingerprint: fingerprintFor(input.binding, source), courseAccess: value.observation?.courseAccess ?? 'blocked',
+      sharedProfile: value.sharedProfile,
+    }];
   });
   return ProtectedAuthStatusProjectionSchema.parse({
     overall: { code: overallCode(input), phase3Eligibility: 'blocked', gaps: [...input.gaps] },
@@ -381,6 +393,7 @@ export function presentEvidenceReceipts(receipts: readonly EvidenceReceipt[], bi
     identityFingerprint: fingerprintFor(current, raw.source),
     gaps: [...raw.gaps],
     checkedAt: raw.checkedAt,
+    earliestRecheckAt: raw.scenario === 'd.24h_recheck' ? new Date(Date.parse(raw.checkedAt) + 24 * 60 * 60 * 1000).toISOString() : null,
     nextAction: raw.status === 'human_needed' ? 'human_action_required' : raw.gaps.length > 0 || raw.status === 'fail' ? 'resolve_gaps' : 'none',
   }));
 }

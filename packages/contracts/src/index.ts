@@ -111,7 +111,7 @@ export const ApprovedSourceConfigSchema: z.ZodType<ApprovedSourceConfig> = z.str
 export const ProtectedSourceIdentitySchema: z.ZodType<ProtectedSourceIdentity> = z.strictObject({
   classification: z.literal('protected_local'), source: sourceId,
   stableSubjectId: z.string().min(1).max(256), organizationId: z.string().min(1).max(256), tenantId: z.string().min(1).max(256).nullable(),
-  displayName: z.string().min(1).max(256), schoolEmail: z.email().max(320),
+  displayName: z.string().min(1).max(256), schoolEmail: z.email().max(320), selectedCourseName: z.string().min(1).max(512).optional(),
 });
 
 export const IdentityEvidenceSchema: z.ZodType<IdentityEvidence> = z.strictObject({

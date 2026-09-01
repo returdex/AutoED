@@ -302,7 +302,7 @@ export class AuthControlApplication {
     let nextAction: AuthStatusPresentationInput['nextAction'] = { kind: 'none' };
     const login = sourceValues.find(value => value.config && value.observation?.auth !== 'authenticated');
     if (binding.status === 'identity_mismatch') nextAction = { kind: 'wait' };
-    else if (login?.config) nextAction = { kind: 'open_login', source: login.source, approvedConfigId: login.config.id };
+    else if (login?.config) nextAction = { kind: 'open_login', source: login.source, approvedConfigId: login.config.id, approvedScopeId: login.config.approvedScopeId };
     else if (binding.status === 'candidate') nextAction = { kind: 'confirm_binding', candidateBindingId: this.candidateId(binding) };
     const input: AuthStatusPresentationInput = { sources, binding, gaps, nextAction };
     return principal.destination === 'local_ui'

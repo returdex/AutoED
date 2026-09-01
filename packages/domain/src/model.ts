@@ -136,6 +136,8 @@ export interface ProtectedSourceIdentity {
   tenantId: string | null;
   displayName: string;
   schoolEmail: string;
+  /** Optional protected-local display label; never enters receipts or model-facing output. */
+  selectedCourseName?: string | undefined;
 }
 
 export interface IdentityEvidence {
