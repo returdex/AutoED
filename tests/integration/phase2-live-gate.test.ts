@@ -16,7 +16,8 @@ import {
 } from '../../scripts/release/phase2-live-gate.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 
-const sha=(value:unknown)=>createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:JSON.stringify(value)).digest('hex');
+const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical((value as Record<string,unknown>)[key])}`).join(',')}}`:JSON.stringify(value);
+const sha=(value:unknown)=>createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:canonical(value)).digest('hex');
 const buildId='a'.repeat(64),artifactSha256='b'.repeat(64),manifestSha256='c'.repeat(64),version='0.1.0-beta.20';
 const observedAt='2026-09-01T08:00:00.000Z',now=Date.parse('2026-09-01T08:05:00.000Z');
 const roots:string[]=[];
@@ -127,7 +128,7 @@ describe('phase 2 read-only update gate',()=>{
     const tests={schema:1,status:'pass',buildId,artifactReceiptSha256:sha(artifacts),suites:{typecheck:'pass',unit:'pass',integration:'pass',ui:'pass',native:'pass'},sensitiveScan:'pass'};
     const publication={schema:1,status:'pass',owner:'returdex',repositoryId:1350421724,version,tag:`v${version}`,buildId,manifestSha256,immutable:true,assets:{[platform]:asset}};
     const availability={schema:1,status:'pass',anonymous:true,immutable:true,version,tag:`v${version}`,buildId,manifestSha256,assets:{[platform]:asset},checkedAt:observedAt};
-    const receipt={schema:1,checkpoint:platform==='macos'?'02-14-macos-update':'02-25-windows-update',platform,version,tag:`v${version}`,artifactSha256,manifestSha256,buildId,result:'pass',resultCode:'UPDATE_COMPLETE',cleanup:'complete',actualBuild:'matched',entrypoints:'matched',api:'healthy',worker:'healthy',pairedUi:'ready',sourceConfiguration:{moodle:'not_confirmed',edstem:'not_confirmed'},schoolAccess:'not_started',profile:platform==='windows'?'not_created':undefined,nativePlatform:platform==='windows'?'windows-11':undefined,platformKind:platform==='windows'?'native':undefined,wsl:platform==='windows'?false:undefined,windows:platform==='macos'?'not_run/human_needed':undefined,phase3:'blocked',observedAt,feedbackDigest:'d'.repeat(64)};
+    const receipt={schema:1,checkpoint:platform==='macos'?'02-14-macos-update':'02-25-windows-update',platform,version,tag:`v${version}`,artifactSha256,manifestSha256,buildId,result:'pass',resultCode:'UPDATE_COMPLETE',cleanup:'complete',actualBuild:'matched',entrypoints:'matched',api:'healthy',worker:'healthy',pairedUi:'ready',sourceConfiguration:{moodle:'not_confirmed',edstem:'not_confirmed'},schoolAccess:'not_started',...(platform==='windows'?{profile:'not_created',nativePlatform:'windows-11',platformKind:'native',wsl:false}:{windows:'not_run/human_needed'}),phase3:'blocked',observedAt,feedbackDigest:'d'.repeat(64)};
     const files=new Map<string,unknown>([['artifacts',artifacts],['tests',tests],['publication',publication],['availability',availability],['fresh',availability],['receipt',receipt]]);
     const calls={read:0,runtime:0,mutate:0,profile:0,browser:0,source:0,process:0};
     return {files,calls,deps:{now:()=>now,nativePlatform:platform,async readJson(path:string){calls.read++;return structuredClone(files.get(path));},async readText(path:string){calls.read++;if(path!=='prompt')throw new Error('NO');return 'verified prompt';},async readRuntime(){calls.runtime++;return runtime({platform,phase1:'partial'});}}};
