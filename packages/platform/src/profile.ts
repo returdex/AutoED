@@ -31,6 +31,11 @@ const ownershipRecordSchema = z.strictObject({
     context.addIssue({ code: 'custom', message: 'Invalid ownership fence' });
   }
 });
+const fenceRecordSchema = z.strictObject({
+  schema: z.literal(1),
+  generation: z.number().int().nonnegative(),
+  fence: z.number().int().nonnegative(),
+});
 
 type OwnershipRecord = z.infer<typeof ownershipRecordSchema>;
 
@@ -40,7 +45,7 @@ export interface ProfileControlChallenge {
 }
 
 export interface ProfileControlClient {
-  request(challenge: ProfileControlChallenge): Promise<unknown>;
+  request(challenge: ProfileControlChallenge, signal: AbortSignal): Promise<unknown>;
 }
 
 export interface FileProfileOwnershipCoordinatorOptions {
@@ -53,6 +58,7 @@ export interface FileProfileOwnershipCoordinatorOptions {
   observe?: (pid: number) => Promise<OSProcess | null>;
   clock?: { now(): number };
   leaseMs?: number;
+  controlTimeoutMs?: number;
 }
 
 function within(parent: string, child: string): boolean {
@@ -83,6 +89,7 @@ function safeError(code: 'PROFILE_OWNERSHIP_UNCONFIRMED' | 'PROFILE_IN_USE'): Er
 
 export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordinator {
   private readonly recordPath: string;
+  private readonly fencePath: string;
   private readonly installationId: string;
   private readonly browserBuildId: string;
   private readonly browserExecutable: string;
@@ -91,6 +98,7 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
   private readonly observe: (pid: number) => Promise<OSProcess | null>;
   private readonly secrets: SecretStore;
   private readonly control: ProfileControlClient;
+  private readonly controlTimeoutMs: number;
 
   constructor(options: FileProfileOwnershipCoordinatorOptions) {
     try {
@@ -108,7 +116,10 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
       verifyProtectedPath(options.browserExecutable);
       const leaseMs = options.leaseMs ?? 60_000;
       if (!Number.isSafeInteger(leaseMs) || leaseMs < 1 || leaseMs > 300_000) throw new Error('lease');
+      const controlTimeoutMs = options.controlTimeoutMs ?? 2_000;
+      if (!Number.isSafeInteger(controlTimeoutMs) || controlTimeoutMs < 1 || controlTimeoutMs > 5_000) throw new Error('timeout');
       this.recordPath = assertManagedPath(paths, 'runtime/profile-ownership.json');
+      this.fencePath = assertManagedPath(paths, 'runtime/profile-ownership-fence.json');
       this.installationId = options.installationId;
       this.browserBuildId = options.browserBuildId;
       this.browserExecutable = options.browserExecutable;
@@ -117,6 +128,7 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
       this.observe = options.observe ?? observeProcess;
       this.secrets = options.secrets;
       this.control = options.control;
+      this.controlTimeoutMs = controlTimeoutMs;
     } catch {
       throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED');
     }
@@ -137,6 +149,15 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
       schema: 1, kind: 'reservation', reservation, owner: null, leaseUntil,
       maximumGeneration: reservation.generation, maximumFence: reservation.fence,
     });
+    try {
+      const previous = this.readFence();
+      if (previous && (reservation.generation < previous.generation || reservation.fence <= previous.fence)) {
+        throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PROFILE_OWNERSHIP_UNCONFIRMED') throw error;
+      return this.unconfirmed(reservation);
+    }
     try {
       this.writeExclusive(candidate);
       return this.reserved(candidate);
@@ -177,18 +198,44 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
   }
 
   async inspect(ownerInput: ProfileOwnerIdentity): Promise<ProfileOwnership> {
+    let current: OwnershipRecord;
+    try { current = this.readRecord(); } catch { throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED'); }
+    let owner: ProfileOwnerIdentity;
+    try { owner = ProfileOwnerIdentitySchema.parse(ownerInput); }
+    catch { return this.unconfirmed(current.reservation, current.owner); }
+    if (current.kind !== 'owner' || current.owner === null || !sameOwner(current.owner, owner) ||
+        owner.installationId !== this.installationId || owner.browserBuildId !== this.browserBuildId ||
+        owner.executable !== this.browserExecutable) return this.unconfirmed(current.reservation, current.owner);
+    let observation: OSProcess | null;
+    try { observation = await this.observe(owner.pid); }
+    catch { return this.unconfirmed(current.reservation, current.owner); }
+    if (observation === null) return this.confirmedExited(current);
+    if (!this.processMatches(owner, observation)) return this.unconfirmed(current.reservation, current.owner);
+    try {
+      if (!await this.authenticated(owner)) return this.unconfirmed(current.reservation, current.owner);
+    } catch { return this.unconfirmed(current.reservation, current.owner); }
+    return this.inUse(current);
+  }
+
+  async release(ownerInput: ProfileOwnerIdentity): Promise<void> {
     let owner: ProfileOwnerIdentity;
     let current: OwnershipRecord;
     try {
       owner = ProfileOwnerIdentitySchema.parse(ownerInput);
       current = this.readRecord();
-      if (current.kind !== 'owner' || current.owner === null || !sameOwner(current.owner, owner)) return this.unconfirmed(current.reservation, current.owner);
+      if (current.kind !== 'owner' || current.owner === null || !sameOwner(current.owner, owner) ||
+          current.maximumGeneration !== owner.generation || current.maximumFence !== owner.fence) throw new Error('owner');
     } catch { throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED'); }
-    return this.unconfirmed(current.reservation, current.owner);
-  }
-
-  async release(_owner: ProfileOwnerIdentity): Promise<void> {
-    throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED');
+    const expected = JSON.stringify(current);
+    const state = await this.inspect(owner);
+    if (state.resultCode === 'PROFILE_IN_USE') throw safeError('PROFILE_IN_USE');
+    if (state.resultCode !== 'PROFILE_CONFIRMED_EXITED') throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED');
+    try {
+      if (readFileSync(this.recordPath, 'utf8') !== expected) throw new Error('record');
+      this.writeFence(current.maximumGeneration, current.maximumFence);
+      if (readFileSync(this.recordPath, 'utf8') !== expected) throw new Error('record');
+      unlinkSync(this.recordPath); flushDirectory(dirname(this.recordPath));
+    } catch { throw safeError('PROFILE_OWNERSHIP_UNCONFIRMED'); }
   }
 
   private readRecord(): OwnershipRecord {
@@ -204,6 +251,39 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
     const descriptor = openSync(this.recordPath, 'wx', 0o600);
     try { protectPath(this.recordPath); writeFileSync(descriptor, bytes); fsyncSync(descriptor); } finally { closeSync(descriptor); }
     flushDirectory(dirname(this.recordPath));
+  }
+
+  private readFence(): z.infer<typeof fenceRecordSchema> | null {
+    if (!existsSync(this.fencePath)) return null;
+    const stat = lstatSync(this.fencePath);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size < 2 || stat.size > 1_024) throw new Error('fence');
+    verifyProtectedPath(this.fencePath);
+    return fenceRecordSchema.parse(JSON.parse(readFileSync(this.fencePath, 'utf8')));
+  }
+
+  private writeFence(generation: number, fence: number): void {
+    const prior = this.readFence();
+    const value = fenceRecordSchema.parse({
+      schema: 1,
+      generation: Math.max(prior?.generation ?? 0, generation),
+      fence: Math.max(prior?.fence ?? 0, fence),
+    });
+    const bytes = JSON.stringify(value);
+    if (prior === null) {
+      const descriptor = openSync(this.fencePath, 'wx', 0o600);
+      try { protectPath(this.fencePath); writeFileSync(descriptor, bytes); fsyncSync(descriptor); } finally { closeSync(descriptor); }
+      flushDirectory(dirname(this.fencePath)); return;
+    }
+    const expected = JSON.stringify(prior);
+    const pending = assertManagedPath(managedPaths(dirname(dirname(this.fencePath))), `runtime/profile-ownership-fence.${randomUUID()}.pending`);
+    let created = false;
+    try {
+      if (readFileSync(this.fencePath, 'utf8') !== expected) throw new Error('fence');
+      const descriptor = openSync(pending, 'wx', 0o600); created = true;
+      try { protectPath(pending); writeFileSync(descriptor, bytes); fsyncSync(descriptor); } finally { closeSync(descriptor); }
+      if (readFileSync(this.fencePath, 'utf8') !== expected) throw new Error('fence');
+      renameSync(pending, this.fencePath); created = false; flushDirectory(dirname(this.fencePath));
+    } finally { if (created && existsSync(pending)) unlinkSync(pending); }
   }
 
   private replaceRecord(record: OwnershipRecord, expected: string): void {
@@ -235,6 +315,10 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
     return ProfileOwnershipSchema.parse({ state: 'unconfirmed', disposition: 'human_needed', resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED', reservation, owner, leaseUntil: null });
   }
 
+  private confirmedExited(record: OwnershipRecord): ProfileOwnership {
+    return ProfileOwnershipSchema.parse({ state: 'confirmed_exited', disposition: 'cleanup_allowed', resultCode: 'PROFILE_CONFIRMED_EXITED', reservation: record.reservation, owner: record.owner, leaseUntil: record.leaseUntil });
+  }
+
   private processMatches(owner: ProfileOwnerIdentity, observation: OSProcess | null): boolean {
     const adapter: ProcessIdentity = {
       installationId: owner.installationId, role: 'worker', buildId: owner.browserBuildId, pid: owner.pid,
@@ -247,7 +331,15 @@ export class FileProfileOwnershipCoordinator implements ProfileOwnershipCoordina
     const challenge: ProfileControlChallenge = { challenge: randomUUID(), owner };
     const key = await this.secrets.get(owner.installationId, 'api');
     if (!key) return false;
-    const parsed = controlResponseSchema.parse(await this.control.request(challenge));
+    const controller = new AbortController();
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => { controller.abort(); reject(new Error('timeout')); }, this.controlTimeoutMs); timer.unref();
+    });
+    let response: unknown;
+    try { response = await Promise.race([this.control.request(challenge, controller.signal), timeout]); }
+    finally { if (timer) clearTimeout(timer); }
+    const parsed = controlResponseSchema.parse(response);
     if (!sameOwner(parsed.owner, owner)) return false;
     const expected = createHmac('sha256', key).update(JSON.stringify(challenge)).digest('hex');
     return timingSafeEqual(Buffer.from(parsed.proof, 'hex'), Buffer.from(expected, 'hex'));

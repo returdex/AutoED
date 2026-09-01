@@ -43,7 +43,7 @@ function fixture(now = 1_000, overrides: {
     secrets: new SyntheticSecretStore(),
     observe: overrides.observe ?? (async () => { throw new Error('SYNTHETIC_OBSERVATION_NOT_CONFIGURED'); }),
     control: overrides.control ?? { request: async () => { throw new Error('SYNTHETIC_CONTROL_NOT_CONFIGURED'); } },
-    controlTimeoutMs: overrides.controlTimeoutMs,
+    ...(overrides.controlTimeoutMs === undefined ? {} : { controlTimeoutMs: overrides.controlTimeoutMs }),
   });
   return {
     harness, selection, paths, browserExecutable, installationId, coordinator,
@@ -261,13 +261,17 @@ describe('conservative OS and authenticated control proof', () => {
   });
 
   it('cleans only after exact OS absence is confirmed and then admits a higher fence', async () => {
-    const value = fixture(1_000, { observe: async () => null });
+    let observations = 0;
+    const value = fixture(1_000, { observe: async () => { observations++; return null; } });
     const owned = await attached(value);
     expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({
       state: 'confirmed_exited', disposition: 'cleanup_allowed', resultCode: 'PROFILE_CONFIRMED_EXITED',
     });
     expect(existsSync(value.ownershipRecord)).toBe(true);
     await value.coordinator.release(owned.owner!);
+    expect(observations).toBe(2);
+    expect(existsSync(value.ownershipRecord)).toBe(false);
+    await expect(value.coordinator.reserve(reserveInput(value, 0, 0))).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
     expect(existsSync(value.ownershipRecord)).toBe(false);
     const next = await value.coordinator.reserve(reserveInput(value, 1, 1));
     expect(next).toMatchObject({ state: 'reserved', resultCode: 'PROFILE_RESERVED', reservation: { generation: 1, fence: 1 } });
