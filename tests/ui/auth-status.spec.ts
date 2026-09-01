@@ -13,6 +13,7 @@ import type {
 } from '../../packages/domain/src/model.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { buildStatusAssets } from '../../scripts/build/build.mjs';
+import { ApplicationError } from '../../packages/application/src/policy.js';
 
 const READ_AT = '2026-09-01T00:00:00.000Z';
 const SCOPE_ID = '10000000-0000-4000-8000-000000000001';
@@ -71,14 +72,17 @@ async function authUiFixture() {
   const identities: Record<SourceId, ProtectedSourceIdentity> = { moodle: identity('moodle'), edstem: identity('edstem') };
   let currentBinding = binding();
   const receipts = new Map<string, EvidenceReceipt[]>();
-  const calls: Array<{ path: string; body: unknown; csrf: string | null }> = [];
+  let statusFailure: ApplicationError|null=null;
+  let receiptFailure: ApplicationError|null=null;
+  let mutationFailure: ApplicationError|null=null;
+  const calls = { login: [] as unknown[], probe: [] as unknown[], binding: [] as unknown[], logout: [] as unknown[] };
   const auth = {
-    sourceConfigs: { async read(source: SourceId) { return configs[source]; }, async confirm(value: ApprovedSourceConfig) { configs[value.source] = value; } },
+    sourceConfigs: { async read(source: SourceId) { if(statusFailure)throw statusFailure;return configs[source]; }, async confirm(value: ApprovedSourceConfig) { if(mutationFailure)throw mutationFailure;configs[value.source] = value; } },
     observations: { async read(source: SourceId) { return observations[source]; }, async write() { throw new Error('UNEXPECTED_WRITE'); } },
-    bindings: { async read() { return currentBinding; }, async write(value: AccountBinding) { currentBinding = value; } },
-    evidence: { async append() { throw new Error('NO_UI_EVIDENCE_WRITE'); }, async list(key: EvidenceCellKey) { return receipts.get(cellKey(key)) ?? []; } },
-    authJobs: { async requestProbe() { return { jobId: randomUUID() }; }, async recordExplicitLogout() { return {} as never; }, async query() { return null; }, async cancel() { return {} as never; } },
-    login: { async open() {} }, protectedIdentities: { async read(source: SourceId) { return identities[source]; } },
+    bindings: { async read() { return currentBinding; }, async write(value: AccountBinding) { if(mutationFailure)throw mutationFailure;calls.binding.push(structuredClone(value));currentBinding = value; } },
+    evidence: { async append() { throw new Error('NO_UI_EVIDENCE_WRITE'); }, async list(key: EvidenceCellKey) { if(receiptFailure)throw receiptFailure;return receipts.get(cellKey(key)) ?? []; } },
+    authJobs: { async requestProbe(command: unknown) { if(mutationFailure)throw mutationFailure;calls.probe.push(structuredClone(command));return { jobId: randomUUID() }; }, async recordExplicitLogout(command: unknown) { if(mutationFailure)throw mutationFailure;calls.logout.push(structuredClone(command));return {} as never; }, async query() { return null; }, async cancel() { return {} as never; } },
+    login: { async open(input: unknown) { if(mutationFailure)throw mutationFailure;calls.login.push(structuredClone(input)); } }, protectedIdentities: { async read(source: SourceId) { return identities[source]; } },
   };
   const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo' as const] };
   const sessions = new SQLiteSessions(db, installationId);
@@ -88,6 +92,8 @@ async function authUiFixture() {
   }
   return {
     api, build, calls, configs, observations, identities, receipts, sessions, approve,
+    setBinding(value:AccountBinding){currentBinding=value;},
+    failStatus(error:ApplicationError|null){statusFailure=error;},failReceipts(error:ApplicationError|null){receiptFailure=error;},failMutation(error:ApplicationError|null){mutationFailure=error;},
     async close() { await api.close(); db.close(); values.clear(); await harness.cleanup(); },
   };
 }
@@ -175,5 +181,82 @@ test.describe('paired Phase 2 auth status UI', () => {
       for (const heading of ['版本与范围', 'API 与 Worker', '版本身份与差异', '尚无自检记录', '最近一次安装或升级', '诊断详情']) await expect(page.getByText(heading, { exact: true })).toBeVisible();
       await expect(page.locator('#protected')).toContainText(fixture.build.version);
     } finally { await fixture.close(); }
+  });
+
+  test('auth actions use one exact primary CTA, paired CSRF and fixed bodies', async ({ page, context }) => {
+    const fixture = await authUiFixture();
+    try {
+      fixture.observations.moodle = { ...fixture.observations.moodle, auth: 'unauthenticated', resultCode: 'AUTH_REQUIRED' };
+      const requests: Array<{ path:string; body:unknown; csrf:string|null }> = [];
+      page.on('request', request => { if(request.url().includes('/api/auth/') && request.method()==='POST')requests.push({path:new URL(request.url()).pathname,body:request.postDataJSON(),csrf:request.headers()['x-autoed-csrf']??null}); });
+      await pair(page, fixture);
+      await expect(page.locator('button.primary-action')).toHaveCount(1);
+      await page.getByRole('button',{name:'打开 Moodle 官方登录窗口'}).dblclick();
+      await expect(page.getByRole('button',{name:'我已完成 Moodle 登录'})).toBeVisible();
+      expect(requests.filter(request=>request.path==='/api/auth/login/open')).toEqual([{path:'/api/auth/login/open',body:{source:'moodle',approvedConfigId:fixture.configs.moodle.id},csrf:expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)}]);
+      expect((await context.cookies()).some(cookie=>cookie.name==='autoed_session'&&cookie.httpOnly)).toBe(true);
+      await page.getByRole('button',{name:'我已完成 Moodle 登录'}).click();
+      await expect(page.locator('.overall-gate .gate-result')).toBeFocused();
+      const probe=requests.find(request=>request.path==='/api/auth/probe');
+      expect(probe).toMatchObject({path:'/api/auth/probe',body:{source:'moodle',approvedConfigId:fixture.configs.moodle.id,approvedScopeId:SCOPE_ID,trigger:'user_login_completed',actionReceiptId:expect.stringMatching(/^[0-9a-f-]{36}$/),idempotencyKey:expect.stringMatching(/^ui-/)},csrf:expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)});
+      expect(fixture.calls.login).toHaveLength(1);expect(fixture.calls.probe).toHaveLength(1);
+      expect(await page.getByRole('status').innerText()).not.toMatch(/Synthetic|@|moodle\.synthetic/);
+    } finally { await fixture.close(); }
+  });
+
+  test('server issued intent is memory-only, one-time and cleared on reload', async ({ page }) => {
+    const fixture = await authUiFixture();
+    try {
+      fixture.observations.moodle = { ...fixture.observations.moodle, auth: 'unauthenticated', resultCode: 'AUTH_REQUIRED' };
+      await pair(page, fixture);await page.getByRole('button',{name:'打开 Moodle 官方登录窗口'}).click();
+      const issued=(fixture.calls.login[0] as {actionReceiptId:string}).actionReceiptId;
+      expect(issued).toMatch(/^[0-9a-f-]{36}$/);
+      const beforeReload=await page.evaluate(value=>({body:document.body.innerText,attributes:[...document.querySelectorAll('*')].flatMap(element=>[...element.attributes].map(attribute=>attribute.value)).join('\n'),url:location.href}),issued);
+      expect(JSON.stringify(beforeReload)).not.toContain(issued);
+      await page.reload();await expect(page.getByRole('button',{name:'打开 Moodle 官方登录窗口'})).toBeVisible();
+      expect(await page.evaluate(()=>({local:Object.keys(localStorage),session:Object.keys(sessionStorage)}))).toEqual({local:[],session:[]});
+      expect(await page.locator('body').innerText()).not.toContain(issued);
+    } finally { await fixture.close(); }
+  });
+
+  test('protected purge clears identity and action state on auth, receipt and mutation denial', async ({ page }) => {
+    for(const surface of ['status','receipts','mutation'] as const){
+      const fixture=await authUiFixture();
+      try{
+        if(surface==='mutation')fixture.observations.moodle={...fixture.observations.moodle,auth:'unauthenticated',resultCode:'AUTH_REQUIRED'};
+        await pair(page,fixture);
+        if(surface==='status'){fixture.failStatus(new ApplicationError('UNAUTHORIZED',401));await page.getByRole('button',{name:'刷新状态'}).click();}
+        else if(surface==='receipts'){fixture.failReceipts(new ApplicationError('FORBIDDEN',403));await page.getByRole('button',{name:'刷新状态'}).click();}
+        else{fixture.failMutation(new ApplicationError('FORBIDDEN',403));await page.getByRole('button',{name:'打开 Moodle 官方登录窗口'}).click();}
+        await expect(page.locator('#protected')).toBeEmpty();await expect(page.getByRole('heading',{name:'此页面尚未获得本地访问权限'})).toBeVisible();
+        for(const sentinel of PRIVATE_SENTINELS)expect(await page.locator('body').innerText()).not.toContain(sentinel);
+      }finally{await fixture.close();}
+    }
+  });
+
+  test('stale snapshot preserves read time, labels every protected group and disables mutation', async ({ page, context }) => {
+    const fixture=await authUiFixture();
+    try{
+      await pair(page,fixture);const readTime=(await page.locator('.overall-gate dd').nth(0).textContent())??'';
+      await context.setOffline(true);await page.getByRole('button',{name:'刷新状态'}).click();
+      await expect(page.getByRole('status')).toContainText('以下为上次读取结果');
+      await expect(page.locator('#protected')).toContainText(PRIVATE.moodleName);
+      expect(await page.locator('#protected section .stale-notice').count()).toBeGreaterThanOrEqual(8);
+      expect(await page.locator('#protected button:not(:disabled)').count()).toBe(0);
+      await context.setOffline(false);await page.getByRole('button',{name:'刷新状态'}).click();
+      await expect(page.locator('.stale-notice')).toHaveCount(0);expect(readTime).not.toBe('');
+    }finally{await fixture.close();}
+  });
+
+  test('auth accessibility and auth responsive layout preserve keyboard focus and approved dimensions', async ({ page }) => {
+    const fixture=await authUiFixture();
+    try{
+      await page.setViewportSize({width:1280,height:900});await pair(page,fixture);
+      const desktop=await page.locator('.source-card').evaluateAll(cards=>cards.map(card=>card.getBoundingClientRect().width));expect(Math.abs(desktop[0]!-desktop[1]!)).toBeLessThan(1);
+      for(const width of [759,599]){await page.setViewportSize({width,height:900});const columns=await page.locator('.source-grid').evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(' ').length);expect(columns).toBe(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);}
+      const controls=await page.locator('button,summary').evaluateAll(elements=>elements.map(element=>({height:element.getBoundingClientRect().height,outline:getComputedStyle(element).outlineWidth,offset:getComputedStyle(element).outlineOffset})));expect(controls.every(control=>control.height>=48)).toBe(true);
+      await page.getByRole('button',{name:'再次检查来源状态'}).focus();expect(await page.getByRole('button',{name:'再次检查来源状态'}).evaluate(element=>({outline:getComputedStyle(element).outlineWidth,offset:getComputedStyle(element).outlineOffset}))).toEqual({outline:'2px',offset:'4px'});
+      expect(await page.locator('input,textarea,select,iframe,[type=file],[type=password]').count()).toBe(0);
+    }finally{await fixture.close();}
   });
 });
