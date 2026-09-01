@@ -342,9 +342,12 @@ describe('append-only UAT ledger and evidence isolation', () => {
   it('replays an identical receipt idempotently, rejects conflicts and links same-cell corrections without mutation', async () => {
     const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
     const first = receipt({ status: 'fail', resultCode: 'SYNTHETIC_FAILURE' });
-    await ledger.append(first, automated(), writeContext); await ledger.append(first, automated(), writeContext);
+    await ledger.append(first, automated(), writeContext);
+    const competingDb = openDatabase(path); const competingLedger = new SQLiteEvidenceLedger(competingDb, { now: () => 2000 });
+    await competingLedger.append(first, automated(), writeContext);
     expect(db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 1 });
-    await expect(ledger.append({ ...first, status: 'pass', resultCode: 'SYNTHETIC_PASS' }, automated(), writeContext)).rejects.toMatchObject({ code: 'EVIDENCE_IDEMPOTENCY_CONFLICT' });
+    await expect(competingLedger.append({ ...first, status: 'pass', resultCode: 'SYNTHETIC_PASS' }, automated(), writeContext)).rejects.toMatchObject({ code: 'EVIDENCE_IDEMPOTENCY_CONFLICT' });
+    competingDb.close();
     const correction = receipt({ resultCode: 'SYNTHETIC_CORRECTION' });
     await ledger.append(correction, automated(), writeContext);
     expect(await ledger.list({ platform: actualPlatform, source: 'moodle', scenario: 'a.login', evidence: 'S' })).toEqual([first, correction]);
@@ -376,13 +379,25 @@ describe('append-only UAT ledger and evidence isolation', () => {
   it('rejects the complete automated authority contamination matrix without adding rows', async () => {
     const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
     const otherPlatform: NativePlatform = actualPlatform === 'macos' ? 'windows' : 'macos';
+    const live = receipt({ evidence: 'L', provenance: { kind: 'human_action', actionReceiptId: randomUUID() } });
+    const liveAuthority = (value: EvidenceReceipt, platform: NativePlatform): EvidenceWriterAuthority => ({
+      kind: 'human_action', evidence: 'L', platform,
+      actionReceiptId: value.provenance.kind === 'human_action' ? value.provenance.actionReceiptId : randomUUID(),
+    });
     const invalid: [EvidenceReceipt, EvidenceWriterAuthority][] = [
       [receipt({ evidence: 'I', provenance: { kind: 'automated', evidence: 'I', producerId: 'phase2.integration' } }), automated('S')],
       [receipt(), automated('I')],
+      [receipt(), automated('N')],
+      [receipt(), liveAuthority(live, actualPlatform)],
+      [receipt({ evidence: 'I', provenance: { kind: 'automated', evidence: 'I', producerId: 'phase2.integration' } }), automated('N')],
+      [receipt({ evidence: 'I', provenance: { kind: 'automated', evidence: 'I', producerId: 'phase2.integration' } }), liveAuthority(live, actualPlatform)],
       [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('S')],
-      [receipt({ evidence: 'L', provenance: { kind: 'human_action', actionReceiptId: randomUUID() } }), automated('S')],
+      [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('I')],
+      [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), liveAuthority(live, actualPlatform)],
+      [live, automated('S')],
       [receipt({ platform: otherPlatform }), automated('S')],
       [receipt({ evidence: 'N', platform: otherPlatform, provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('N', otherPlatform)],
+      [{ ...live, platform: otherPlatform }, liveAuthority(live, otherPlatform)],
     ];
     for (const [value, authority] of invalid) {
       await expect(ledger.append(value, authority, writeContext)).rejects.toMatchObject({ code: 'EVIDENCE_AUTHORITY_MISMATCH' });
