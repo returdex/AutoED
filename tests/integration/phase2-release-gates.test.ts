@@ -76,7 +76,7 @@ it('capability closure requires identical durable workflow and canonical gate me
   const windowsManifest=createPhase2CapabilityManifest({root:windows,selection:selected,testReport:tested});
   expect(macManifest.capabilities).toEqual(PHASE2_CAPABILITIES);
   expect(verifyPhase2CapabilityClosure({selection:selected,testReport:tested,targets:{macos:{root:mac,manifest:macManifest},windows:{root:windows,manifest:windowsManifest}}})).toMatchObject({status:'pass',memberCount:PHASE2_RELEASE_MEMBERS.length,capabilityCount:PHASE2_CAPABILITIES.length});
-  rmSync(join(windows,PHASE2_RELEASE_MEMBERS[0]));
+  rmSync(join(windows,PHASE2_RELEASE_MEMBERS[0]!));
   expect(()=>verifyPhase2CapabilityClosure({selection:selected,testReport:tested,targets:{macos:{root:mac,manifest:macManifest},windows:{root:windows,manifest:windowsManifest}}})).toThrow('PHASE2_CAPABILITY_CLOSURE_INVALID');
 });
 
@@ -84,7 +84,7 @@ it('capability closure rejects wrong member bytes, stale source and a missing ca
   const mac=targetRoot('same'),windows=targetRoot('same'),selected=selection(),tested=report(selected);
   const macManifest=createPhase2CapabilityManifest({root:mac,selection:selected,testReport:tested});
   const windowsManifest=createPhase2CapabilityManifest({root:windows,selection:selected,testReport:tested});
-  write(windows,PHASE2_RELEASE_MEMBERS[1],'tampered');
+  write(windows,PHASE2_RELEASE_MEMBERS[1]!,'tampered');
   expect(()=>verifyPhase2CapabilityClosure({selection:selected,testReport:tested,targets:{macos:{root:mac,manifest:macManifest},windows:{root:windows,manifest:windowsManifest}}})).toThrow('PHASE2_CAPABILITY_CLOSURE_INVALID');
   const bad={...macManifest,capabilities:macManifest.capabilities.slice(1)};
   expect(()=>verifyPhase2CapabilityClosure({selection:selected,testReport:tested,targets:{macos:{root:mac,manifest:bad},windows:{root:mac,manifest:macManifest}}})).toThrow('PHASE2_CAPABILITY_CLOSURE_INVALID');
