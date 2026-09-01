@@ -9,6 +9,8 @@ import { protectPath } from '../../packages/platform/src/permissions.js';
 import {
   LocalPlaywrightBrowserProvider,
   type BrowserOpenGuard,
+  type BrowserProbeSession,
+  type BrowserRequestGuard,
 } from '../../packages/platform/src/browser.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 
@@ -62,6 +64,7 @@ function fixture(options: {
   const events: string[] = [];
   const release = vi.fn(async () => { events.push('release'); });
   const inspections = [...(options.inspect ?? [])];
+  let forcedInspect: 'in_use' | 'unconfirmed' | 'confirmed_exited' | undefined;
   const coordinator: ProfileOwnershipCoordinator = {
     reserve: vi.fn(async () => {
       events.push('reserve');
@@ -75,7 +78,7 @@ function fixture(options: {
     }),
     inspect: vi.fn(async () => {
       events.push('inspect');
-      const state = inspections.shift() ?? 'in_use';
+      const state = inspections.shift() ?? forcedInspect ?? 'in_use';
       return ownership(state, reservation, state === 'unconfirmed' ? null : owner);
     }),
     release,
@@ -87,16 +90,55 @@ function fixture(options: {
   };
   const pageEvents: string[] = [];
   const contextEvents: string[] = [];
+  const pageHandlers = new Map<string, Array<(value: unknown) => unknown>>();
+  const contextHandlers = new Map<string, Array<(value: unknown) => unknown>>();
+  let currentURL = ORIGIN;
+  let routeHandler: ((route: unknown) => Promise<void>) | undefined;
+  let locatorValue: string | null = 'visible text';
+  let attributeValue: string | null = 'available';
+  let operationHook: (() => void | Promise<void>) | undefined;
+  let waitPromise: Promise<void> | undefined;
+  const locator = {
+    waitFor: vi.fn(async () => { events.push('locator-wait'); await operationHook?.(); await waitPromise; }),
+    innerText: vi.fn(async () => { events.push('locator-read'); await operationHook?.(); return locatorValue; }),
+    getAttribute: vi.fn(async () => { events.push('attribute-read'); await operationHook?.(); return attributeValue; }),
+  };
+  async function emit(handlers: Map<string, Array<(value: unknown) => unknown>>, event: string, value: unknown) {
+    for (const handler of handlers.get(event) ?? []) await handler(value);
+  }
+  async function request(url: string, method = 'GET') {
+    let continued = false; let aborted = false;
+    const requestValue = { url: () => url, method: () => method };
+    const route = {
+      request: () => requestValue,
+      continue: vi.fn(async () => { continued = true; events.push('request-continue'); }),
+      abort: vi.fn(async () => { aborted = true; events.push('request-abort'); }),
+    };
+    if (!routeHandler) throw new Error('ROUTE_NOT_INSTALLED');
+    await routeHandler(route);
+    if (continued) await emit(contextHandlers, 'requestfinished', requestValue);
+    return { continued, aborted, route, request: requestValue };
+  }
   const page = {
-    on: vi.fn((event: string) => { pageEvents.push(event); return page; }),
+    on: vi.fn((event: string, handler: (value: unknown) => unknown) => {
+      pageEvents.push(event); pageHandlers.set(event, [...(pageHandlers.get(event) ?? []), handler]); return page;
+    }),
     close: vi.fn(async () => undefined),
-    goto: vi.fn(), url: vi.fn(() => ORIGIN),
-    getByRole: vi.fn(), getByText: vi.fn(), getByLabel: vi.fn(), locator: vi.fn(),
+    goto: vi.fn(async (url: string) => {
+      events.push('navigate'); await operationHook?.();
+      const routed = await request(url); if (routed.aborted) throw new Error('SYNTHETIC_ROUTE_ABORTED');
+      currentURL = url; return null;
+    }),
+    url: vi.fn(() => currentURL),
+    getByRole: vi.fn(() => locator), getByText: vi.fn(() => locator),
+    getByLabel: vi.fn(() => locator), locator: vi.fn(() => locator),
   };
   const context = {
     pages: vi.fn(() => [page]), newPage: vi.fn(async () => page),
-    route: vi.fn(async () => undefined),
-    on: vi.fn((event: string) => { contextEvents.push(event); return context; }),
+    route: vi.fn(async (_pattern: string, handler: (route: unknown) => Promise<void>) => { routeHandler = handler; }),
+    on: vi.fn((event: string, handler: (value: unknown) => unknown) => {
+      contextEvents.push(event); contextHandlers.set(event, [...(contextHandlers.get(event) ?? []), handler]); return context;
+    }),
     close: vi.fn(async () => { events.push('close-context'); }),
   };
   const launches: Array<{ userDataDir: string; launchOptions: Record<string, unknown> }> = [];
@@ -148,7 +190,25 @@ function fixture(options: {
     provider, input, guard, launches, browserType, observer, coordinator, release, events, paths,
     context, page, contextEvents, pageEvents, owner, reservation,
     setGate(value: MaintenanceGate) { gate = value; },
+    setInspectState(value: 'in_use' | 'unconfirmed' | 'confirmed_exited') { forcedInspect = value; },
+    setOperationHook(value: (() => void | Promise<void>) | undefined) { operationHook = value; },
+    setLocatorValue(value: string | null) { locatorValue = value; },
+    setAttributeValue(value: string | null) { attributeValue = value; },
+    setWaitPromise(value: Promise<void> | undefined) { waitPromise = value; },
+    request,
+    emitContext(event: string, item: unknown) { return emit(contextHandlers, event, item); },
+    emitPage(event: string, item: unknown) { return emit(pageHandlers, event, item); },
   };
+}
+
+function requestGuard(owner: ProfileOwnerIdentity, signal = new AbortController().signal): BrowserRequestGuard {
+  return { signal, expectedGeneration: owner.generation, owner };
+}
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>(done => { resolve = done; });
+  return { promise, resolve };
 }
 
 function serialized(value: unknown): string {
@@ -278,5 +338,186 @@ describe('capture disabled ownership launch', () => {
       expect(exposed).not.toContain(forbidden.toLowerCase());
     }
     expect(Object.keys(session).sort()).toEqual([]);
+  });
+});
+
+async function openBackground(value: ReturnType<typeof fixture>): Promise<{ session: BrowserProbeSession; guard: BrowserRequestGuard }> {
+  const session = await value.provider.openBackground(value.input, value.guard);
+  return { session, guard: requestGuard(value.owner) };
+}
+
+describe('request guard', () => {
+  it('checks cancellation, maintenance generation and exact ownership before and after every public operation', async () => {
+    const value = fixture(); const opened = await openBackground(value); value.events.length = 0;
+    await expect(opened.session.navigate(new URL(`${ORIGIN}/safe?discarded=yes`), opened.guard)).resolves.toEqual({
+      redirectOrigins: [ORIGIN], finalOrigin: ORIGIN,
+    });
+    expect(value.events).toEqual([
+      'generation', 'inspect', 'navigate', 'generation', 'inspect', 'request-continue',
+      'generation', 'inspect', 'generation', 'inspect',
+    ]);
+
+    const abort = new AbortController(); value.setOperationHook(() => abort.abort());
+    await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, requestGuard(value.owner, abort.signal)))
+      .rejects.toThrow('BROWSER_ABORTED');
+
+    value.setOperationHook(() => value.setGate({ operationId: null, generation: 5, state: 'open', owner: null, leaseUntil: null }));
+    await expect(opened.session.readAttribute(
+      { kind: 'role', role: 'status', exact: true }, 'aria-label', opened.guard,
+    )).rejects.toThrow('BROWSER_FENCED');
+
+    value.setGate({ operationId: null, generation: 4, state: 'open', owner: null, leaseUntil: null });
+    value.setInspectState('unconfirmed'); value.setOperationHook(undefined);
+    await expect(opened.session.waitFor({ kind: 'label', text: 'Account', exact: true }, opened.guard))
+      .rejects.toThrow('BROWSER_FENCED');
+  });
+
+  it('checks every network request before continue and after completion, then blocks later traffic when fenced', async () => {
+    const value = fixture(); const opened = await openBackground(value); value.events.length = 0;
+    expect((await value.request(`${ORIGIN}/asset`, 'GET')).continued).toBe(true);
+    expect(value.events).toEqual(['generation', 'inspect', 'request-continue', 'generation', 'inspect']);
+
+    value.setGate({ operationId: null, generation: 5, state: 'open', owner: null, leaseUntil: null });
+    value.events.length = 0;
+    expect((await value.request(`${ORIGIN}/late`, 'GET')).continued).toBe(false);
+    expect(value.events).toEqual(['generation', 'request-abort']);
+  });
+
+  it('discards a late visible result when cancellation, generation or owner changes during the operation', async () => {
+    const cases = ['abort', 'generation', 'owner'] as const;
+    for (const kind of cases) {
+      const value = fixture(); const opened = await openBackground(value); const controller = new AbortController();
+      value.setLocatorValue('must-not-return');
+      value.setOperationHook(() => {
+        if (kind === 'abort') controller.abort();
+        if (kind === 'generation') value.setGate({ operationId: null, generation: 5, state: 'open', owner: null, leaseUntil: null });
+        if (kind === 'owner') value.setInspectState('unconfirmed');
+      });
+      await expect(opened.session.readVisible(
+        { kind: 'css', selector: '[data-testid="auth"]' }, requestGuard(value.owner, controller.signal),
+      )).rejects.toThrow(kind === 'abort' ? 'BROWSER_ABORTED' : 'BROWSER_FENCED');
+    }
+  });
+});
+
+describe('blocked interaction', () => {
+  it.each([
+    ['POST', 'BROWSER_WRITE_BLOCKED'], ['PUT', 'BROWSER_WRITE_BLOCKED'],
+    ['PATCH', 'BROWSER_WRITE_BLOCKED'], ['DELETE', 'BROWSER_WRITE_BLOCKED'],
+  ] as const)('aborts background %s requests with a fixed safe code', async (method, code) => {
+    const value = fixture(); const opened = await openBackground(value);
+    const routed = await value.request(`${ORIGIN}/private?secret=discarded`, method);
+    expect(routed).toMatchObject({ continued: false, aborted: true });
+    await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, opened.guard)).rejects.toThrow(code);
+  });
+
+  it('blocks out-of-origin traffic without returning a path or query', async () => {
+    const value = fixture(); const opened = await openBackground(value);
+    const routed = await value.request('http://127.0.0.1:41732/private?secret=discarded', 'GET');
+    expect(routed).toMatchObject({ continued: false, aborted: true });
+    let failure: unknown;
+    try { await opened.session.waitFor({ kind: 'text', text: 'Status', exact: true }, opened.guard); } catch (error) { failure = error; }
+    expect(failure).toMatchObject({ message: 'BROWSER_ORIGIN_BLOCKED' });
+    expect(serialized(failure)).not.toMatch(/private|secret|41732|profile-private/);
+  });
+
+  it('fails closed on a background popup, dialog or download and closes only the popup object', async () => {
+    for (const [event, code] of [
+      ['popup', 'BROWSER_INTERACTION_REQUIRED'], ['dialog', 'BROWSER_INTERACTION_REQUIRED'],
+      ['download', 'BROWSER_DOWNLOAD_BLOCKED'],
+    ] as const) {
+      const value = fixture(); const opened = await openBackground(value);
+      const item = { close: vi.fn(async () => undefined), cancel: vi.fn(async () => undefined), dismiss: vi.fn(async () => undefined) };
+      await value.emitPage(event, item);
+      await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, opened.guard)).rejects.toThrow(code);
+      if (event === 'popup') expect(item.close).toHaveBeenCalledOnce();
+    }
+  });
+
+  it('allows user-driven authentication requests only in a headed authorized session and exposes no interaction methods', async () => {
+    const value = fixture({ authorizer: 'valid' });
+    const session = await value.provider.openOfficialLogin({ ...value.input, actionReceiptId: randomUUID() }, value.guard);
+    expect((await value.request(`${ORIGIN}/official-auth`, 'POST')).continued).toBe(true);
+    expect((await value.request('http://127.0.0.1:41732/outside', 'POST')).continued).toBe(false);
+    for (const method of ['click', 'fill', 'type', 'press', 'submit']) expect(method in session).toBe(false);
+  });
+});
+
+describe('bounded read', () => {
+  it('strictly validates bounded locators and safe attributes', async () => {
+    const invalid: Array<[unknown, string?]> = [
+      [{ kind: 'text', text: 'Status', exact: true, evaluate: 'x' }],
+      [{ kind: 'text', text: () => 'Status', exact: true }],
+      [{ kind: 'css', selector: '//input' }],
+      [{ kind: 'css', selector: 'xpath=//input' }],
+      [{ kind: 'css', selector: 'https://outside.invalid' }],
+      [{ kind: 'css', selector: 'x'.repeat(513) }],
+      [{ kind: 'role', role: 'status', exact: true }, 'value'],
+      [{ kind: 'role', role: 'status', exact: true }, 'password'],
+      [{ kind: 'role', role: 'status', exact: true }, 'href'],
+    ];
+    for (const [spec, attribute] of invalid) {
+      const value = fixture(); const opened = await openBackground(value);
+      const call = attribute === undefined
+        ? opened.session.waitFor(spec as never, opened.guard)
+        : opened.session.readAttribute(spec as never, attribute, opened.guard);
+      await expect(call).rejects.toThrow('BROWSER_INPUT_INVALID');
+    }
+  });
+
+  it('returns only bounded strings or null and rejects oversized text and attributes', async () => {
+    const value = fixture(); const opened = await openBackground(value);
+    value.setLocatorValue('Authenticated'); value.setAttributeValue('current');
+    await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, opened.guard)).resolves.toBe('Authenticated');
+    await expect(opened.session.readAttribute(
+      { kind: 'role', role: 'status', exact: true }, 'aria-current', opened.guard,
+    )).resolves.toBe('current');
+    value.setLocatorValue(null); value.setAttributeValue(null);
+    await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, opened.guard)).resolves.toBeNull();
+    await expect(opened.session.readAttribute(
+      { kind: 'role', role: 'status', exact: true }, 'aria-current', opened.guard,
+    )).resolves.toBeNull();
+    value.setLocatorValue('x'.repeat(4097));
+    await expect(opened.session.readVisible({ kind: 'text', text: 'Status', exact: true }, opened.guard))
+      .rejects.toThrow('BROWSER_OUTPUT_LIMIT');
+    value.setLocatorValue('ok'); value.setAttributeValue('x'.repeat(2049));
+    await expect(opened.session.readAttribute(
+      { kind: 'role', role: 'status', exact: true }, 'aria-label', opened.guard,
+    )).rejects.toThrow('BROWSER_OUTPUT_LIMIT');
+  });
+});
+
+describe('safe close', () => {
+  it('rejects new work, drains an in-flight operation, closes its context and releases only after confirmed exit', async () => {
+    const value = fixture(); const opened = await openBackground(value); const pending = deferred();
+    value.setWaitPromise(pending.promise);
+    const waiting = opened.session.waitFor({ kind: 'text', text: 'Status', exact: true }, opened.guard);
+    await vi.waitFor(() => expect(value.events).toContain('locator-wait'));
+    value.setInspectState('confirmed_exited');
+    const closing = opened.session.close(opened.guard);
+    await expect(opened.session.navigate(new URL(ORIGIN), opened.guard)).rejects.toThrow('BROWSER_FENCED');
+    pending.resolve();
+    await expect(waiting).rejects.toThrow('BROWSER_ABORTED');
+    await expect(closing).resolves.toBeUndefined();
+    expect(value.context.close).toHaveBeenCalledOnce();
+    expect(value.release).toHaveBeenCalledOnce();
+    await expect(opened.session.close(opened.guard)).resolves.toBeUndefined();
+    expect(value.context.close).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['in_use', 'PROFILE_IN_USE'], ['unconfirmed', 'PROFILE_OWNERSHIP_UNCONFIRMED'],
+  ] as const)('preserves ownership when close inspection is %s', async (state, code) => {
+    const value = fixture(); const opened = await openBackground(value); value.setInspectState(state);
+    await expect(opened.session.close(opened.guard)).rejects.toThrow(code);
+    expect(value.context.close).toHaveBeenCalledOnce();
+    expect(value.release).not.toHaveBeenCalled();
+  });
+
+  it('does not let an aborted caller skip owned-context cleanup', async () => {
+    const value = fixture(); const opened = await openBackground(value); value.setInspectState('confirmed_exited');
+    const controller = new AbortController(); controller.abort();
+    await expect(opened.session.close(requestGuard(value.owner, controller.signal))).resolves.toBeUndefined();
+    expect(value.context.close).toHaveBeenCalledOnce(); expect(value.release).toHaveBeenCalledOnce();
   });
 });
