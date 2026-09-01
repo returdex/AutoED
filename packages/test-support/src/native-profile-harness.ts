@@ -106,7 +106,17 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
     // explicit exclusions bind the repository and legacy product without probing them.
     excludedRoots: [repo, legacy],
   };
-  const paths = createManagedRoot(selection);
+  const paths = (() => {
+    try { return createManagedRoot(selection); }
+    catch (error) {
+      const current = lstatSync(parent);
+      if (current.ino !== parentStat.ino || current.dev !== parentStat.dev || realpathSync(parent) !== canonicalParent) {
+        throw new Error('HUMAN_ACTION_REQUIRED');
+      }
+      rmSync(parent, { recursive: true });
+      throw error;
+    }
+  })();
   const installationId = randomUUID();
   const controlKey = randomUUID() + randomUUID();
   const secrets = new MemorySecrets(installationId, controlKey);
