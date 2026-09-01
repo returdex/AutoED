@@ -19,16 +19,17 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
       try {
         await e2e.enqueueLoginCompleted('moodle');
         const job = await e2e.pump();
-        expect(job).toMatchObject({ source: 'moodle', state: 'succeeded', resultCode: 'authenticated' });
+        expect(job, JSON.stringify(e2e.audit())).toMatchObject({ source: 'moodle', state: 'succeeded', resultCode: 'authenticated' });
       } finally { await e2e.close(); }
     }
-    for (const scenario of ['missing-marker', 'ambiguous-marker', 'cross-final'] as const) {
+    for (const scenario of ['missing-marker', 'ambiguous-marker', 'cross-final', 'interaction'] as const) {
       const e2e = await createSyntheticAuthE2E({ moodleScenario: scenario });
       try {
         await e2e.enqueueLoginCompleted('moodle');
         const job = await e2e.pump();
         expect(job?.state).not.toBe('succeeded');
         expect(e2e.audit().sourceRequests.edstem).toBe(0);
+        expect(e2e.audit().popupInteractions).toBe(0);
       } finally { await e2e.close(); }
     }
   });
@@ -39,6 +40,7 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
       await e2e.pair();
       await e2e.uiPage.getByRole('button', { name: '打开 Moodle 官方登录窗口' }).click();
       await e2e.uiPage.getByRole('button', { name: '我已完成 Moodle 登录' }).click();
+      await e2e.waitForEnqueued(1);
       await e2e.pump();
       await e2e.refresh();
       await expect(e2e.uiPage.locator('.source-card').first()).toContainText('authenticated');
@@ -56,7 +58,11 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
       await e2e.completeDualProbe();
       await e2e.refresh();
       await expect(e2e.uiPage.getByRole('button', { name: '确认两个账户对应' })).toBeVisible();
+      const confirmation = e2e.uiPage.waitForResponse(response => response.url().endsWith('/api/auth/binding/confirm'));
       await e2e.uiPage.getByRole('button', { name: '确认两个账户对应' }).click();
+      expect((await confirmation).status()).toBe(200);
+      await e2e.waitForBindingStatus('confirmed');
+      await e2e.refresh();
       await expect(e2e.uiPage.locator('.binding-panel')).toContainText('confirmed');
       expect(await e2e.probeApprovedCourseVisibility()).toEqual({ moodle: true, edstem: true });
     } finally { await e2e.close(); }
@@ -78,6 +84,7 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
       await primary.dblclick();
       await expect(e2e.uiPage.getByRole('button', { name: '我已完成 Moodle 登录' })).toBeVisible();
       await e2e.uiPage.getByRole('button', { name: '我已完成 Moodle 登录' }).press('Enter');
+      await e2e.waitForEnqueued(1);
       const running = e2e.pump();
       await e2e.waitAtBarrier();
       await e2e.requestCancel('moodle');
