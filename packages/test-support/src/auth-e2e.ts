@@ -354,7 +354,9 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
     await refreshButton.waitFor({ state: 'visible' });
     await uiPage.waitForFunction(() => !(document.querySelector('#refresh') as HTMLButtonElement | null)?.disabled);
     await refreshButton.click();
-    await uiPage.getByRole('status').filter({ hasText: /本地状态已读取。|此页面尚未获得本地访问权限/ }).waitFor();
+    const status = uiPage.getByRole('status').filter({ hasText: /本地状态已读取。|此页面尚未获得本地访问权限|以下为上次读取结果/ });
+    await status.waitFor();
+    return status.innerText();
   }
   async function reconcileBinding() {
     const moodle = results.get('moodle')?.identity ?? null;
@@ -430,6 +432,7 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
   }
   function audit() {
     const evidenceClasses = (db.prepare('SELECT DISTINCT evidence FROM uat_receipts ORDER BY evidence').all() as Array<{ evidence: string }>).map(row => row.evidence);
+    const evidenceReceipts = (db.prepare('SELECT COUNT(*) AS n FROM uat_receipts').get() as { n: number }).n;
     const observationCount = (db.prepare('SELECT COUNT(*) AS n FROM source_observations').get() as { n: number }).n;
     return {
       realSchoolRequests: sourceChromium.realSchoolRequests,
@@ -439,7 +442,7 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
       downloads: sourceChromium.downloads,
       popupInteractions: sourceChromium.popupInteractions,
       nonGetHeadSuccesses: sourceChromium.nonGetHeadSuccesses,
-      jobsEnqueued, courseRequests, commitsAfterCancel: cancelObservationCount === null ? 0 : observationCount - cancelObservationCount, timeline: [...timeline], evidenceClasses,
+      jobsEnqueued, courseRequests, commitsAfterCancel: cancelObservationCount === null ? 0 : observationCount - cancelObservationCount, timeline: [...timeline], evidenceClasses, evidenceReceipts,
       requests: [...sourceChromium.requests, ...uiRequests],
       errors: [...sourceChromium.errors],
     };

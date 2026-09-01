@@ -96,19 +96,30 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
   });
 
   test('auth E2E protected purge and sensitive surfaces', async () => {
-    const e2e = await createSyntheticAuthE2E();
+    for (const status of [401, 403] as const) {
+      for (const path of ['/api/status', '/api/auth/status', '/api/auth/receipts?*']) {
+        const e2e = await createSyntheticAuthE2E();
+        try {
+          await e2e.completeDualProbe();
+          await e2e.refresh();
+          expect((await e2e.surfaceInventory()).protectedVisibleHits).toBeGreaterThan(0);
+          await e2e.failNextAuth(path, status);
+          await e2e.refresh();
+          const after = await e2e.surfaceInventory();
+          expect(after.protectedVisibleHits).toBe(0);
+          expect(after.forbiddenHits).toEqual([]);
+        } finally { await e2e.close(); }
+      }
+    }
+    const stale = await createSyntheticAuthE2E();
     try {
-      await e2e.completeDualProbe();
-      await e2e.refresh();
-      const before = await e2e.surfaceInventory();
-      expect(before.protectedVisibleHits).toBeGreaterThan(0);
-      expect(before.forbiddenHits).toEqual([]);
-      await e2e.failNextAuth('/api/auth/status', 403);
-      await e2e.refresh();
-      const after = await e2e.surfaceInventory();
-      expect(after.protectedVisibleHits).toBe(0);
-      expect(after.forbiddenHits).toEqual([]);
-    } finally { await e2e.close(); }
+      await stale.completeDualProbe();
+      await stale.refresh();
+      await stale.failNextAuth('/api/auth/status', 500);
+      expect(await stale.refresh()).toContain('以下为上次读取结果');
+      expect((await stale.surfaceInventory()).protectedVisibleHits).toBeGreaterThan(0);
+      await expect(stale.uiPage.locator('.stale-notice').first()).toBeVisible();
+    } finally { await stale.close(); }
   });
 
   test('receipt cell isolation, 24 hour gate and Windows blocked', async () => {
@@ -116,10 +127,12 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
     try {
       await e2e.pair();
       await e2e.appendSyntheticReceipt({ source: 'moodle', scenario: 'd.24h_recheck', status: 'pass' });
+      await e2e.appendSyntheticReceipt({ source: 'moodle', scenario: 'd.24h_recheck', status: 'human_needed' });
       await e2e.refresh();
       await expect(e2e.uiPage.locator('.checkpoint-ledger')).toContainText('等待跨日复查');
       await expect(e2e.uiPage.locator('.platform-gaps')).toContainText('macOS 结果不能替代 Windows 验证；Phase 3 仍被阻塞。');
       expect(e2e.audit().evidenceClasses).toEqual(['S']);
+      expect(e2e.audit().evidenceReceipts).toBe(2);
     } finally { await e2e.close(); }
   });
 
@@ -132,6 +145,14 @@ test.describe('synthetic auth browser to paired UI E2E', () => {
         expect(await e2e.uiPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         expect(await e2e.uiPage.locator('button').evaluateAll(items => items.every(item => getComputedStyle(item).minHeight === '48px'))).toBe(true);
       }
+      await e2e.uiPage.setViewportSize({ width: 1280, height: 900 });
+      await e2e.uiPage.evaluate(() => { document.body.style.zoom = '2'; });
+      expect(await e2e.uiPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await e2e.uiPage.evaluate(() => { document.body.style.zoom = ''; });
+      const refresh = e2e.uiPage.getByRole('button', { name: '刷新状态' });
+      await refresh.focus();
+      await e2e.refresh();
+      await expect(refresh).toBeFocused();
       await e2e.uiPage.keyboard.press('Tab');
       await expect(e2e.uiPage.locator(':focus')).toBeVisible();
     } finally { await e2e.close(); }
