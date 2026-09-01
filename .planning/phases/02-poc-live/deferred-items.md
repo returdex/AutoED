@@ -12,3 +12,7 @@
 ## Plan 02-04
 
 - **Out-of-scope verification environment conflict:** The repository-wide unit run passes 95/99 tests, including all 30 new auth-state tests, while the same four existing `tests/unit/credential-redaction.test.ts` cases cannot use fixed loopback port `43187` because the healthy installed Phase 1 API owns it. Plan 02-04 does not authorize stopping the installed service or changing Phase 1 installation behavior; the focused auth-state, auth-contract and import-boundary run passes 60/60 under managed Node 24.20.0.
+
+## Plan 02-05
+
+- **Out-of-scope verification environment conflict:** The repository-wide unit run passes 96/100; the same four existing `tests/unit/credential-redaction.test.ts` cases cannot bind fixed loopback port `43187` while the healthy installed Phase 1 API owns it. The repository-wide integration run passes 144/184; fixed-port installation/runtime cases and cleanup cascades account for 39 failures, and the previously recorded isolated SQLite-busy timing case accounts for the remaining failure. Plan 02-05 does not authorize stopping the installed service or changing unrelated Phase 1/job fixtures. The focused Local Playwright BrowserProvider suite passes 41/41 and managed typecheck/static security gates pass.
