@@ -199,6 +199,33 @@ describe('dual-source auth state machine', () => {
     expect(state.binding.status).toBe('confirmed');
   });
 
+  it('preserves the confirmed binding and clears mismatch only after both sources are reobserved and manually confirmed', () => {
+    const state = authenticatedState();
+    const priorConfirmed = structuredClone(state.confirmedBinding);
+    const changedEdstem = identity('edstem', { subjectFingerprint: 'changed-subject' });
+    let transition = reduceAuthFlow(state, observed('edstem', result('edstem', 'IDENTITY_MISMATCH', changedEdstem)));
+    expect(transition.state.confirmedBinding).toEqual(priorConfirmed);
+
+    transition = reduceAuthFlow(transition.state, {
+      type: 'confirm_binding', actionReceiptId: '44444444-4444-4444-8444-444444444444', checkedAt: LATER,
+    });
+    expect(transition.state.bindingDecision).toBe('identity_mismatch');
+    expect(transition.state.courseAccess).toBe('blocked');
+
+    transition = reduceAuthFlow(transition.state, observed('moodle', result('moodle')));
+    expect(transition.state.bindingDecision).toBe('identity_mismatch');
+    expect(transition.state.courseAccess).toBe('blocked');
+    transition = reduceAuthFlow(transition.state, observed('edstem', result('edstem', 'AUTHENTICATED', changedEdstem)));
+    expect(transition.state.bindingDecision).toBe('identity_mismatch');
+
+    transition = reduceAuthFlow(transition.state, {
+      type: 'confirm_binding', actionReceiptId: '44444444-4444-4444-8444-444444444444', checkedAt: LATER,
+    });
+    expect(transition.state.binding).toMatchObject({ status: 'confirmed', edstem: changedEdstem });
+    expect(transition.state.confirmedBinding).toEqual(transition.state.binding);
+    expect(transition.state.courseAccess).toBe('eligible');
+  });
+
   describe('source-isolated failures and last success', () => {
     const cases: ReadonlyArray<{
       code: AuthResultCode;
