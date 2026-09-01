@@ -234,13 +234,14 @@ describe('source stores and last success', () => {
   });
 
   it('rejects stale generation writes without partially changing source state', async () => {
-    const path = databasePath(); const db = openDatabase(path); const now = 1000;
+    const path = databasePath(); const db = openDatabase(path); let now = 1000;
     const store = new SQLiteSourceObservationStore(db, { now: () => now });
     await store.write(success('moodle', now), writeContext);
     const maintenance = new SQLiteMaintenanceStore(db); const operationId = randomUUID();
     await maintenance.enterMaintenance({ operationId, owner: 'installer', leaseUntil: 9000, expectedGeneration: 0 });
     await maintenance.markExclusive(operationId, 0); await maintenance.exitMaintenance(operationId, 0);
-    await expect(store.write(failure('moodle', now + 1, 'NETWORK_UNAVAILABLE'), writeContext)).rejects.toMatchObject({ code: 'GENERATION_MISMATCH' });
+    now++;
+    await expect(store.write(failure('moodle', now, 'NETWORK_UNAVAILABLE'), writeContext)).rejects.toMatchObject({ code: 'GENERATION_MISMATCH' });
     expect((await store.read('moodle'))?.resultCode).toBe('AUTHENTICATED');
     db.close();
   });
@@ -250,12 +251,14 @@ describe('binding persistence', () => {
   it('keeps the prior confirmed binding while a changed stable subject creates a blocking mismatch event', async () => {
     const path = databasePath(); const db = openDatabase(path); let now = 1000;
     const store = new SQLiteAccountBindingStore(db, { now: () => now });
+    await store.write(binding(now, 'candidate'), writeContext); now++;
     const confirmed = binding(now); await store.write(confirmed, writeContext);
     now++;
     const mismatch = binding(now, 'identity_mismatch'); await store.write(mismatch, writeContext);
     expect(await store.read()).toEqual(mismatch);
     expect(db.prepare('SELECT status,course_access FROM account_bindings ORDER BY checked_at').all()).toEqual([
-      { status: 'confirmed', course_access: 'allowed' }, { status: 'identity_mismatch', course_access: 'blocked' },
+      { status: 'candidate', course_access: 'blocked' }, { status: 'confirmed', course_access: 'allowed' },
+      { status: 'identity_mismatch', course_access: 'blocked' },
     ]);
     const writes = db.prepare('SELECT write_generation AS n FROM maintenance_generation').get();
     await expect(store.write({ ...binding(now + 1), displayName: 'same display', schoolEmail: 'same@example.edu' } as AccountBinding, writeContext)).rejects.toThrow();
@@ -286,6 +289,9 @@ describe('profile ownership persistence', () => {
     expect(exited.state).toBe('confirmed_exited');
     await store.release(rawOwner, writeContext);
     expect(await store.read()).toMatchObject({ state: 'available' });
+    const next = await first.acquire(reservation(now), writeContext);
+    expect(next.reservation?.fence).toBe(2);
+    await expect(store.renew(rawOwner, now + 120_000, writeContext)).rejects.toMatchObject({ code: 'PROFILE_FENCE_MISMATCH' });
     firstDb.close(); secondDb.close();
   });
 
@@ -293,7 +299,7 @@ describe('profile ownership persistence', () => {
     const path = databasePath(); const backupPath = databasePath('auth.backup.sqlite'); const db = openDatabase(path); const now = 1000;
     const store = new SQLiteProfileOwnershipStore(db, { now: () => now });
     const request = reservation(now); const acquired = await store.acquire(request, writeContext);
-    const rawOwner = owner(acquired.reservation!, now); await store.renew(rawOwner, now + 60_000, writeContext);
+    const rawOwner = owner(acquired.reservation!, now); await store.renew(rawOwner, now + 60_001, writeContext);
     const sentinels = ['PROHIBITED_PROFILE_LOCATION', 'PROHIBITED_COOKIE_VALUE', 'PROHIBITED_PERSON_EMAIL'];
     const configs = new SQLiteSourceConfigStore(db, { now: () => now });
     await expect(configs.confirm({ ...config('moodle', now), profilePath: sentinels[0], cookie: sentinels[1], schoolEmail: sentinels[2] } as ApprovedSourceConfig, writeContext)).rejects.toThrow();

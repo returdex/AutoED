@@ -69,21 +69,28 @@ const MIGRATION_V2 = `
 
   CREATE TABLE profile_ownership(
     id INTEGER PRIMARY KEY CHECK(id=1),
-    installation_id TEXT NOT NULL CHECK(length(installation_id)=36),
-    browser_build_id TEXT NOT NULL CHECK(length(browser_build_id)=64),
+    installation_id TEXT CHECK(installation_id IS NULL OR length(installation_id)=36),
+    browser_build_id TEXT CHECK(browser_build_id IS NULL OR length(browser_build_id)=64),
     pid INTEGER,
-    nonce_hash TEXT NOT NULL CHECK(length(nonce_hash)=64),
-    control_proof_fingerprint TEXT NOT NULL CHECK(length(control_proof_fingerprint)=64),
+    nonce_hash TEXT CHECK(nonce_hash IS NULL OR length(nonce_hash)=64),
+    control_proof_fingerprint TEXT CHECK(control_proof_fingerprint IS NULL OR length(control_proof_fingerprint)=64),
     os_start_identity TEXT,
     managed_executable_identity TEXT,
-    reserved_at INTEGER NOT NULL CHECK(reserved_at>=0),
+    reserved_at INTEGER CHECK(reserved_at IS NULL OR reserved_at>=0),
     started_at INTEGER,
-    lease_until INTEGER NOT NULL CHECK(lease_until>=0),
+    lease_until INTEGER CHECK(lease_until IS NULL OR lease_until>=0),
     generation INTEGER NOT NULL CHECK(generation>=0),
-    fence INTEGER NOT NULL CHECK(fence>0),
-    state TEXT NOT NULL CHECK(state IN ('reserved','owned','in_use','unconfirmed','confirmed_exited')),
-    CHECK((state='reserved' AND pid IS NULL AND os_start_identity IS NULL AND managed_executable_identity IS NULL AND started_at IS NULL)
-      OR (state<>'reserved' AND pid>0 AND os_start_identity IS NOT NULL AND length(os_start_identity) BETWEEN 1 AND 256
+    fence INTEGER NOT NULL CHECK(fence>=0),
+    state TEXT NOT NULL CHECK(state IN ('available','reserved','owned','in_use','unconfirmed','confirmed_exited')),
+    CHECK((state='available' AND installation_id IS NULL AND browser_build_id IS NULL AND pid IS NULL AND nonce_hash IS NULL
+        AND control_proof_fingerprint IS NULL AND os_start_identity IS NULL AND managed_executable_identity IS NULL
+        AND reserved_at IS NULL AND started_at IS NULL AND lease_until IS NULL)
+      OR (state='reserved' AND installation_id IS NOT NULL AND browser_build_id IS NOT NULL AND nonce_hash IS NOT NULL
+        AND control_proof_fingerprint IS NOT NULL AND reserved_at IS NOT NULL AND lease_until IS NOT NULL
+        AND pid IS NULL AND os_start_identity IS NULL AND managed_executable_identity IS NULL AND started_at IS NULL)
+      OR (state NOT IN ('available','reserved') AND installation_id IS NOT NULL AND browser_build_id IS NOT NULL
+        AND nonce_hash IS NOT NULL AND control_proof_fingerprint IS NOT NULL AND reserved_at IS NOT NULL AND lease_until IS NOT NULL
+        AND pid>0 AND os_start_identity IS NOT NULL AND length(os_start_identity) BETWEEN 1 AND 256
         AND managed_executable_identity IS NOT NULL AND length(managed_executable_identity)=64 AND started_at>=0)));
 
   CREATE TABLE uat_receipts(
