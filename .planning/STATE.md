@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-07-PLAN.md
-last_updated: "2026-09-01T05:26:08.085Z"
+stopped_at: Completed 02-08-PLAN.md
+last_updated: "2026-09-01T05:48:36.961Z"
 last_activity: 2026-09-01
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 55
-  completed_plans: 20
-  percent: 36
+  completed_plans: 21
+  percent: 38
 ---
 
 # Project State
@@ -26,17 +26,17 @@ See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 8 of 41
+Plan: 9 of 41
 Status: Ready to execute
 Last activity: 2026-09-01
 
-Plan progress: Phase 2 execution 7/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
+Plan progress: Phase 2 execution 8/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 20
+- Total plans completed: 21
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 7/41. Phase 1 remains 13/14 and is not marked c
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 7 completed / 41 planned | In progress; native/live gates remain blocked | N/A |
+| 2 | 8 completed / 41 planned | In progress; native/live gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-03, 02-04, 02-05, 02-06, 02-07
+- Last 5 plans: 02-04, 02-05, 02-06, 02-07, 02-08
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -60,6 +60,7 @@ Plan progress: Phase 2 execution 7/41. Phase 1 remains 13/14 and is not marked c
 | Phase 02 P05 | 18min | 2 tasks | 3 files |
 | Phase 02 P06 | 12min | 2 tasks | 5 files |
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
+| Phase 02 P08 | 18min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Durable auth recovery is anchored to one persisted recoveryStartedAt and consumes only reducer-approved immediate/5000/30000 effects. — Process restart cannot reset attempts or create a fourth probe.
 - [Phase 02]: Auth probe authority is checked before source access, after probe completion, and again as the identical SQL transition predicate. — Stale cancel/lease/generation/fence races cannot publish observations or follow-ups.
 - [Phase 02]: Production auth work accepts only sealed adapters; direct SourceProbePort injection remains explicit synthetic S/I composition. — Automated jobs cannot become live evidence or arbitrary browser authority.
+- [Phase 02]: Full source identity and canonical origin exist only in the paired local-UI protected projection; bearer/model/receipt outputs are rebuilt from redacted allowlists. — Prevents protected identity from reaching CLI, MCP, logs, diagnostics or receipts.
+- [Phase 02]: Ordinary login action IDs are restart-revoked, single-use and bound to the authenticated browser session, source, approved config and runtime generation; they grant no evidence authority. — Prevents forged, cross-session or replayed login completion from authorizing probes or live receipts.
+- [Phase 02]: Auth mutations require paired cookie principal, exact same-origin and CSRF together; CLI and MCP remain auth status/receipt read-only. — Preserves one local control plane without bearer mutation authority.
 
 ### Pending Todos
 
@@ -127,6 +131,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T05:26:08.081Z
-Stopped at: Completed 02-07-PLAN.md
+Last session: 2026-09-01T05:48:36.957Z
+Stopped at: Completed 02-08-PLAN.md
 Resume file: None
