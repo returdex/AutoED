@@ -81,6 +81,10 @@ function same(value,expected){return canonicalSha256(value)===canonicalSha256(ex
 function freeze(value){if(value&&typeof value==='object'&&!Object.isFrozen(value)){for(const item of Object.values(value))freeze(item);Object.freeze(value);}return value;}
 export function canonical(value){if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;if(value&&typeof value==='object')return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;return JSON.stringify(value);}
 export function canonicalSha256(value){return createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:canonical(value)).digest('hex');}
+export function phase2VersionSetSha256(values){
+  if(!Array.isArray(values)||new Set(values).size!==values.length||values.some(value=>!VERSION.test(value)))fail('PHASE2_VERSION_SET_INVALID');
+  const sorted=[...values].sort((a,b)=>Number(VERSION.exec(a)[1])-Number(VERSION.exec(b)[1]));return canonicalSha256(sorted);
+}
 
 function validGaps(value){return exact(value,['windowsNative','live','phase3'])&&same(value,FIXED_GAPS);}
 function validSelection(value){
