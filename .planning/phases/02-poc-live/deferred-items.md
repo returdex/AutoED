@@ -32,3 +32,7 @@
 ## Plan 02-35
 
 - **Out-of-scope repository-wide verification failures:** The managed Node 24.20.0 full unit run passes 127/131 tests; only the four previously recorded fixed-port `credential-redaction` cases cannot bind while the installed Phase 1 API owns `43187`. The full integration run passes 249/291 tests. Its failures are the same installed-service port-conflict cascades, the previously recorded `job-recovery` SQLite-busy timing case and `process-lifecycle` provisioning interruption, plus current shared-tree compiled release/client/upgrade fixtures rejected by the status-asset browser-import guard (`BROWSER_IMPORT_DENIED`). Plan 02-35 does not authorize stopping the installed service or changing those unrelated modules. Its exact contract suites pass 48/48 unit checks and its persistence suites pass 40/40 integration checks with typecheck green.
+
+## Plan 02-37
+
+- **Out-of-scope verification environment conflict:** The managed Node 24.20.0 focused Phase 2 gate/API/persistence/security/workflow surface passes 58/58 integration tests, the complete native suite passes 24/24 and typecheck passes. Repository-wide unit and fixed-port installer runs still cannot bind loopback port `43187` while the existing installed Phase 1 API owns it; the observed failures are `PORT_CONFLICT_REPREVIEW`. Plan 02-37 does not authorize stopping an installed detached service or changing the fixed-port installation contract, so that process was not touched.
