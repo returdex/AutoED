@@ -71,6 +71,12 @@ function publicationPreflight(release=artifactReceipt()){
   return {status:'pass',version:release.version,tag:release.tag,buildId:release.buildId,selectionSha256:release.selectionSha256,testReportSha256:release.testReportSha256,manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256,targets:['macos','windows']};
 }
 
+function updatePreflightFixture(){
+  const selected=selection(),tested=report(selected),release=artifactReceipt(selected,tested),prompt=renderPhase2ExternalInstallPrompt(release),assets=Object.fromEntries(Object.entries(release.targets).map(([platform,target],index)=>[platform,{id:600+index,name:target.name,bytes:target.bytes,sha256:target.sha256,url:target.url}])),publication={schema:1,status:'pass',owner:'returdex',repositoryId:1350421724,version:release.version,tag:release.tag,buildId:release.buildId,manifestSha256:release.manifestSha256,immutable:true,assets,checkedAt:'2026-09-01T09:00:00.000Z'},availability={schema:1,status:'pass',anonymous:true,immutable:true,version:release.version,tag:release.tag,buildId:release.buildId,manifestSha256:release.manifestSha256,assets,checkedAt:'2026-09-01T09:00:00.000Z'},freshPath='/tmp/autoed-phase2-fresh/availability.json',files=new Map<string,unknown>([['release/phase2-beta-artifacts.json',release],['release/phase2-build-selection.json',selected],['release/phase2-test-report.json',tested],['release/phase2-publication.json',publication],['release/phase2-availability.json',availability]]),args=['--artifacts','release/phase2-beta-artifacts.json','--tests','release/phase2-test-report.json','--publication','release/phase2-publication.json','--availability','release/phase2-availability.json','--fresh-availability',freshPath,'--prompt','release/phase2-install-prompt.md','--platform','macos','--read-only'];
+  const deps={nativePlatform:'macos',now:()=>Date.parse(now),assertFreshPath:(path:string)=>{expect(path).toBe(freshPath);},readJson:async(path:string)=>structuredClone(files.get(path)),readText:async()=>prompt,readRuntime:async()=>{throw new Error('MUST_NOT_READ_RUNTIME');}};
+  return {args,deps,files,freshPath,availability};
+}
+
 it('quality gate binds exact selection and test-report schema to one source identity',()=>{
   const selected=selection(),tested=report(selected);
   expect(validateBuildSelection(selected)).toEqual(selected);
@@ -229,4 +235,37 @@ it('update handoff is read-only and rejects platform spoof or identity drift',as
   const args=['--artifacts','release/phase2-beta-artifacts.json','--tests','release/phase2-test-report.json','--publication','release/phase2-publication.json','--availability','release/phase2-availability.json','--prompt','release/phase2-install-prompt.md','--platform','windows','--read-only'];
   await expect(verifyPhase2UpdateGate(args,deps)).resolves.toMatchObject({schema:1,status:'pass',mode:'pre-update',platform:'windows',buildId:release.buildId,resultCode:'WINDOWS_UPDATE_READY',phase3:'blocked'});expect(reads).toBe(5);
   await expect(verifyPhase2UpdateGate(args,{...deps,nativePlatform:'macos'})).rejects.toThrow('UPDATE_GATE_PLATFORM_INVALID');files.set('release/phase2-availability.json',{...availability,buildId:hash('f')});await expect(verifyPhase2UpdateGate(args,deps)).rejects.toThrow('UPDATE_GATE_AVAILABILITY_INVALID');
+});
+
+it('update handoff accepts a genuinely later fresh receipt with unchanged immutable fields',async()=>{
+  const fixture=updatePreflightFixture();
+  fixture.files.set(fixture.freshPath,{...fixture.availability,checkedAt:'2026-09-01T09:30:00.000Z'});
+  await expect(verifyPhase2UpdateGate(fixture.args,fixture.deps)).resolves.toMatchObject({status:'pass',mode:'pre-update',platform:'macos',resultCode:'MACOS_UPDATE_READY'});
+});
+
+it('update handoff rejects malformed, stale, future or nonmonotonic fresh timestamps',async()=>{
+  const fixture=updatePreflightFixture();
+  for(const [checkedAt,code] of [
+    ['not-a-time','UPDATE_GATE_AVAILABILITY_INVALID'],
+    ['2026-08-24T09:59:59.000Z','UPDATE_GATE_AVAILABILITY_STALE'],
+    ['2026-09-01T10:01:00.001Z','UPDATE_GATE_AVAILABILITY_STALE'],
+    [fixture.availability.checkedAt,'UPDATE_GATE_FRESHNESS_MISMATCH'],
+    ['2026-09-01T08:59:59.000Z','UPDATE_GATE_FRESHNESS_MISMATCH'],
+  ] as const){
+    fixture.files.set(fixture.freshPath,{...fixture.availability,checkedAt});
+    await expect(verifyPhase2UpdateGate(fixture.args,fixture.deps)).rejects.toThrow(code);
+  }
+});
+
+it('update handoff rejects immutable fresh receipt drift as a freshness mismatch',async()=>{
+  const fixture=updatePreflightFixture(),later={...fixture.availability,checkedAt:'2026-09-01T09:30:00.000Z'};
+  for(const drifted of [
+    {...later,buildId:hash('f')},
+    {...later,manifestSha256:hash('e')},
+    {...later,assets:{...later.assets,macos:{...later.assets.macos,sha256:hash('d')}}},
+    {...later,assets:{...later.assets,windows:{...later.assets.windows,id:999}}},
+  ]){
+    fixture.files.set(fixture.freshPath,drifted);
+    await expect(verifyPhase2UpdateGate(fixture.args,fixture.deps)).rejects.toThrow('UPDATE_GATE_FRESHNESS_MISMATCH');
+  }
 });
