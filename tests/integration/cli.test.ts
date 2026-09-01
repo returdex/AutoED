@@ -9,11 +9,11 @@ import {clientIdentityProof} from '../../packages/platform/src/client-endpoint.j
 
 it('compiled CLI starts independent services, proves identity, submits real jobs and requires pairing confirmation',async()=>{
   const f=await createNativeRuntime();try{
-    const started=await f.runCli(['start']);expect(started.code).toBe(0);expect(JSON.parse(started.stdout)).toMatchObject({api:'running',worker:'running'});
+    const started=await f.runCli(['start']);expect(started.code,JSON.stringify(started)).toBe(0);expect(JSON.parse(started.stdout)).toMatchObject({api:'running',worker:'running'});
     const status=await f.runCli(['status']);expect(status.code).toBe(0);expect(JSON.parse(status.stdout)).toMatchObject({component:{role:'cli',build:f.build},status:{installationId:f.metadata.installationId,api:{build:f.build}}});
     const submitted=await f.runCli(['selftest','--kind','digest','--value','abc']);expect(submitted.code).toBe(0);const id=JSON.parse(submitted.stdout).id;
     let job;for(let n=0;n<3;n++){await new Promise(r=>setTimeout(r,750));job=JSON.parse((await f.runCli(['jobs','get',id])).stdout);if(job.state==='succeeded')break;}expect(job).toMatchObject({state:'succeeded',result:'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'});
-    const origin='http://127.0.0.1:43187';const nonceResponse=await f.h.fetch(origin+'/api/pairing/nonce',{headers:{origin}});const {nonce}=await nonceResponse.json();const nonceCookie=nonceResponse.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+    const origin=`http://127.0.0.1:${f.metadata.port}`;const nonceResponse=await f.h.fetch(origin+'/api/pairing/nonce',{headers:{origin}});const {nonce}=await nonceResponse.json();const nonceCookie=nonceResponse.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
     const pending=await f.h.fetch(origin+'/api/pairing/pending',{method:'POST',headers:{origin,cookie:nonceCookie,'content-type':'application/json','x-autoed-csrf':nonce},body:JSON.stringify({nonce})});const {code}=await pending.json();
     expect((await f.runCli(['pair','approve',code],'no\n')).code).not.toBe(0);
     expect((await f.runCli(['pair','approve',code],code+'\n')).code).toBe(0);
@@ -27,14 +27,14 @@ it('compiled CLI starts independent services, proves identity, submits real jobs
 it('actual CLI rejects wrong installation proof and redirects, and sends nothing to an unowned listener',async()=>{
   const f=await createNativeRuntime();const recordPath=join(f.selection.root,'runtime/api.json');let requests=0,redirected=0;let mode='wrong-install';
   const target=createServer((_q,r)=>{redirected++;r.end('{}');});await new Promise<void>(r=>target.listen(0,'127.0.0.1',r));const targetPort=(target.address() as {port:number}).port;
-  const nonce=randomUUID();const record={...await runtimeIdentity(f.selection,'api',f.build,nonce,43187),entrypoint:f.entries.api};
+  const nonce=randomUUID();const record={...await runtimeIdentity(f.selection,'api',f.build,nonce,f.metadata.port),entrypoint:f.entries.api};
   // Synthetic owned responder exercises transport/proof negatives; it is not API/Worker feature evidence.
   const server=createServer(async(q,r)=>{requests++;let body='';for await(const part of q)body+=part;
     if(q.url==='/api/client/identity'){const proof=await clientIdentityProof(f.secrets,f.metadata.credentials.find(c=>c.name==='cli')!,f.metadata.installationId,f.build,nonce,JSON.parse(body));r.setHeader('content-type','application/json');r.end(JSON.stringify(mode==='wrong-install'?{...proof,installationId:randomUUID()}:proof));}
     else {r.writeHead(302,{location:`http://127.0.0.1:${targetPort}/intercept`});r.end();}
   });
   try{
-    await new Promise<void>(r=>server.listen(43187,'127.0.0.1',r));writeFileSync(recordPath,JSON.stringify({...record,pid:99999999}),{mode:0o600});
+    await new Promise<void>(r=>server.listen(f.metadata.port,'127.0.0.1',r));writeFileSync(recordPath,JSON.stringify({...record,pid:99999999}),{mode:0o600});
     expect((await f.runCli(['status'])).code).not.toBe(0);expect(requests).toBe(0);
     writeFileSync(recordPath,JSON.stringify(record));expect((await f.runCli(['status'])).stdout).toContain('IDENTITY_MISMATCH');
     mode='redirect';expect((await f.runCli(['status'],'',{HTTP_PROXY:`http://127.0.0.1:${targetPort}`,HTTPS_PROXY:`http://127.0.0.1:${targetPort}`,ALL_PROXY:`http://127.0.0.1:${targetPort}`,NODE_USE_ENV_PROXY:'1'})).stdout).toContain('IDENTITY_MISMATCH');expect(requests).toBe(3);expect(redirected).toBe(0);

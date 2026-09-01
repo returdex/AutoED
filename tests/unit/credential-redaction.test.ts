@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } fr
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { NativeSecretStore, issueCredential, verifyCredential, revokeCredential } from '../../packages/platform/src/credentials.js';
-import { initializeInstallation, readInstallation, readProvisioningReceipt } from '../../packages/platform/src/installation.js';
+import { assertPortAvailable, initializeInstallation, readInstallation, readProvisioningReceipt } from '../../packages/platform/src/installation.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 
 const harnesses: ReturnType<typeof createHarness>[] = [];
@@ -18,6 +18,11 @@ function memory() {
   })) };
 }
 describe('synthetic credential boundary (not native Keychain evidence)', () => {
+  it('retains the production fixed-port contract outside the explicit synthetic harness', async () => {
+    const source = readFileSync('packages/platform/src/installation.ts', 'utf8');
+    expect(source).toMatch(/AUTOED_SYNTHETIC_TEST !== '1'\) return \{ port: 43187 \}/);
+    await expect(assertPortAvailable(1)).rejects.toThrow('INSTALLATION_PREVIEW_REQUIRED');
+  });
   it('strips private exception details and never falls back to files', async () => {
     const h = createHarness(); harnesses.push(h); const parent = realpathSync(h.root); const root = join(parent, 'installation');
     const secret = randomBytes(32).toString('base64url');
@@ -81,7 +86,7 @@ describe('synthetic credential boundary (not native Keychain evidence)', () => {
   it('creates nonsecret metadata only after provisioning and never adopts/overwrites an existing installation', async () => {
     const h = createHarness(); harnesses.push(h); const parent = realpathSync(h.root); const selection = { root: join(parent, 'install'), parent, excludedRoots: [] }; const { store, entries } = memory();
     const result = await initializeInstallation(selection, store); const raw = readFileSync(join(selection.root, 'installation.json'), 'utf8');
-    expect(result.port).toBe(43187); expect(result.rootAlias).toBe('managed-root'); expect(new Set(entries.values()).size).toBe(4);
+    expect(result.port).toBe(Number(process.env.AUTOED_SYNTHETIC_PORT)); expect(result.syntheticTest).toBe(true); expect(result.rootAlias).toBe('managed-root'); expect(new Set(entries.values()).size).toBe(4);
     expect([...entries.values()].every(token => !raw.includes(token))).toBe(true); expect(raw.includes(selection.root)).toBe(false);
     expect(readInstallation(selection).installationId === result.installationId).toBe(true);
     await expect(initializeInstallation(selection, store)).rejects.toThrow('ROOT_ALREADY_EXISTS');
@@ -93,7 +98,8 @@ describe('synthetic credential boundary (not native Keychain evidence)', () => {
   it('stops before root/credential writes on a selected-port conflict without connecting to the listener', async () => {
     const h = createHarness(); harnesses.push(h); const parent = realpathSync(h.root); const selection = { root: join(parent, 'conflict'), parent, excludedRoots: [] }; const { store, entries } = memory();
     const listener = createServer(); let connections = 0; listener.on('connection', socket => { connections++; socket.destroy(); });
-    await new Promise<void>((resolve, reject) => { listener.once('error', reject); listener.listen(43187, '127.0.0.1', resolve); });
+    const port = Number(process.env.AUTOED_SYNTHETIC_PORT);
+    await new Promise<void>((resolve, reject) => { listener.once('error', reject); listener.listen(port, '127.0.0.1', resolve); });
     try { await expect(initializeInstallation(selection, store)).rejects.toThrow('PORT_CONFLICT_REPREVIEW'); expect(existsSync(selection.root)).toBe(false); expect(entries.size).toBe(0); expect(connections).toBe(0); }
     finally { await new Promise<void>(resolve => listener.close(() => resolve())); }
   });

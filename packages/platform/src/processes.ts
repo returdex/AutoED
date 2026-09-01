@@ -172,6 +172,7 @@ export class OwnedProcessSupervisor implements ProcessSupervisor {
       const nonce=randomUUID();
       // Credentials never enter argv/environment/stdio; child retrieves its exact OS namespace.
       const env:NodeJS.ProcessEnv={};for(const key of ['SystemRoot','WINDIR','LOCALAPPDATA','USERPROFILE','HOME','TMPDIR','TEMP','TMP'])if(process.env[key])env[key]=process.env[key];
+      if(metadata.syntheticTest===true){env.AUTOED_SYNTHETIC_TEST='1';env.AUTOED_SYNTHETIC_PORT=String(metadata.port);}
       const intentPath=assertManagedPath(managedPaths(this.options.selection.root),`runtime/${launch.role}.launch/intent.json`);
       const intent=intentSchema.parse({installationId:launch.installationId,role:launch.role,buildId:launch.build.buildId,nonce,...(launch.role==='worker'&&this.options.workerContext?{context:this.options.workerContext}:{})});
       durableIntent(intentPath,intent);

@@ -8,11 +8,13 @@ import {z} from 'zod';
 import {BuildIdentitySchema,ComponentObservationSchema} from '../../packages/contracts/src/index.js';
 import {assessIdentity} from '../../packages/application/src/identity.js';
 import {HttpClient,clientError} from '../../packages/client/src/http.js';
+import {readInstallation} from '../../packages/platform/src/installation.js';
 
 function regular(path,max=1048576){if(!isAbsolute(path)||realpathSync(path)!==path||!lstatSync(path).isFile()||lstatSync(path).isSymbolicLink()||lstatSync(path).size>max)throw new Error('INVALID_SELFCHECK_INPUT');return path;}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function cliStatus(node,entry,args){
+async function cliStatus(node,entry,args,synthetic){
   const env=Object.fromEntries(['HOME','TMPDIR','TMP','TEMP','SystemRoot','WINDIR','USERPROFILE','LOCALAPPDATA'].flatMap(k=>process.env[k]===undefined?[]:[[k,process.env[k]]]));
+  if(synthetic){env.AUTOED_SYNTHETIC_TEST='1';env.AUTOED_SYNTHETIC_PORT=String(synthetic.port);}
   const child=spawn(node,[entry,...args,'status'],{cwd:dirname(entry),env,stdio:['ignore','pipe','pipe'],windowsHide:true});
   let output='',overflow=false;child.stdout.on('data',chunk=>{output+=chunk;if(output.length>131072){overflow=true;child.kill('SIGTERM');}});child.stderr.on('data',()=>{});
   let timed=false;const timer=setTimeout(()=>{timed=true;child.kill('SIGTERM');},15000);
@@ -30,7 +32,7 @@ export async function runSelfcheck({selection,managedNode,cliEntry,mcpEntry,mani
   z.uuid().nullable().parse(operationId);z.number().int().nonnegative().parse(generation);regular(managedNode,200000000);regular(cliEntry);regular(mcpEntry);regular(manifestPath,16384);
   const bytes=readFileSync(manifestPath);const parsed=JSON.parse(bytes.toString('utf8'));const {entries,...identity}=parsed;
   if(!Array.isArray(entries)||entries.length!==4||[...entries].sort().join()!=='api,cli,mcp,worker')throw new Error('INVALID_BUILD_MANIFEST');
-  const build=BuildIdentitySchema.parse(identity);const manifest=releaseObservation??{build,manifestHash:createHash('sha256').update(bytes).digest('hex'),checkedAt:new Date().toISOString(),evidence:'build_manifest'};
+  const build=BuildIdentitySchema.parse(identity),metadata=readInstallation(selection),synthetic=metadata.syntheticTest===true?metadata:null;const manifest=releaseObservation??{build,manifestHash:createHash('sha256').update(bytes).digest('hex'),checkedAt:new Date().toISOString(),evidence:'build_manifest'};
   const installer=installerClient??new HttpClient(selection.root,selection.parent,'installer',build);const credentialId=operationId===null?null:`selfcheck-${operationId}`;
   const projection=(kind,value)=>installer.call('/api/control/status-projection',{kind,operationId,expectedGeneration:generation,value});
   let client,issued=false,result,jobId=null;const probes=[];const features={};
@@ -39,9 +41,9 @@ export async function runSelfcheck({selection,managedNode,cliEntry,mcpEntry,mani
     // Set recovery obligation before the request: a response loss may follow successful issuance.
     if(operationId!==null){issued=true;const credential=await installer.call('/api/control/selfcheck-credential',{action:'issue',operationId,generation,expiresAt:Date.now()+120000});if(credential.credentialId!==credentialId)throw new Error('INVALID_CREDENTIAL');}
     const args=['--root',selection.root,'--parent',selection.parent,...(credentialId?['--credential-id',credentialId]:[])];
-    const cli=await cliStatus(managedNode,cliEntry,args);
+    const cli=await cliStatus(managedNode,cliEntry,args,synthetic);
     probes.push(ComponentObservationSchema.parse(cli.component));
-    client=new Client({name:'autoed-installer-selfcheck',version:build.version});const transport=new StdioClientTransport({command:managedNode,args:[mcpEntry,...args],cwd:dirname(mcpEntry),stderr:'pipe',maxBufferSize:131072});transport.stderr?.on('data',()=>{});await client.connect(transport);
+    client=new Client({name:'autoed-installer-selfcheck',version:build.version});const transport=new StdioClientTransport({command:managedNode,args:[mcpEntry,...args],cwd:dirname(mcpEntry),stderr:'pipe',maxBufferSize:131072,...(synthetic?{env:{AUTOED_SYNTHETIC_TEST:'1',AUTOED_SYNTHETIC_PORT:String(synthetic.port)}}:{})});transport.stderr?.on('data',()=>{});await client.connect(transport);
     const call=async(name,args)=>{const result=await client.callTool({name,arguments:args},{timeout:10000});if(!result.structuredContent)throw new Error('MCP_PROBE_FAILED');return result;};
     const statusResult=await call('autoed_status',{});const mcp=statusResult.structuredContent;const status=mcp.status??await installer.status();
     probes.push(...[status.api,status.worker,mcp.component].filter(Boolean).map(p=>ComponentObservationSchema.parse(p)));

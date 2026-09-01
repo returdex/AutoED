@@ -58,7 +58,7 @@ export function createHarness() {
     },
     spawn(args: readonly string[]): ChildProcess {
       if (cleaned) throw new Error('Harness already cleaned');
-      const child = spawn(process.execPath, [...args], { cwd: root, stdio: 'ignore', env: { PATH: process.env.PATH, AUTOED_SYNTHETIC_TEST: '1' } });
+      const child = spawn(process.execPath, [...args], { cwd: root, stdio: 'ignore', env: { PATH: process.env.PATH, AUTOED_SYNTHETIC_TEST: '1', AUTOED_SYNTHETIC_PORT: process.env.AUTOED_SYNTHETIC_PORT } });
       owned.add(child);
       return child;
     },

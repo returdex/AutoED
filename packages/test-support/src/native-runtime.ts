@@ -9,6 +9,7 @@ import { OwnedProcessSupervisor,matchesProcess,observeProcess,ownsListener } fro
 import { protectPath } from '../../platform/src/permissions.js';
 import type { BuildIdentity } from '../../domain/src/model.js';
 import { buildStatusAssets } from '../../../scripts/build/build.mjs';
+import { publishSyntheticActive } from './runtime-installation.js';
 
 /** Real isolated compiled processes + fresh synthetic native credentials. Never a persistent default installation. */
 export async function createNativeRuntime(variant:'A'|'B'='B') {
@@ -31,11 +32,12 @@ export async function createNativeRuntime(variant:'A'|'B'='B') {
     for(const entry of Object.values(entries))if(existsSync(entry))writeFileSync(entry,readFileSync(entry,'utf8').replaceAll('__AUTOED_BUILD_IDENTITY__',JSON.stringify(build)));
     if(!existsSync(entries.cli))throw new Error('CLI_ENTRY_MISSING');
     mkdirSync(join(out,'build'));writeFileSync(join(out,'build/identity.json'),JSON.stringify({...build,entries:['api','worker','cli','mcp']}));
-    provisioning=true;const metadata=await initializeInstallation(selection,secrets);installationId=metadata.installationId;initialized=true;
+    provisioning=true;const metadata=await initializeInstallation(selection,secrets);installationId=metadata.installationId;publishSyntheticActive(selection,metadata,build,{cli:entries.cli,mcp:entries.mcp});initialized=true;
     const options={selection,managedNode:realpathSync(process.execPath),entries:{api:entries.api,worker:entries.worker}};supervisor=new OwnedProcessSupervisor(options);
     const activeSupervisor=supervisor;
     async function runCli(args:string[],input='',proxyEnvironment:Record<string,string>={}) {
       const env:NodeJS.ProcessEnv={};for(const name of ['HOME','TMPDIR','TEMP','TMP','SystemRoot','WINDIR','LOCALAPPDATA','USERPROFILE'])if(process.env[name])env[name]=process.env[name];
+      if(metadata.syntheticTest===true){env.AUTOED_SYNTHETIC_TEST='1';env.AUTOED_SYNTHETIC_PORT=String(metadata.port);}
       for(const name of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NODE_USE_ENV_PROXY'])if(proxyEnvironment[name])env[name]=proxyEnvironment[name];
       const child=spawn(process.execPath,[entries.cli,'--root',selection.root,'--parent',selection.parent,...args],{cwd:out,env,stdio:['pipe','pipe','pipe'],shell:false});children.add(child);
       let stdout='',stderr='';child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>131072)child.kill('SIGTERM');});child.stderr.on('data',chunk=>{stderr+=chunk;if(stderr.length>8192)child.kill('SIGTERM');});child.stdin.end(input);

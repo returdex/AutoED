@@ -12,6 +12,7 @@ import { NativeSecretStore } from '../../packages/platform/src/credentials.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { protectPath } from '../../packages/platform/src/permissions.js';
 import type { BuildIdentity } from '../../packages/domain/src/model.js';
+import { publishSyntheticActive } from '../../packages/test-support/src/runtime-installation.js';
 
 it('launcher exits; actual API and Worker stay independent; reuse and authenticated owned stop reject altered identities',async()=>{
   const h=createHarness(); const parent=realpathSync(h.root);protectPath(parent);
@@ -31,6 +32,7 @@ it('launcher exits; actual API and Worker stay independent; reuse and authentica
     const build:BuildIdentity={version:'0.1.0',buildId:'e'.repeat(64),commit:'b'.repeat(40),tree:'c'.repeat(40),dependencyHash:'d'.repeat(64),protocol:1,schemaMin:1,schemaMax:1,capabilities:['echo','digest']};
     const entries={api:join(out,'apps/api/src/main.js'),worker:join(out,'apps/worker/src/main.js')};
     for(const entry of Object.values(entries))writeFileSync(entry,readFileSync(entry,'utf8').replaceAll('__AUTOED_BUILD_IDENTITY__',JSON.stringify(build)));
+    publishSyntheticActive(selection,metadata,build,{cli:entries.api,mcp:entries.worker});
     const options={selection,managedNode:realpathSync(process.execPath),entries};
     supervisor=new OwnedProcessSupervisor(options);
     const module=pathToFileURL(join(out,'packages/platform/src/processes.js')).href;
@@ -51,19 +53,20 @@ it('launcher exits; actual API and Worker stay independent; reuse and authentica
     }
     const token=await secrets.get(installationId,'cli');
     const model=await secrets.get(installationId,'mcp');
-    const denied=await fetch('http://127.0.0.1:43187/api/process/inspect',{method:'POST',headers:{authorization:`Bearer ${model}`,'content-type':'application/json'},body:JSON.stringify({challenge:randomUUID()})});
+    const origin=`http://127.0.0.1:${metadata.port}`;
+    const denied=await fetch(origin+'/api/process/inspect',{method:'POST',headers:{authorization:`Bearer ${model}`,'content-type':'application/json'},body:JSON.stringify({challenge:randomUUID()})});
     expect(denied.status).toBe(403);expect(await denied.json()).toMatchObject({code:'FORBIDDEN'});
-    const request=await fetch('http://127.0.0.1:43187/api/jobs',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({kind:'digest',value:'abc',idempotencyKey:randomUUID(),scope:metadata.approvedScope})});
+    const request=await fetch(origin+'/api/jobs',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({kind:'digest',value:'abc',idempotencyKey:randomUUID(),scope:metadata.approvedScope})});
     expect(request.status).toBe(200);const job=await request.json() as {id:string};
     let result:unknown;for(let attempt=0;attempt<4;attempt++){
       await new Promise(r=>setTimeout(r,750));
-      const completed=await fetch(`http://127.0.0.1:43187/api/jobs/${job.id}`,{headers:{authorization:`Bearer ${token}`}});result=await completed.json();
+      const completed=await fetch(`${origin}/api/jobs/${job.id}`,{headers:{authorization:`Bearer ${token}`}});result=await completed.json();
       if((result as {state?:string}).state==='succeeded')break;
     }
     expect(result).toMatchObject({state:'succeeded',result:'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'});
     await supervisor.stop(owned[1]!);
     expect(await supervisor.inspect(owned[0]!)).toBe('running');expect(await supervisor.inspect(owned[1]!)).toBe('exited');
-    const status=await fetch('http://127.0.0.1:43187/api/status',{headers:{authorization:`Bearer ${token}`}});
+    const status=await fetch(origin+'/api/status',{headers:{authorization:`Bearer ${token}`}});
     expect(await status.json()).toMatchObject({api:{health:'healthy'},worker:{health:'not_observed'}});
     const worker=await supervisor.start({installationId,role:'worker',build});owned.push(worker);
     await supervisor.stop(owned[0]!);expect(await supervisor.inspect(worker)).toBe('running');
@@ -72,10 +75,10 @@ it('launcher exits; actual API and Worker stay independent; reuse and authentica
     const staleApi=await supervisor.start({installationId,role:'api',build});
     const installer=await secrets.get(installationId,'installer');const operationId=randomUUID();
     for(const action of ['enter','exclusive','exit']){
-      const changed=await fetch('http://127.0.0.1:43187/api/control/maintenance',{method:'POST',headers:{authorization:`Bearer ${installer}`,'content-type':'application/json'},body:JSON.stringify({action,operationId,expectedGeneration:0,...(action==='enter'?{leaseUntil:Date.now()+30000}:{})})});
+      const changed=await fetch(origin+'/api/control/maintenance',{method:'POST',headers:{authorization:`Bearer ${installer}`,'content-type':'application/json'},body:JSON.stringify({action,operationId,expectedGeneration:0,...(action==='enter'?{leaseUntil:Date.now()+30000}:{})})});
       expect(changed.status).toBe(200);
     }
-    const fenced=await fetch('http://127.0.0.1:43187/api/jobs',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({kind:'echo',value:'late API',idempotencyKey:randomUUID(),scope:metadata.approvedScope})});
+    const fenced=await fetch(origin+'/api/jobs',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json'},body:JSON.stringify({kind:'echo',value:'late API',idempotencyKey:randomUUID(),scope:metadata.approvedScope})});
     expect(fenced.status).toBe(409);expect(await fenced.json()).toMatchObject({code:'GENERATION_MISMATCH'});
     await supervisor.stop(staleApi);
     // An owned test entry intentionally never publishes, then exits itself. No PID kill.

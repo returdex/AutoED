@@ -1,5 +1,18 @@
 import { defineConfig } from 'vitest/config';
 import type { Reporter } from 'vitest/reporters';
+import { createServer } from 'node:net';
+
+const syntheticPort = await new Promise<number>((resolve, reject) => {
+  const server = createServer();
+  server.once('error', reject);
+  server.listen({ host: '127.0.0.1', port: 0, exclusive: true }, () => {
+    const address = server.address();
+    if (!address || typeof address === 'string') return reject(new Error('SYNTHETIC_PORT_UNAVAILABLE'));
+    server.close(error => error ? reject(error) : resolve(address.port));
+  });
+});
+process.env.AUTOED_SYNTHETIC_TEST = '1';
+process.env.AUTOED_SYNTHETIC_PORT = String(syntheticPort);
 
 const requireExecutedTests: Reporter = {
   onTestRunEnd(modules) {
@@ -13,8 +26,8 @@ const requireExecutedTests: Reporter = {
 
 export default defineConfig({
   test: {
-    // Native installation/lifecycle tests intentionally exercise the approved fixed
-    // port. Serialize files so unrelated test fixtures do not contend for it.
+    // Runtime fixtures share one run-scoped ephemeral loopback port and stay serialized.
+    // Separate contract assertions retain the production fixed-port requirement.
     fileParallelism: false,
     passWithNoTests: false,
     reporters: ['default', requireExecutedTests],
