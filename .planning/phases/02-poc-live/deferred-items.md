@@ -20,3 +20,7 @@
 ## Plan 02-06
 
 - **Out-of-scope verification environment conflict:** The repository-wide integration run passes 208/248. Fixed-port installation, upgrade, client and cleanup fixtures cascade from `PORT_CONFLICT_REPREVIEW` while the healthy installed Phase 1 API owns loopback port `43187`; the separately recorded SQLite-busy timing case is the remaining isolated failure. Plan 02-06 does not authorize stopping the installed service or changing unrelated Phase 1/job fixtures. The focused sealed-source and BrowserProvider integration surface passes 104/104, the auth-contract/import-boundary regression passes 30/30 and typecheck/static security gates pass under managed Node 24.20.0.
+
+## Plan 02-07
+
+- **Pre-existing isolated regression outside this plan:** The exact Task 2 integration command passes all 20 auth-worker and 3 Worker cases plus 13/14 existing job-recovery cases; only the previously recorded `bounded SQLite busy failure never destroys a previous result` timing case unexpectedly resolves instead of observing `SQLITE_BUSY`. Plan 02-07 does not authorize changing that unrelated timing harness. The focused auth-worker/job-storage/Worker surface passes 30/30, the schema-v3 auth-persistence regression passes 15/15, and typecheck/static security gates pass.
