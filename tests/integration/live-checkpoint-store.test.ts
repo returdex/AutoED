@@ -34,12 +34,15 @@ function fixture() {
     approvedScopeId: action.approvedScopeId, bindingFingerprint: action.bindingFingerprint, generation: action.generation,
     parentCheckpointId: action.parentCheckpointId, priorEvidenceEventId: action.priorEvidenceEventId,
   });
-  const result = (actionId: string, correctionOfEventId: string | null = null, status: 'pass' | 'fail' = 'pass'): PairedLiveResult => ({
-    actionId, status, resultCode: status === 'pass' ? 'CHECKPOINT_CONFIRMED' : 'CHECKPOINT_FAILED',
-    bindingConsistency: status === 'pass' ? 'consistent' : 'not_observed', gaps: status === 'pass' ? [] : ['CHECKPOINT_FAILED'],
-    checkedAt: new Date(now + 1_000).toISOString(), correctionOfEventId,
-  });
-  return { harness, path, db, store, authority, issue, current, result, setNow(value: number) { now = value; } };
+  const result = (actionId: string, correctionOfEventId: string | null = null, status: 'pass' | 'fail' = 'pass'): PairedLiveResult => {
+    now += 1_000;
+    return {
+      actionId, status, resultCode: status === 'pass' ? 'CHECKPOINT_CONFIRMED' : 'CHECKPOINT_FAILED',
+      bindingConsistency: status === 'pass' ? 'consistent' : 'not_observed', gaps: status === 'pass' ? [] : ['CHECKPOINT_FAILED'],
+      checkedAt: new Date(now).toISOString(), correctionOfEventId,
+    };
+  };
+  return { harness, path, db, store, authority, issue, current, result, setNow(value: number) { now = value; }, now: () => now };
 }
 
 describe('durable live checkpoint migration and issuance', () => {
@@ -55,7 +58,8 @@ describe('durable live checkpoint migration and issuance', () => {
   it('survives close/reopen with immutable bindings, monotonic issuance and no plaintext authority', async () => {
     const f = fixture();
     const first = await f.store.issue(f.issue, f.authority, { expectedGeneration: 0 });
-    const second = await f.store.issue({ ...f.issue, parentCheckpointId: randomUUID() }, f.authority, { expectedGeneration: 0 });
+    const secondAuthority = { ...f.authority, secret: randomUUID() };
+    const second = await f.store.issue({ ...f.issue, parentCheckpointId: randomUUID() }, secondAuthority, { expectedGeneration: 0 });
     expect(Date.parse(second.issuedAt)).toBeGreaterThan(Date.parse(first.issuedAt));
     f.db.close();
 
@@ -116,15 +120,17 @@ describe('transactional exact-cell live outcomes', () => {
     await f.store.consumeAndAppend(f.result(failedAction.actionId, null, 'fail'), f.current(failedAction), f.authority, { expectedGeneration: 0 });
     const failedEvent = (f.db.prepare('SELECT event_id FROM uat_receipts WHERE producer_id=?').get(failedAction.actionId) as { event_id: string }).event_id;
     const correctionIssue = { ...f.issue, parentCheckpointId: randomUUID(), priorEvidenceEventId: failedEvent };
-    const correction = await f.store.issue(correctionIssue, f.authority, { expectedGeneration: 0 });
-    await f.store.consumeAndAppend(f.result(correction.actionId, failedEvent), f.current(correction), f.authority, { expectedGeneration: 0 });
+    const correctionAuthority = { ...f.authority, secret: randomUUID() };
+    const correction = await f.store.issue(correctionIssue, correctionAuthority, { expectedGeneration: 0 });
+    await f.store.consumeAndAppend(f.result(correction.actionId, failedEvent), f.current(correction), correctionAuthority, { expectedGeneration: 0 });
     expect(f.db.prepare('SELECT status,prior_event_id FROM uat_receipts ORDER BY recorded_at,event_id').all()).toEqual([
       { status: 'fail', prior_event_id: null }, { status: 'pass', prior_event_id: failedEvent },
     ]);
 
-    const stale = await f.store.issue({ ...f.issue, parentCheckpointId: randomUUID(), priorEvidenceEventId: failedEvent }, f.authority, { expectedGeneration: 0 });
+    const staleAuthority = { ...f.authority, secret: randomUUID() };
+    const stale = await f.store.issue({ ...f.issue, parentCheckpointId: randomUUID(), priorEvidenceEventId: failedEvent }, staleAuthority, { expectedGeneration: 0 });
     const newest = (f.db.prepare('SELECT event_id FROM uat_receipts ORDER BY recorded_at DESC,event_id DESC LIMIT 1').get() as { event_id: string }).event_id;
-    await expect(f.store.consumeAndAppend(f.result(stale.actionId, failedEvent), f.current(stale), f.authority, { expectedGeneration: 0 }))
+    await expect(f.store.consumeAndAppend(f.result(stale.actionId, failedEvent), f.current(stale), staleAuthority, { expectedGeneration: 0 }))
       .rejects.toMatchObject({ code: 'LIVE_ACTION_PREDECESSOR_CHANGED' });
     expect(newest).not.toBe(failedEvent);
     expect(f.db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 2 });
@@ -135,10 +141,24 @@ describe('transactional exact-cell live outcomes', () => {
     f.db.exec(`CREATE TRIGGER reject_live_append BEFORE INSERT ON uat_receipts BEGIN SELECT RAISE(ABORT,'injected live append failure'); END`);
     const runtime = { current: async () => f.current(action) };
     const authority = { mint: async () => f.authority, resolve: async () => f.authority };
-    const workflow = new LiveCheckpointWorkflow(f.store, authority, runtime, () => new Date(Date.parse(action.issuedAt) + 2_000).toISOString());
+    const workflow = new LiveCheckpointWorkflow(f.store, authority, runtime, () => new Date(f.now()).toISOString());
     await expect(workflow.consumeAndAppend(f.result(action.actionId), { expectedGeneration: 0 })).rejects.toMatchObject({ code: 'STORAGE_CONSTRAINT' });
     expect(await f.store.read(action.actionId)).toMatchObject({ state: 'pending', consumedAt: null });
     expect(f.db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 0 });
     expect(f.db.prepare('SELECT action_id,code FROM live_action_failures').all()).toEqual([{ action_id: action.actionId, code: 'STORAGE_FAILURE' }]);
+  });
+
+  it('keeps the pending action and prior ledger on SQLITE_BUSY, then appends a separate safe failure audit', async () => {
+    const f = fixture(); const action = await f.store.issue(f.issue, f.authority, { expectedGeneration: 0 });
+    const blocker = openDatabase(f.path); blocker.pragma('busy_timeout = 1'); f.db.pragma('busy_timeout = 1'); blocker.exec('BEGIN IMMEDIATE');
+    const result = f.result(action.actionId);
+    try {
+      await expect(f.store.consumeAndAppend(result, f.current(action), f.authority, { expectedGeneration: 0 }))
+        .rejects.toMatchObject({ code: 'SQLITE_BUSY' });
+    } finally { blocker.exec('ROLLBACK'); blocker.close(); }
+    await f.store.recordFailure(action.actionId, 'SQLITE_BUSY', result.checkedAt, { expectedGeneration: 0 });
+    expect(await f.store.read(action.actionId)).toMatchObject({ state: 'pending', consumedAt: null });
+    expect(f.db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 0 });
+    expect(f.db.prepare('SELECT code FROM live_action_failures').pluck().all()).toEqual(['SQLITE_BUSY']);
   });
 });

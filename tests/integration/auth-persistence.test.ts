@@ -54,7 +54,7 @@ function phase2Tables(db: Database.Database) {
 }
 
 describe('ordered auth schema migration', () => {
-  it('preserves every Phase 1 row while atomically migrating and reopening through schema v3', () => {
+  it('preserves every Phase 1 row while atomically migrating and reopening through schema v4', () => {
     const path = databasePath();
     const v1 = createV1(path);
     const jobId = randomUUID();
@@ -75,7 +75,7 @@ describe('ordered auth schema migration', () => {
     v1.close();
 
     const migrated = openDatabase(path);
-    expect(migrated.pragma('user_version', { simple: true })).toBe(3);
+    expect(migrated.pragma('user_version', { simple: true })).toBe(4);
     expect(phase2Tables(migrated)).toEqual(['account_bindings', 'profile_ownership', 'source_configs', 'source_observations', 'uat_receipts']);
     expect(migrated.prepare('SELECT * FROM maintenance_generation').get()).toEqual(before.gate);
     expect(migrated.prepare('SELECT * FROM jobs').all()).toEqual(before.jobs);
@@ -88,17 +88,18 @@ describe('ordered auth schema migration', () => {
 
     const reopened = openDatabase(path);
     try {
-      expect(reopened.pragma('user_version', { simple: true })).toBe(3);
+      expect(reopened.pragma('user_version', { simple: true })).toBe(4);
       expect(reopened.prepare('SELECT version,schema_min,schema_max FROM schema_migrations ORDER BY version').all()).toEqual([
         { version: 1, schema_min: 1, schema_max: 1 },
         { version: 2, schema_min: 2, schema_max: 2 },
         { version: 3, schema_min: 3, schema_max: 3 },
+        { version: 4, schema_min: 4, schema_max: 4 },
       ]);
       expect(reopened.prepare('SELECT result FROM synthetic_results WHERE job_id=?').get(jobId)).toEqual({ result: 'retained' });
     } finally { reopened.close(); }
   });
 
-  it('rolls back every schema v2 statement after an injected SQL failure before continuing to v3', () => {
+  it('rolls back every schema v2 statement after an injected SQL failure before continuing to v4', () => {
     const path = databasePath();
     const v1 = createV1(path);
     v1.prepare(`CREATE TRIGGER reject_v2 BEFORE INSERT ON schema_migrations WHEN NEW.version=2 BEGIN SELECT RAISE(ABORT,'injected migration failure'); END`).run();
@@ -115,7 +116,7 @@ describe('ordered auth schema migration', () => {
     failed.close();
 
     const retried = openDatabase(path);
-    try { expect(retried.pragma('user_version', { simple: true })).toBe(3); }
+    try { expect(retried.pragma('user_version', { simple: true })).toBe(4); }
     finally { retried.close(); }
   });
 
@@ -126,11 +127,12 @@ describe('ordered auth schema migration', () => {
       { version: 1, schema_min: 1, schema_max: 1 },
       { version: 2, schema_min: 2, schema_max: 2 },
       { version: 3, schema_min: 3, schema_max: 3 },
+      { version: 4, schema_min: 4, schema_max: 4 },
     ]);
     fresh.close();
 
     const futurePath = databasePath('future.sqlite');
-    const future = createV1(futurePath); future.pragma('user_version = 4'); future.close();
+    const future = createV1(futurePath); future.pragma('user_version = 5'); future.close();
     expect(() => openDatabase(futurePath)).toThrow('SCHEMA_INCOMPATIBLE');
 
     const missingPath = databasePath('missing.sqlite');

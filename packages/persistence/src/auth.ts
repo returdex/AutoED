@@ -4,6 +4,7 @@ import { z, ZodError } from 'zod';
 import type {
   AccountBindingStore, Clock, EvidenceLedger, EvidenceWriterAuthority, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
 } from '../../application/src/ports.js';
+import type { LiveCheckpointStore, PairedLiveAuthority } from '../../application/src/live-checkpoints.js';
 import type {
   AuthJob, AuthJobLease, AuthJobResultCode, AuthJobStore, AuthProbeCommand,
 } from '../../application/src/auth-jobs.js';
@@ -12,10 +13,12 @@ import type {
   AccountBinding, ApprovedSourceConfig, EvidenceCellKey, EvidenceReceipt, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation,
   SourceId, SourceLastSuccess, SourceObservation, WriteContext,
 } from '../../domain/src/model.js';
+import { requiredEvidenceKeys, evidenceCellKey, type LiveActionFailure, type LiveCheckpointBinding, type PairedLiveResult, type PendingLiveAction, type PendingLiveActionIssue } from '../../domain/src/live-evidence.js';
 import {
   AccountBindingSchema, ApprovedSourceConfigSchema, EvidenceCellKeySchema, EvidenceReceiptSchema, ProfileOwnerIdentitySchema,
   ProfileOwnershipSchema, ProfileReservationSchema, SourceObservationSchema,
 } from '../../contracts/src/index.js';
+import { LiveCheckpointBindingSchema, PairedLiveResultSchema, PendingLiveActionIssueSchema, PendingLiveActionSchema } from '../../contracts/src/live-evidence.js';
 import { recordWrite, requireWrite, StorageError } from './database.js';
 
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -317,6 +320,185 @@ export class SQLiteEvidenceLedger implements EvidenceLedger {
     if (receipt.provenance.kind !== 'human_action' || receipt.provenance.actionReceiptId !== authority.actionReceiptId) {
       throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
     }
+  }
+}
+
+interface LiveActionRow {
+  action_id: string;
+  authority_hash: string;
+  build_id: string;
+  artifact_id: string;
+  version: string;
+  installation_id: string;
+  platform: PendingLiveAction['platform'];
+  source: PendingLiveAction['source'];
+  scenario: PendingLiveAction['scenario'];
+  approved_config_id: string;
+  approved_scope_id: string;
+  binding_fingerprint: string;
+  generation: number;
+  parent_checkpoint_id: string;
+  prior_evidence_event_id: string | null;
+  issued_at: number;
+  expires_at: number;
+  state: 'pending' | 'consumed';
+  consumed_at: number | null;
+  consumed_event_id: string | null;
+}
+
+interface LiveClock { now(): number }
+
+const REQUIRED_LIVE_KEYS = new Set(requiredEvidenceKeys().map(evidenceCellKey));
+
+function assertPairedAuthority(authority: PairedLiveAuthority): string {
+  const expected = ['kind', 'principalSessionHash', 'secret'];
+  if (Object.keys(authority).sort().join(',') !== expected.join(',') || authority.kind !== 'paired_server_authenticated' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authority.secret) ||
+      !/^[a-f0-9]{64}$/.test(authority.principalSessionHash)) {
+    throw new StorageError('LIVE_ACTION_AUTHORITY_MISMATCH');
+  }
+  return digest(`paired-live-authority\0${authority.secret}\0${authority.principalSessionHash}`);
+}
+
+function bindingOf(action: PendingLiveAction): LiveCheckpointBinding {
+  return {
+    buildId: action.buildId, artifactId: action.artifactId, version: action.version, installationId: action.installationId,
+    platform: action.platform, source: action.source, scenario: action.scenario, approvedConfigId: action.approvedConfigId,
+    approvedScopeId: action.approvedScopeId, bindingFingerprint: action.bindingFingerprint, generation: action.generation,
+    parentCheckpointId: action.parentCheckpointId, priorEvidenceEventId: action.priorEvidenceEventId,
+  };
+}
+
+function sameLiveBinding(left: LiveCheckpointBinding, right: LiveCheckpointBinding): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** Durable one-time live checkpoint actions. Live authority remains external plaintext and is hash-bound at rest. */
+export class SQLiteLiveCheckpointStore implements LiveCheckpointStore {
+  constructor(private readonly db: Database.Database, private readonly clock: LiveClock = { now: () => Date.now() }) {}
+
+  async issue(input: PendingLiveActionIssue, authority: PairedLiveAuthority, context: WriteContext): Promise<PendingLiveAction> {
+    const issue = PendingLiveActionIssueSchema.parse(input);
+    const authorityHash = assertPairedAuthority(authority);
+    const actualPlatform = process.platform === 'win32' ? 'windows' : 'macos';
+    if (issue.platform !== actualPlatform || !REQUIRED_LIVE_KEYS.has(evidenceCellKey({
+      platform: issue.platform, source: issue.source, scenario: issue.scenario, evidence: 'L',
+    }))) throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      const now = this.checkedClock();
+      const prior = this.db.prepare('SELECT issued_at FROM pending_live_actions ORDER BY issued_at DESC,action_id DESC LIMIT 1')
+        .get() as { issued_at: number } | undefined;
+      const issuedAt = Math.max(now, (prior?.issued_at ?? -1) + 1);
+      const expiresAt = issuedAt + issue.ttlMs;
+      if (!Number.isSafeInteger(expiresAt)) throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+      const actionId = randomUUID();
+      this.db.prepare(`INSERT INTO pending_live_actions(
+        action_id,authority_hash,build_id,artifact_id,version,installation_id,platform,source,scenario,approved_config_id,
+        approved_scope_id,binding_fingerprint,generation,parent_checkpoint_id,prior_evidence_event_id,issued_at,expires_at,state)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending')`).run(
+        actionId, authorityHash, issue.buildId, issue.artifactId, issue.version, issue.installationId, issue.platform, issue.source,
+        issue.scenario, issue.approvedConfigId, issue.approvedScopeId, issue.bindingFingerprint, issue.generation,
+        issue.parentCheckpointId, issue.priorEvidenceEventId, issuedAt, expiresAt,
+      );
+      recordWrite(this.db, context);
+      return this.toAction(this.requiredRow(actionId), now);
+    }).immediate());
+  }
+
+  async read(actionId: string): Promise<PendingLiveAction | null> {
+    if (!z.uuid().safeParse(actionId).success) return null;
+    const row = this.db.prepare('SELECT * FROM pending_live_actions WHERE action_id=?').get(actionId) as LiveActionRow | undefined;
+    return row ? this.toAction(row, this.checkedClock()) : null;
+  }
+
+  async recordFailure(actionId: string, code: string, checkedAt: string, context: WriteContext): Promise<LiveActionFailure> {
+    if (!z.uuid().safeParse(actionId).success || !/^[A-Z0-9_]{1,128}$/.test(code)) throw new StorageError('LIVE_ACTION_RESULT_INVALID');
+    const checked = observedAt(checkedAt, this.checkedClock(), 'LIVE_ACTION_RESULT_INVALID');
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      this.requiredRow(actionId);
+      const failureId = randomUUID();
+      this.db.prepare('INSERT INTO live_action_failures(failure_id,action_id,code,checked_at,generation) VALUES(?,?,?,?,?)')
+        .run(failureId, actionId, code, checked, context.expectedGeneration);
+      recordWrite(this.db, context);
+      return { actionId, failureId, code, checkedAt: new Date(checked).toISOString() };
+    }).immediate());
+  }
+
+  async consumeAndAppend(
+    input: PairedLiveResult,
+    currentInput: LiveCheckpointBinding,
+    authority: PairedLiveAuthority,
+    context: WriteContext,
+  ): Promise<PendingLiveAction> {
+    const result = PairedLiveResultSchema.parse(input);
+    const current = LiveCheckpointBindingSchema.parse(currentInput);
+    const authorityHash = assertPairedAuthority(authority);
+    const now = this.checkedClock();
+    const observed = observedAt(result.checkedAt, now, 'LIVE_ACTION_RESULT_INVALID');
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      const row = this.requiredRow(result.actionId);
+      const action = this.toAction(row, now);
+      if (row.state !== 'pending') throw new StorageError('LIVE_ACTION_REPLAY');
+      if (now >= row.expires_at || observed >= row.expires_at) throw new StorageError('LIVE_ACTION_EXPIRED');
+      if (!sameLiveBinding(bindingOf(action), current) || current.platform !== (process.platform === 'win32' ? 'windows' : 'macos') ||
+          !REQUIRED_LIVE_KEYS.has(evidenceCellKey({ platform: current.platform, source: current.source, scenario: current.scenario, evidence: 'L' }))) {
+        throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+      }
+      if (!sameDigest(row.authority_hash, authorityHash)) throw new StorageError('LIVE_ACTION_AUTHORITY_MISMATCH');
+      if (result.correctionOfEventId !== row.prior_evidence_event_id) throw new StorageError('LIVE_ACTION_PREDECESSOR_CHANGED');
+      const latest = this.db.prepare(`SELECT event_id,recorded_at FROM uat_receipts
+        WHERE platform=? AND source=? AND scenario=? AND evidence='L' ORDER BY recorded_at DESC,event_id DESC LIMIT 1`)
+        .get(row.platform, row.source, row.scenario) as { event_id: string; recorded_at: number } | undefined;
+      if ((latest?.event_id ?? null) !== row.prior_evidence_event_id) throw new StorageError('LIVE_ACTION_PREDECESSOR_CHANGED');
+
+      const eventId = randomUUID(); const receiptId = randomUUID();
+      const recordedAt = Math.max(now, (latest?.recorded_at ?? -1) + 1);
+      const idempotencyHash = digest(JSON.stringify({ actionId: row.action_id, result, current, authorityHash }));
+      this.db.prepare(`INSERT INTO uat_receipts(event_id,receipt_id,idempotency_hash,prior_event_id,schema_version,build_id,artifact_id,version,
+        platform,source,scenario,evidence,status,result_code,binding_consistency,gap_codes,observed_at,recorded_at,generation,producer_kind,producer_id)
+        VALUES(?,?,?,?,1,?,?,?,?,?,?,'L',?,?,?,?,?,?,?,'human_action',?)`).run(
+        eventId, receiptId, idempotencyHash, row.prior_evidence_event_id, row.build_id, row.artifact_id, row.version,
+        row.platform, row.source, row.scenario, result.status, result.resultCode, result.bindingConsistency, JSON.stringify(result.gaps),
+        observed, recordedAt, row.generation, row.action_id,
+      );
+      const consumed = this.db.prepare(`UPDATE pending_live_actions SET state='consumed',consumed_at=?,consumed_event_id=?
+        WHERE action_id=? AND state='pending' AND expires_at>? AND authority_hash=? AND build_id=? AND artifact_id=? AND version=?
+          AND installation_id=? AND platform=? AND source=? AND scenario=? AND approved_config_id=? AND approved_scope_id=?
+          AND binding_fingerprint=? AND generation=? AND parent_checkpoint_id=?
+          AND prior_evidence_event_id IS ?`).run(
+        observed, eventId, row.action_id, now, authorityHash, current.buildId, current.artifactId, current.version,
+        current.installationId, current.platform, current.source, current.scenario, current.approvedConfigId, current.approvedScopeId,
+        current.bindingFingerprint, current.generation, current.parentCheckpointId, current.priorEvidenceEventId,
+      );
+      if (consumed.changes !== 1) throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+      recordWrite(this.db, context);
+      return this.toAction(this.requiredRow(row.action_id), now);
+    }).immediate());
+  }
+
+  private checkedClock(): number {
+    const now = this.clock.now();
+    if (!Number.isSafeInteger(now) || now < 0) throw new StorageError('LIVE_ACTION_RESULT_INVALID');
+    return now;
+  }
+  private requiredRow(actionId: string): LiveActionRow {
+    const row = this.db.prepare('SELECT * FROM pending_live_actions WHERE action_id=?').get(actionId) as LiveActionRow | undefined;
+    if (!row) throw new StorageError('LIVE_ACTION_NOT_FOUND', 404);
+    return row;
+  }
+  private toAction(row: LiveActionRow, now: number): PendingLiveAction {
+    const state: PendingLiveAction['state'] = row.state === 'consumed' ? 'consumed' : now >= row.expires_at ? 'expired' : 'pending';
+    return PendingLiveActionSchema.parse({
+      actionId: row.action_id, buildId: row.build_id, artifactId: row.artifact_id, version: row.version,
+      installationId: row.installation_id, platform: row.platform, source: row.source, scenario: row.scenario,
+      approvedConfigId: row.approved_config_id, approvedScopeId: row.approved_scope_id,
+      bindingFingerprint: row.binding_fingerprint, generation: row.generation, parentCheckpointId: row.parent_checkpoint_id,
+      priorEvidenceEventId: row.prior_evidence_event_id, issuedAt: new Date(row.issued_at).toISOString(),
+      expiresAt: new Date(row.expires_at).toISOString(), state, consumedAt: row.consumed_at === null ? null : new Date(row.consumed_at).toISOString(),
+    });
   }
 }
 

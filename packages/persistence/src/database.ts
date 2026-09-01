@@ -170,12 +170,52 @@ const MIGRATION_V3 = `
   PRAGMA user_version = 3;
 `;
 
-function assertMigrationMetadata(db: Database.Database, version: 1 | 2 | 3): void {
+const MIGRATION_V4 = `
+  CREATE TABLE pending_live_actions(
+    action_id TEXT PRIMARY KEY CHECK(length(action_id)=36),
+    authority_hash TEXT NOT NULL UNIQUE CHECK(length(authority_hash)=64),
+    build_id TEXT NOT NULL CHECK(length(build_id)=64),
+    artifact_id TEXT NOT NULL CHECK(length(artifact_id)=64),
+    version TEXT NOT NULL CHECK(length(version) BETWEEN 5 AND 64),
+    installation_id TEXT NOT NULL CHECK(length(installation_id)=36),
+    platform TEXT NOT NULL CHECK(platform IN ('macos','windows')),
+    source TEXT NOT NULL CHECK(source IN ('moodle','edstem')),
+    scenario TEXT NOT NULL CHECK(scenario IN ('a.login','a.binding','a.course_visibility','b.reopen_1','b.reopen_2','b.reopen_3','b.worker_restart','b.codex_exit','c.os_restart','d.24h_recheck','reauth')),
+    approved_config_id TEXT NOT NULL CHECK(length(approved_config_id)=36),
+    approved_scope_id TEXT NOT NULL CHECK(length(approved_scope_id)=36),
+    binding_fingerprint TEXT NOT NULL CHECK(length(binding_fingerprint)=64),
+    generation INTEGER NOT NULL CHECK(generation>=0),
+    parent_checkpoint_id TEXT NOT NULL CHECK(length(parent_checkpoint_id)=36),
+    prior_evidence_event_id TEXT REFERENCES uat_receipts(event_id),
+    issued_at INTEGER NOT NULL CHECK(issued_at>=0),
+    expires_at INTEGER NOT NULL CHECK(expires_at>issued_at),
+    state TEXT NOT NULL CHECK(state IN ('pending','consumed')),
+    consumed_at INTEGER CHECK(consumed_at IS NULL OR consumed_at>=issued_at),
+    consumed_event_id TEXT REFERENCES uat_receipts(event_id),
+    CHECK((state='pending' AND consumed_at IS NULL AND consumed_event_id IS NULL) OR
+          (state='consumed' AND consumed_at IS NOT NULL AND consumed_event_id IS NOT NULL)));
+  CREATE INDEX pending_live_actions_state ON pending_live_actions(state,expires_at,issued_at,action_id);
+  CREATE INDEX pending_live_actions_cell ON pending_live_actions(platform,source,scenario,issued_at,action_id);
+
+  CREATE TABLE live_action_failures(
+    failure_id TEXT PRIMARY KEY CHECK(length(failure_id)=36),
+    action_id TEXT NOT NULL REFERENCES pending_live_actions(action_id),
+    code TEXT NOT NULL CHECK(length(code) BETWEEN 1 AND 128),
+    checked_at INTEGER NOT NULL CHECK(checked_at>=0),
+    generation INTEGER NOT NULL CHECK(generation>=0));
+  CREATE INDEX live_action_failures_action ON live_action_failures(action_id,checked_at,failure_id);
+
+  INSERT INTO schema_migrations VALUES(4,4,4,unixepoch()*1000);
+  PRAGMA user_version = 4;
+`;
+
+function assertMigrationMetadata(db: Database.Database, version: 1 | 2 | 3 | 4): void {
   const rows = db.prepare('SELECT version,schema_min,schema_max FROM schema_migrations ORDER BY version').all() as { version: number; schema_min: number; schema_max: number }[];
   const expected = [
     { version: 1, schema_min: 1, schema_max: 1 },
     { version: 2, schema_min: 2, schema_max: 2 },
     { version: 3, schema_min: 3, schema_max: 3 },
+    { version: 4, schema_min: 4, schema_max: 4 },
   ].slice(0, version);
   if (JSON.stringify(rows) !== JSON.stringify(expected)) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
 }
@@ -190,7 +230,7 @@ export function openDatabase(path: string): Database.Database {
     db.pragma('synchronous = FULL'); db.pragma('busy_timeout = 2000');
     db.transaction(() => {
       const version = db.pragma('user_version', { simple: true });
-      if (version !== 0 && version !== 1 && version !== 2 && version !== 3) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
+      if (version !== 0 && version !== 1 && version !== 2 && version !== 3 && version !== 4) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
       if (version === 0) db.exec(MIGRATION_V1);
       if (version < 2) {
         assertMigrationMetadata(db, 1);
@@ -200,7 +240,11 @@ export function openDatabase(path: string): Database.Database {
         assertMigrationMetadata(db, 2);
         db.exec(MIGRATION_V3);
       }
-      assertMigrationMetadata(db, 3);
+      if (version < 4) {
+        assertMigrationMetadata(db, 3);
+        db.exec(MIGRATION_V4);
+      }
+      assertMigrationMetadata(db, 4);
     }).immediate();
     return db;
   } catch (error) { db.close(); throw error; }

@@ -78,17 +78,19 @@ describe('real SQLite durable storage', () => {
     } finally { reopened.close(); }
   });
   it('rejects unknown schema instead of silently downgrading', () => {
-    const { db, path } = fixture(); db.pragma('user_version = 4'); db.close();
+    const { db, path } = fixture(); db.pragma('user_version = 5'); db.close();
     expect(() => openDatabase(path)).toThrow('SCHEMA_INCOMPATIBLE');
   });
-  it('migrates schema v2 to v3 atomically while preserving every existing table and row', async () => {
+  it('migrates schema v2 through v4 atomically while preserving every existing table and row', async () => {
     const { db, path } = fixture();
     const retained = request();
     const job = db.prepare("SELECT count(*) AS n FROM jobs").get();
     db.prepare("CREATE TRIGGER reject_v3 BEFORE INSERT ON schema_migrations WHEN NEW.version=3 BEGIN SELECT RAISE(ABORT,'injected v3 failure'); END").run();
     db.prepare('DROP TABLE IF EXISTS source_auth_jobs').run();
     db.prepare('DROP TABLE IF EXISTS source_auth_controls').run();
-    db.prepare('DELETE FROM schema_migrations WHERE version=3').run();
+    db.prepare('DROP TABLE IF EXISTS live_action_failures').run();
+    db.prepare('DROP TABLE IF EXISTS pending_live_actions').run();
+    db.prepare('DELETE FROM schema_migrations WHERE version IN (3,4)').run();
     db.pragma('user_version = 2');
     db.close();
     expect(() => openDatabase(path)).toThrow('injected v3 failure');
@@ -98,7 +100,7 @@ describe('real SQLite durable storage', () => {
     expect(failed.prepare('SELECT count(*) AS n FROM jobs').get()).toEqual(job);
     failed.prepare('DROP TRIGGER reject_v3').run(); failed.close();
     const migrated = openDatabase(path);
-    expect(migrated.pragma('user_version', { simple: true })).toBe(3);
+    expect(migrated.pragma('user_version', { simple: true })).toBe(4);
     expect(migrated.prepare('SELECT version,schema_min,schema_max FROM schema_migrations ORDER BY version').all()).toContainEqual({ version: 3, schema_min: 3, schema_max: 3 });
     expect(migrated.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name IN ('source_auth_jobs','source_auth_controls') ORDER BY name").pluck().all()).toEqual(['source_auth_controls', 'source_auth_jobs']);
     expect(retained.kind).toBe('echo');
