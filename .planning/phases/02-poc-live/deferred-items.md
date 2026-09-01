@@ -24,3 +24,7 @@
 ## Plan 02-07
 
 - **Pre-existing isolated regression outside this plan:** The exact Task 2 integration command passes all 20 auth-worker and 3 Worker cases plus 13/14 existing job-recovery cases; only the previously recorded `bounded SQLite busy failure never destroys a previous result` timing case unexpectedly resolves instead of observing `SQLITE_BUSY`. Plan 02-07 does not authorize changing that unrelated timing harness. The focused auth-worker/job-storage/Worker surface passes 30/30, the schema-v3 auth-persistence regression passes 15/15, and typecheck/static security gates pass.
+
+## Plan 02-12
+
+- **Pre-existing process-lifecycle fixture failure outside this plan:** The required combined regression passes all 20 `auth-worker` cases, while the existing `process-lifecycle` case stops during its own synthetic initialization with `HUMAN_ACTION_REQUIRED: initialization interrupted; root preserved`, including when run alone. Plan 02-12 changes only the native Profile test harness/test and does not alter Phase 1 provisioning or stop the healthy installed API. The new 12-case macOS native Profile suite, 8-case native process/platform regression and typecheck all pass.
