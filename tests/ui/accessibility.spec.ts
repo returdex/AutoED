@@ -15,14 +15,14 @@ test('actual DOM keyboard, details, 320px and 200% zoom keep long inert job text
     const j=await f.jobs.enqueue({kind:'echo',value,idempotencyKey:randomUUID(),scope:f.scope},{expectedGeneration:0});await new JobRunner(f.jobs).runOnce('synthetic',{expectedGeneration:0},async job=>job.request.value);
     await f.projections.writeSelfcheck({jobId:j.id,featureResult:'not_observed',probes:[],checkedAt:new Date().toISOString()},{operationId:null,expectedGeneration:0});
     await page.goto(f.api.origin+'/status');await expect(page.locator('#pair-code')).toHaveText(/^[A-F0-9]{16}$/);await f.approve(await page.locator('#pair-code').innerText());
-    await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'刷新状态'})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByRole('status')).toHaveText('本地状态已读取。');await expect(page.getByRole('button')).toBeFocused();
+    await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'刷新状态'})).toBeFocused();await page.keyboard.press('Enter');await expect(page.getByRole('status')).toHaveText('本地状态已读取。');await expect(page.getByRole('button',{name:'刷新状态'})).toBeFocused();
     await expect(page.locator('#protected')).toContainText(j.id);await expect(page.locator('#protected')).toContainText(redactText(value));expect(await page.locator('#protected img').count()).toBe(0);
     await expect(page.locator('#protected')).toContainText('尚未观察到 Worker');
-    await page.keyboard.press('Tab');await expect(page.locator('summary')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('details')).toHaveAttribute('open','');
+    await page.keyboard.press('Tab');await expect(page.locator('.primary-action')).toBeFocused();await page.keyboard.press('Tab');await expect(page.getByRole('button',{name:'复制脱敏结果单'})).toBeFocused();await page.keyboard.press('Tab');await expect(page.locator('summary')).toBeFocused();await page.keyboard.press('Enter');await expect(page.locator('details')).toHaveAttribute('open','');
     expect(await page.locator('summary').evaluate(el=>getComputedStyle(el).outlineStyle)).toBe('solid');
     await expect(page.getByRole('status')).toHaveAttribute('aria-live','polite');expect(await page.locator('[aria-live]').count()).toBe(1);
     await page.evaluate(()=>{const events:string[]=[];(window as unknown as {announcements:string[]}).announcements=events;new MutationObserver(()=>events.push(document.querySelector('#feedback')!.textContent!)).observe(document.querySelector('#feedback')!,{childList:true});});
-    await page.getByRole('button').click();await expect(page.getByRole('status')).toHaveText('本地状态已读取。');await expect(page.getByRole('button')).toBeFocused();
+    await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.getByRole('status')).toHaveText('本地状态已读取。');await expect(page.getByRole('button',{name:'刷新状态'})).toBeFocused();
     expect(await page.evaluate(()=>(window as unknown as {announcements:string[]}).announcements)).toEqual(['正在读取本地服务状态…','本地状态已读取。']);
     for(const zoom of ['100%','200%']){await page.setViewportSize({width:320,height:800});await page.evaluate(z=>{document.documentElement.style.zoom=z;},zoom);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);}
   }finally{if(f)await f.close();await h.cleanup();}
@@ -43,8 +43,8 @@ test('offline after actual synthetic successful job labels historical completion
     await page.getByRole('button').click();await expect(page.locator('#protected')).not.toContainText('操作完成：目标版本已启动');
     const verifiedAt=new Date().toISOString();await f.projections.writeManifest({build:f.build,manifestHash:'e'.repeat(64),checkedAt:verifiedAt,evidence:'build_manifest'},{operationId,expectedGeneration:gate.generation});
     await f.projections.writeSelfcheck({jobId:j.id,featureResult:'pass',checkedAt:verifiedAt,probes},{operationId,expectedGeneration:gate.generation});
-    await page.getByRole('button').click();await expect(page.locator('#protected')).toContainText('操作完成：目标版本已启动');await expect(page.locator('#protected')).toContainText('build_manifest');
-    await context.setOffline(true);await page.getByRole('button').click();await expect(page.getByRole('status')).toContainText('以下为上次读取结果');
+    await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.locator('#protected')).toContainText('操作完成：目标版本已启动');await expect(page.locator('#protected')).toContainText('build_manifest');
+    await context.setOffline(true);await page.getByRole('button',{name:'刷新状态'}).click();await expect(page.getByRole('status')).toContainText('以下为上次读取结果');
     await expect(page.getByRole('heading',{name:'上次操作记录（旧快照）'})).toBeVisible();await expect(page.locator('#protected')).not.toContainText('API 可连接');await expect(page.locator('#protected')).toContainText('当前运行状态未确认');
   }finally{if(f)await f.close();await h.cleanup();}
 });
