@@ -7,10 +7,13 @@ import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import {
   SQLiteAccountBindingStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore,
+  SQLiteEvidenceLedger,
 } from '../../packages/persistence/src/auth.js';
 import type {
-  AccountBinding, ApprovedSourceConfig, ProfileOwnerIdentity, ProfileReservation, SourceId, SourceObservation,
+  AccountBinding, ApprovedSourceConfig, EvidenceReceipt, NativePlatform, ProfileOwnerIdentity, ProfileReservation, SourceId, SourceObservation,
 } from '../../packages/domain/src/model.js';
+import { Phase2GateSchema } from '../../packages/contracts/src/index.js';
+import type { EvidenceWriterAuthority } from '../../packages/application/src/ports.js';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -316,5 +319,109 @@ describe('profile ownership persistence', () => {
         nonce_hash: expect.stringMatching(/^[a-f0-9]{64}$/), control_proof_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/), managed_executable_identity: expect.stringMatching(/^[a-f0-9]{64}$/),
       });
     } finally { reopened.close(); }
+  });
+});
+
+const actualPlatform: NativePlatform = process.platform === 'win32' ? 'windows' : 'macos';
+function receipt(overrides: Partial<EvidenceReceipt> = {}): EvidenceReceipt {
+  const evidence = overrides.evidence ?? 'S';
+  const provenance = evidence === 'L'
+    ? { kind: 'human_action' as const, actionReceiptId: randomUUID() }
+    : { kind: 'automated' as const, evidence, producerId: 'phase2.integration' };
+  return {
+    receiptId: randomUUID(), buildId: fp('e'), version: '0.1.0-beta.1', platform: actualPlatform, source: 'moodle', scenario: 'a.login',
+    evidence, status: 'pass', resultCode: 'SYNTHETIC_PASS', bindingConsistency: 'consistent', gaps: [], checkedAt: at(1000), provenance,
+    ...overrides,
+  } as EvidenceReceipt;
+}
+function automated(evidence: 'S' | 'I' | 'N' = 'S', platform = actualPlatform): EvidenceWriterAuthority {
+  return { kind: 'automated', evidence, platform, producerId: 'phase2.integration' };
+}
+
+describe('append-only UAT ledger and evidence isolation', () => {
+  it('replays an identical receipt idempotently, rejects conflicts and links same-cell corrections without mutation', async () => {
+    const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
+    const first = receipt({ status: 'fail', resultCode: 'SYNTHETIC_FAILURE' });
+    await ledger.append(first, automated(), writeContext); await ledger.append(first, automated(), writeContext);
+    expect(db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 1 });
+    await expect(ledger.append({ ...first, status: 'pass', resultCode: 'SYNTHETIC_PASS' }, automated(), writeContext)).rejects.toMatchObject({ code: 'EVIDENCE_IDEMPOTENCY_CONFLICT' });
+    const correction = receipt({ resultCode: 'SYNTHETIC_CORRECTION' });
+    await ledger.append(correction, automated(), writeContext);
+    expect(await ledger.list({ platform: actualPlatform, source: 'moodle', scenario: 'a.login', evidence: 'S' })).toEqual([first, correction]);
+    const links = db.prepare('SELECT receipt_id,prior_event_id FROM uat_receipts ORDER BY recorded_at,event_id').all() as { receipt_id: string; prior_event_id: string | null }[];
+    expect(links[0]?.prior_event_id).toBeNull(); expect(links[1]?.prior_event_id).not.toBeNull();
+    const source = readFileSync(new URL('../../packages/persistence/src/auth.ts', import.meta.url), 'utf8');
+    expect(source.slice(source.indexOf('export class SQLiteEvidenceLedger'))).not.toMatch(/\b(?:UPDATE|DELETE|REPLACE)\s+uat_receipts\b/i);
+    db.close();
+    const reopened = openDatabase(path);
+    try { expect(await new SQLiteEvidenceLedger(reopened).list({ platform: actualPlatform, source: 'moodle', scenario: 'a.login', evidence: 'S' })).toEqual([first, correction]); }
+    finally { reopened.close(); }
+  });
+
+  it('keeps every scenario and source as a distinct exact cell', async () => {
+    const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 3000 });
+    const scenarios = ['a.login', 'a.binding', 'a.course_visibility', 'b.reopen_1', 'b.reopen_2', 'b.reopen_3', 'b.worker_restart', 'b.codex_exit', 'c.os_restart', 'd.24h_recheck', 'reauth'] as const;
+    for (let index = 0; index < scenarios.length; index++) {
+      const scenario = scenarios[index]!;
+      await ledger.append(receipt({ source: index % 2 === 0 ? 'moodle' : 'edstem', scenario, checkedAt: at(1000 + index) }), automated(), writeContext);
+    }
+    for (let index = 0; index < scenarios.length; index++) {
+      const scenario = scenarios[index]!;
+      expect(await ledger.list({ platform: actualPlatform, source: index % 2 === 0 ? 'moodle' : 'edstem', scenario, evidence: 'S' })).toHaveLength(1);
+    }
+    expect(db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: scenarios.length });
+    db.close();
+  });
+
+  it('rejects the complete automated authority contamination matrix without adding rows', async () => {
+    const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
+    const otherPlatform: NativePlatform = actualPlatform === 'macos' ? 'windows' : 'macos';
+    const invalid: [EvidenceReceipt, EvidenceWriterAuthority][] = [
+      [receipt({ evidence: 'I', provenance: { kind: 'automated', evidence: 'I', producerId: 'phase2.integration' } }), automated('S')],
+      [receipt(), automated('I')],
+      [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('S')],
+      [receipt({ evidence: 'L', provenance: { kind: 'human_action', actionReceiptId: randomUUID() } }), automated('S')],
+      [receipt({ platform: otherPlatform }), automated('S')],
+      [receipt({ evidence: 'N', platform: otherPlatform, provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('N', otherPlatform)],
+    ];
+    for (const [value, authority] of invalid) {
+      await expect(ledger.append(value, authority, writeContext)).rejects.toMatchObject({ code: 'EVIDENCE_AUTHORITY_MISMATCH' });
+      expect(db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 0 });
+    }
+    db.close();
+  });
+
+  it('allows only actual-platform S I N events while Windows or L gaps keep Phase 3 blocked', async () => {
+    const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
+    const receipts = (['S', 'I', 'N'] as const).map(evidence => receipt({ evidence, provenance: { kind: 'automated', evidence, producerId: 'phase2.integration' } }));
+    for (const value of receipts) await ledger.append(value, automated(value.evidence as 'S' | 'I' | 'N'), writeContext);
+    const otherPlatform: NativePlatform = actualPlatform === 'macos' ? 'windows' : 'macos';
+    expect(await ledger.list({ platform: otherPlatform, source: 'moodle', scenario: 'a.login', evidence: 'L' })).toEqual([]);
+    const gate = Phase2GateSchema.parse({
+      phase1Status: 'partial', macosFirstException: true, phase2Status: 'blocked', phase3Eligibility: 'blocked',
+      cells: [
+        { key: { platform: actualPlatform, source: 'moodle', scenario: 'a.login', evidence: 'S' }, status: 'pass', disposition: 'complete', latestReceiptId: receipts[0]!.receiptId },
+        { key: { platform: otherPlatform, source: 'moodle', scenario: 'a.login', evidence: 'L' }, status: 'not_run', disposition: 'human_needed', latestReceiptId: null },
+      ],
+    });
+    expect(gate).toMatchObject({ phase1Status: 'partial', phase2Status: 'blocked', phase3Eligibility: 'blocked' });
+    db.close();
+  });
+});
+
+describe('privacy backup evidence', () => {
+  it('rejects private receipt fields and keeps every sentinel out of DB WAL backup and query results', async () => {
+    const path = databasePath(); const backupPath = databasePath('ledger.backup.sqlite'); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
+    const privateSentinels = [
+      'PRIVATE_FULL_NAME', 'PRIVATE_SCHOOL_EMAIL', 'PRIVATE_COURSE_NAME', 'PRIVATE_PROFILE_CONTENT', 'PRIVATE_COOKIE_STATE',
+      'PRIVATE_PASSWORD_MFA_INPUT', 'PRIVATE_RAW_DOM_HTML', 'PRIVATE_REQUEST_RESPONSE', 'PRIVATE_SCREENSHOT_HAR_TRACE_VIDEO_CONSOLE',
+    ];
+    const malicious = { ...receipt(), fullName: privateSentinels[0], schoolEmail: privateSentinels[1], courseName: privateSentinels[2], profilePath: privateSentinels[3], cookie: privateSentinels[4], password: privateSentinels[5], rawHtml: privateSentinels[6], requestBody: privateSentinels[7], screenshot: privateSentinels[8] };
+    await expect(ledger.append(malicious as EvidenceReceipt, automated(), writeContext)).rejects.toThrow();
+    const safe = receipt(); await ledger.append(safe, automated(), writeContext); await db.backup(backupPath);
+    expect(await ledger.list({ platform: actualPlatform, source: 'moodle', scenario: 'a.login', evidence: 'S' })).toEqual([safe]);
+    const bytes = Buffer.concat([readFileSync(path), readFileSync(`${path}-wal`), readFileSync(backupPath)]).toString('utf8');
+    for (const sentinel of privateSentinels) expect(bytes).not.toContain(sentinel);
+    db.close();
   });
 });

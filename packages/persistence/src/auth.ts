@@ -2,10 +2,10 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { ZodError } from 'zod';
 import type {
-  AccountBindingStore, Clock, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
+  AccountBindingStore, Clock, EvidenceLedger, EvidenceWriterAuthority, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
 } from '../../application/src/ports.js';
 import type {
-  AccountBinding, ApprovedSourceConfig, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation,
+  AccountBinding, ApprovedSourceConfig, EvidenceCellKey, EvidenceReceipt, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation,
   SourceId, SourceObservation, WriteContext,
 } from '../../domain/src/model.js';
 import {
@@ -236,4 +236,12 @@ export class SQLiteProfileOwnershipStore implements ProfileOwnershipStore {
     const value = hash.slice(0, 32).split(''); value[12] = '4'; value[16] = '8'; const compact = value.join('');
     return `${compact.slice(0, 8)}-${compact.slice(8, 12)}-${compact.slice(12, 16)}-${compact.slice(16, 20)}-${compact.slice(20)}`;
   }
+}
+
+export class SQLiteEvidenceLedger implements EvidenceLedger {
+  constructor(readonly db: Database.Database, readonly clock: Clock = { now: () => Date.now() }) {}
+  async append(_receipt: EvidenceReceipt, _authority: EvidenceWriterAuthority, _context: WriteContext): Promise<void> {
+    throw new StorageError('NOT_IMPLEMENTED');
+  }
+  async list(_key: EvidenceCellKey): Promise<EvidenceReceipt[]> { throw new StorageError('NOT_IMPLEMENTED'); }
 }
