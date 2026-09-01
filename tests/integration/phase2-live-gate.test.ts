@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {chmodSync,existsSync,lstatSync,mkdtempSync,mkdirSync,readFileSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
+import {chmodSync,existsSync,lstatSync,mkdtempSync,mkdirSync,readFileSync,readdirSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach,describe,expect,it} from 'vitest';
@@ -15,7 +15,7 @@ import {
   verifyPhase2LiveCheckpoint,
 } from '../../scripts/release/phase2-live-gate.mjs';
 
-const sha=(value:unknown)=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex');
+const sha=(value:unknown)=>createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 const buildId='a'.repeat(64),artifactSha256='b'.repeat(64),manifestSha256='c'.repeat(64),version='0.1.0-beta.20';
 const observedAt='2026-09-01T08:00:00.000Z',now=Date.parse('2026-09-01T08:05:00.000Z');
 const roots:string[]=[];
@@ -77,7 +77,7 @@ describe('phase 2 immutable live gate',()=>{
 
   it('returns pass-only zero-file B3 and reauth handoffs from exact current L events',async()=>{
     const root=protectedRoot(),f=feedbacks();
-    for(const checkpoint of ['B3','reauth'] as const){const deps=fixture();const feedbackPath=writeFeedback(root,`${checkpoint}-result.json`,f[checkpoint]);const before=new Set(require('node:fs').readdirSync(root,{recursive:true}));const result=await recordPhase2LiveCheckpoint({checkpoint,feedbackPath,runtime:'current',platform:'macos',readOnlyInputs:true},deps);expect(result).toMatchObject({schema:1,status:'pass',checkpoint,platform:'macos',resultCode:checkpoint==='B3'?'B3_COMPLETE':'REAUTH_COMPLETE'});expect(new Set(require('node:fs').readdirSync(root,{recursive:true}))).toEqual(before);expect(deps.calls).toMatchObject({writes:0,append:0,db:0,profile:0,browser:0,source:0,process:0});}
+    for(const checkpoint of ['B3','reauth'] as const){const deps=fixture();const feedbackPath=writeFeedback(root,`${checkpoint}-result.json`,f[checkpoint]);const before=new Set(readdirSync(root,{recursive:true,encoding:'utf8'}));const result=await recordPhase2LiveCheckpoint({checkpoint,feedbackPath,runtime:'current',platform:'macos',readOnlyInputs:true},{...deps,repoRoot:root});expect(result).toMatchObject({schema:1,status:'pass',checkpoint,platform:'macos',resultCode:checkpoint==='B3'?'B3_COMPLETE':'REAUTH_COMPLETE'});expect(new Set(readdirSync(root,{recursive:true,encoding:'utf8'}))).toEqual(before);expect(deps.calls).toMatchObject({writes:0,append:0,db:0,profile:0,browser:0,source:0,process:0});}
   });
 
   it('supports every canonical read-only checkpoint for both platforms and exact B1 rounds',async()=>{
@@ -110,7 +110,7 @@ describe('phase 2 immutable live gate',()=>{
   it('rejects unsafe feedback and output filesystem surfaces without touching prior bytes or leaving temporaries',async()=>{
     const root=protectedRoot(),f=feedbacks(),deps=fixture({status:status('candidate')}),outside=mkdtempSync(join(tmpdir(),'autoed-feedback-outside-'));roots.push(outside);chmodSync(outside,0o700);const outsideFeedback=join(outside,'A1-result.json');writeFileSync(outsideFeedback,JSON.stringify(f.A1),{mode:0o600});
     await expect(recordPhase2LiveCheckpoint({checkpoint:'A1',feedbackPath:outsideFeedback,outPath:'.planning/phases/02-poc-live/02-16-A1-RECEIPT.json',runtime:'current',readOnlyInputs:true},{...deps,repoRoot:root})).rejects.toThrow('LIVE_GATE_FEEDBACK_UNSAFE');
-    const feedback=writeFeedback(root,'A1-result.json',f.A1),target=join(root,'.planning/phases/02-poc-live/02-16-A1-RECEIPT.json');symlinkSync(join(root,'nonexistent'),target);await expect(recordPhase2LiveCheckpoint({checkpoint:'A1',feedbackPath:feedback,outPath:'.planning/phases/02-poc-live/02-16-A1-RECEIPT.json',runtime:'current',readOnlyInputs:true},{...deps,repoRoot:root})).rejects.toThrow('LIVE_GATE_OUTPUT_UNSAFE');expect(lstatSync(target).isSymbolicLink()).toBe(true);expect(require('node:fs').readdirSync(join(root,'.planning/phases/02-poc-live')).filter((name:string)=>name.startsWith('.phase2-live-'))).toEqual([]);
+    const feedback=writeFeedback(root,'A1-result.json',f.A1),target=join(root,'.planning/phases/02-poc-live/02-16-A1-RECEIPT.json');symlinkSync(join(root,'nonexistent'),target);await expect(recordPhase2LiveCheckpoint({checkpoint:'A1',feedbackPath:feedback,outPath:'.planning/phases/02-poc-live/02-16-A1-RECEIPT.json',runtime:'current',readOnlyInputs:true},{...deps,repoRoot:root})).rejects.toThrow('LIVE_GATE_OUTPUT_UNSAFE');expect(lstatSync(target).isSymbolicLink()).toBe(true);expect(readdirSync(join(root,'.planning/phases/02-poc-live')).filter((name:string)=>name.startsWith('.phase2-live-'))).toEqual([]);
   });
 
   it('audits possible and required counts separately and keeps the 44 missing L cells visible',async()=>{
