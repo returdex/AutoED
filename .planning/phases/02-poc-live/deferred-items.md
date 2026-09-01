@@ -36,3 +36,7 @@
 ## Plan 02-37
 
 - **Out-of-scope verification environment conflict:** The managed Node 24.20.0 focused Phase 2 gate/API/persistence/security/workflow surface passes 58/58 integration tests, the complete native suite passes 24/24 and typecheck passes. Repository-wide unit and fixed-port installer runs still cannot bind loopback port `43187` while the existing installed Phase 1 API owns it; the observed failures are `PORT_CONFLICT_REPREVIEW`. Plan 02-37 does not authorize stopping an installed detached service or changing the fixed-port installation contract, so that process was not touched.
+
+## Plan 02-41
+
+- **Out-of-scope verification environment conflict:** The managed Node 24.20.0 focused release, live/update and trust regression passes 38/41 integration tests. The three existing `install-preview` cases stop at `PORT_CONFLICT_REPREVIEW` because the healthy installed Phase 1 API (PID observed as an installed `AutoED-Rebuild-M1` service, not a repository test process) owns fixed loopback port `43187`. Plan 02-41 does not authorize stopping the installed service or changing the installation contract. Excluding that known fixed-port fixture, all 38 executed release/toolchain tests pass; the Phase 2 release/live suites pass 26/26, and typecheck/syntax gates pass.
