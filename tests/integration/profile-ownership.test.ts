@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProfileOwnershipSchema } from '../../packages/contracts/src/index.js';
 import type { SecretStore } from '../../packages/application/src/ports.js';
@@ -26,8 +26,8 @@ class SyntheticSecretStore implements SecretStore {
 }
 
 function fixture(now = 1_000) {
-  const harness = createHarness(); harnesses.push(harness); protectPath(harness.root);
-  const selection: RootSelection = { root: join(harness.root, 'installation'), parent: harness.root, excludedRoots: [] };
+  const harness = createHarness(); harnesses.push(harness); const parent = realpathSync(harness.root); protectPath(parent);
+  const selection: RootSelection = { root: join(parent, 'installation'), parent, excludedRoots: [] };
   const paths = createManagedRoot(selection);
   const browserExecutable = join(paths.browser, 'managed-browser');
   writeFileSync(browserExecutable, 'synthetic executable identity', { mode: 0o600 }); protectPath(browserExecutable);
@@ -97,20 +97,25 @@ describe('protected Profile reservation and fencing', () => {
     await expect(value.coordinator.attach(reservation, { ...processIdentity(value), executable: process.execPath }))
       .rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
     expect(readFileSync(value.ownershipRecord)).toEqual(original);
-    expect(await value.coordinator.attach(reservation, processIdentity(value))).toMatchObject({
+    const owned = await value.coordinator.attach(reservation, processIdentity(value));
+    expect(owned).toMatchObject({
       state: 'owned', disposition: 'proceed', resultCode: 'PROFILE_OWNED', owner: processIdentity(value),
     });
+    const attached = readFileSync(value.ownershipRecord);
+    await expect(value.coordinator.release({ ...owned.owner!, nonce: randomUUID() })).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+    expect(readFileSync(value.ownershipRecord)).toEqual(attached);
   });
 
   it('never treats lease expiry or a higher generation and fence as exit or permission for a second holder', async () => {
     const value = fixture();
     const first = await value.coordinator.reserve(reserveInput(value));
+    const owned = await value.coordinator.attach(first.reservation!, processIdentity(value));
     value.setNow(first.leaseUntil! + 1);
     const expired = await value.coordinator.reserve(reserveInput(value));
     const fenced = await value.coordinator.reserve(reserveInput(value, 1, 1));
     for (const result of [expired, fenced]) expect(result).toMatchObject({
       state: 'in_use', disposition: 'human_needed', resultCode: 'PROFILE_IN_USE',
-      reservation: { nonce: first.reservation!.nonce },
+      reservation: { nonce: first.reservation!.nonce }, owner: { nonce: owned.owner!.nonce },
     });
     expect(JSON.parse(readFileSync(value.ownershipRecord, 'utf8'))).toMatchObject({
       reservation: { nonce: first.reservation!.nonce }, maximumGeneration: 1, maximumFence: 1,
@@ -118,7 +123,7 @@ describe('protected Profile reservation and fencing', () => {
     await expect(value.coordinator.attach(first.reservation!, processIdentity(value))).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
   });
 
-  it('derives only the protected managed Profile and fails closed for repository, legacy, excluded, cloud and linked roots', () => {
+  it('derives only the protected managed Profile and fails closed for repository, legacy, excluded, cloud and linked roots', async () => {
     const value = fixture();
     expect(verifyProtectedPath(value.paths.profile)).toBe(true);
     expect(verifyProtectedPath(value.paths.runtime)).toBe(true);
@@ -126,20 +131,27 @@ describe('protected Profile reservation and fencing', () => {
     const forbidden = [value.paths.profile, 'cookie', 'storagestate', 'password', 'token', '<html', 'header', 'body'];
     for (const sentinel of forbidden) expect(safeStrings(result)).not.toContain(sentinel.toLowerCase());
 
-    const linkedParent = join(value.harness.root, 'linked-parent'); symlinkSync(value.harness.root, linkedParent, 'dir');
+    const parent = value.selection.parent;
+    const linkedParent = join(parent, 'linked-parent'); symlinkSync(parent, linkedParent, 'dir');
     const invalid: RootSelection[] = [
-      { root: join(resolve('.'), 'synthetic-profile-installation'), parent: resolve('.'), excludedRoots: [] },
+      { root: join(resolve('.'), 'synthetic-profile-installation'), parent: resolve('.'), excludedRoots: [resolve('.')] },
       { root: join(homedir(), 'Documents', 'AutoED', 'synthetic-profile-installation'), parent: join(homedir(), 'Documents', 'AutoED'), excludedRoots: [] },
-      { root: join(value.harness.root, 'excluded', 'installation'), parent: join(value.harness.root, 'excluded'), excludedRoots: [join(value.harness.root, 'excluded')] },
-      { root: join(value.harness.root, 'Dropbox', 'installation'), parent: join(value.harness.root, 'Dropbox'), excludedRoots: [] },
+      { root: join(parent, 'excluded', 'installation'), parent: join(parent, 'excluded'), excludedRoots: [join(parent, 'excluded')] },
+      { root: join(parent, 'Dropbox', 'installation'), parent: join(parent, 'Dropbox'), excludedRoots: [] },
       { root: join(linkedParent, 'installation'), parent: linkedParent, excludedRoots: [] },
     ];
     for (const selection of invalid) {
-      expect(() => new FileProfileOwnershipCoordinator({
-        selection, installationId: value.installationId, browserBuildId: BUILD_ID, browserExecutable: value.browserExecutable,
-        secrets: new SyntheticSecretStore(), control: { request: async () => ({}) },
-      })).toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+      let failure: unknown;
+      try {
+        new FileProfileOwnershipCoordinator({
+          selection, installationId: value.installationId, browserBuildId: BUILD_ID, browserExecutable: value.browserExecutable,
+          secrets: new SyntheticSecretStore(), control: { request: async () => ({}) },
+        });
+      } catch (error) { failure = error; }
+      expect(failure).toMatchObject({ message: 'PROFILE_OWNERSHIP_UNCONFIRMED' });
+      for (const sentinel of forbidden) expect(safeStrings(failure)).not.toContain(sentinel.toLowerCase());
     }
+    await value.coordinator.reserve(reserveInput(value)); expect(verifyProtectedPath(value.ownershipRecord)).toBe(true);
   });
 });
 

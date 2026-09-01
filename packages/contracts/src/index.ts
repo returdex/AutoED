@@ -187,7 +187,8 @@ export const ProfileOwnershipSchema: z.ZodType<ProfileOwnership> = z.strictObjec
       : ownership.state === 'owned'
         ? ownership.disposition === 'proceed' && ownership.resultCode === 'PROFILE_OWNED' && pairMatches && ownership.leaseUntil !== null
         : ownership.state === 'in_use'
-          ? ownership.disposition === 'human_needed' && ownership.resultCode === 'PROFILE_IN_USE' && pairMatches
+          ? ownership.disposition === 'human_needed' && ownership.resultCode === 'PROFILE_IN_USE' &&
+            ownership.reservation !== null && (ownership.owner === null || pairMatches)
           : ownership.state === 'unconfirmed'
             ? ownership.disposition === 'human_needed' && ownership.resultCode === 'PROFILE_OWNERSHIP_UNCONFIRMED' && ownership.reservation !== null
             : ownership.disposition === 'cleanup_allowed' && ownership.resultCode === 'PROFILE_CONFIRMED_EXITED' && pairMatches;
