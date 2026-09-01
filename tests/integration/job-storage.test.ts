@@ -78,7 +78,7 @@ describe('real SQLite durable storage', () => {
     } finally { reopened.close(); }
   });
   it('rejects unknown schema instead of silently downgrading', () => {
-    const { db, path } = fixture(); db.pragma('user_version = 2'); db.close();
+    const { db, path } = fixture(); db.pragma('user_version = 3'); db.close();
     expect(() => openDatabase(path)).toThrow('SCHEMA_INCOMPATIBLE');
   });
   it('persists sanitized status, keeps success on error, expires freshness without changing health, and fences stale projections', async () => {
