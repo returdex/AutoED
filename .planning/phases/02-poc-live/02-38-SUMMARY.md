@@ -2,15 +2,15 @@
 phase: 02-poc-live
 plan: "38"
 subsystem: release-quality
-tags: [beta-selection, quality-gate, sensitive-scan, immutable-identity, update-freshness]
+tags: [beta-selection, quality-gate, sensitive-scan, immutable-identity, update-freshness, anonymous-readiness]
 requires:
   - phase: 02-poc-live
     plans: ["10", "11", "12", "36", "37", "41"]
     provides: production auth workflow, complete release contracts and fixed quality schemas
 provides:
-  - immutable unused Phase 2 identity 0.1.0-beta.30
+  - immutable unused Phase 2 identity 0.1.0-beta.31
   - exact build-bound five-suite automated test report
-  - explicit sanitized permanent invalidation of beta.21 through beta.29
+  - explicit sanitized permanent invalidation of beta.21 through beta.30
 affects: [02-39, 02-13, 02-14 through 02-34, Phase 2 release]
 tech-stack:
   added: []
@@ -24,51 +24,55 @@ key-files:
     - .planning/phases/02-poc-live/02-38-BETA-27-INVALIDATION.md
     - .planning/phases/02-poc-live/02-38-BETA-28-INVALIDATION.md
     - .planning/phases/02-poc-live/02-38-BETA-29-INVALIDATION.md
+    - .planning/phases/02-poc-live/02-38-BETA-30-INVALIDATION.md
   modified:
     - scripts/release/verify-phase2-update-gate.mjs
+    - scripts/release/verify-availability.mjs
     - tests/integration/phase2-release-gates.test.ts
     - tests/integration/phase2-live-gate.test.ts
 key-decisions:
   - "Published beta.25 remains immutable public history but is permanently invalidated as an active update candidate; its tag and assets were not changed or deleted."
   - "Volatile availability checkedAt is validated for format, freshness window and strict monotonicity separately from immutable identity/asset equality."
   - "Published beta.29 is permanently invalidated as availability-unproven after its first and only anonymous verifier attempt produced no availability receipt; its public objects remain untouched."
-  - "beta.30 is the next fully green monotonic identity and consumes all beta.1 through beta.29 history."
+  - "Published beta.30 is permanently invalidated as availability-unproven after the same pre-verifier CDN readiness race; its release, tag and assets remain untouched."
+  - "A bounded anonymous metadata/HEAD readiness gate now precedes the first and only full byte/hash/signature/closure verifier attempt without claiming availability."
+  - "beta.31 is the next fully green monotonic identity and consumes all beta.1 through beta.30 history."
 requirements-completed: []
-duration: 1h39min cumulative corrective reruns
+duration: 2h25min cumulative corrective reruns
 completed: 2026-09-02
 ---
 
 # Phase 2 Plan 38: Immutable Beta Quality Binding Summary
 
-**Beta.30 binds unchanged corrected production source to five freshly green managed-runtime suites after published beta.29 failed closed as availability-unproven; all historical public objects remain immutable while every Windows/live/Phase 3 gate remains blocking.**
+**Beta.31 binds the readiness-corrected production source to five freshly green managed-runtime suites after published beta.30 failed closed as availability-unproven; all historical public objects remain immutable while every Windows/live/Phase 3 gate remains blocking.**
 
 ## Performance
 
-- **Corrective reruns:** approximately 1 h 39 min cumulative
-- **Beta.30 availability-race rollover:** 24 min
+- **Corrective reruns:** approximately 2 h 25 min cumulative
+- **Beta.31 readiness-correction and quality rerun:** approximately 46 min
 - **Tasks:** 2
-- **RED/GREEN commits:** 2
+- **RED/GREEN commits:** 4
 - **Fixture correction commits:** 1
-- **Invalidation commits:** 5
-- **Selection/report commits:** 5 selections, 2 complete reports; beta.30 is the sole active pair
+- **Invalidation commits:** 6
+- **Selection/report commits:** 6 selections, 3 complete reports; beta.31 is the sole active pair
 
 ## Selected Identity
 
 | Field | Value |
 |---|---|
-| Version | `0.1.0-beta.30` |
-| Tag | `v0.1.0-beta.30` |
-| Source commit | `0f3be001fa259890041273eee01119b1ba8edc1e` |
-| Source tree | `6b376beab7e9c3ff50775e45d3eddd54f0bb846b` |
-| Build ID | `0e21bf7543475c368f7ef3a5548956e075fa05c65c1fd583840e1c30fa3d88b6` |
-| Source SHA-256 | `3b6d88ca9b467ae8088a79b92bea1a5663c13bb4041c97b0363ea3a6e7c75a7c` |
-| Version-set SHA-256 | `bc6be86a0ba99d94345462d3173c45e7e3dc1c64bec547ad2d77d9cc6a74ef8d` |
-| Selection SHA-256 | `54d163b61ee66d1e7409ad7e19e77c7e3588bfbffc1531ecfb32f9b7d477103c` |
-| Test-report SHA-256 | `f12d14cbece2461280c1a0422b50e7d957b5f8bdac80ce02f828771f5cd960d7` |
+| Version | `0.1.0-beta.31` |
+| Tag | `v0.1.0-beta.31` |
+| Source commit | `7e3044fbfc66ef14431f419e56c833951e24e4f9` |
+| Source tree | `786707f3e0f3e011ecf8fb39901e2e1578b6959a` |
+| Build ID | `003e0aa9ee74b77123741b9dbbc4f723acfd1783bee6b59054f49c46caff0a7f` |
+| Source SHA-256 | `71032dfe380ae7040953745e0daf29e4848200b930aec5e702fd98657a7714ae` |
+| Version-set SHA-256 | `5dac58ea491d3a1547fdab2619f61901b7b72c20c3f2a6ea79fa858cbb5807b5` |
+| Selection SHA-256 | `09502dcab1c9b1bab4f3b70d89d7436835ded3d5deec1b215d404528bf36c2e4` |
+| Test-report SHA-256 | `356a3cbe76475c5980667af17b8eb3588df15b66bb5dd07db7fa308f7f90b384` |
 | Trust fingerprint | `fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557` |
 | License | `PolyForm-Noncommercial-1.0.0` |
 
-Fresh unauthenticated/direct-remote checks confirmed beta.30 had no local tag, direct-remote tag or public release before selection. Its version-set digest consumes every beta from 1 through 29, including published invalidated beta.25 and beta.29 plus unpublished invalidated identities, so none can be reused. The production source digest is byte-identical to beta.29; only immutable release-history metadata advanced.
+Fresh unauthenticated/direct-remote checks confirmed beta.31 had no local tag, direct-remote tag or public release before selection. Its version-set digest consumes every beta from 1 through 30, including published invalidated beta.25, beta.29 and beta.30 plus unpublished invalidated identities, so none can be reused. The source contains only the narrowly tested anonymous readiness correction and its regression coverage beyond beta.30.
 
 ## Automated Evidence
 
@@ -78,15 +82,15 @@ All commands ran through the repository-approved managed Node `v24.20.0` runtime
 |---|---:|---:|---:|---|
 | Typecheck | 1 command | 0 | 0 | `c8cdec81b63a83f09579ad0f57459db7cda7610a31a3a4d482fc74384df5b02d` |
 | Unit | 143 | 0 | 0 | `b98c3b0584afe9dfa05fc96c87f247733c92ebd894229fb80b5e46c6035d8f50` |
-| Integration | 349 | 0 | 0 | `b596a73c156f87c41f683dc1f4767070d87cf9eb22ebcb0503bff0ecbf90e0ea` |
+| Integration | 352 | 0 | 0 | `b596a73c156f87c41f683dc1f4767070d87cf9eb22ebcb0503bff0ecbf90e0ea` |
 | UI | 34 | 0 | 0 | `84d510b7e28d16445e7d3212cabe49a7cd8dd0280e5c5528b395f7527c9a7ca9` |
 | macOS native | 24 | 0 | 0 | `50ca1a215155bb52b4fd8ced7a16c49135b26fc0fe3b6e1e6c2cc3882e599c66` |
 
 - Task 1 focused selection gate: **3/3 passed**.
 - No `describe/it/test.skip`, `.todo` or `.only` invocation exists in the test tree.
-- Sensitive scan: **0 findings** over `tracked`, `history`, `working_tree` and `captured_output`; digest `40a4747d3950cd2c0b38767e4b1813b08b1e0c84b95daf80e6eca78df352c2cb`.
-- Scan coverage: 304 tracked/current files (3,992,069 bytes), 967 reachable selected-history blobs with three existing exact reviewed-fixture exceptions, and five fresh beta.30 logs (16,197 bytes).
-- Final ignored generated output was rebuilt from exact selected commit `0f3be00` and matches beta.30 commit/tree/build/source identity.
+- Sensitive scan: **0 findings** over `tracked`, `history`, `working_tree` and `captured_output`; digest `b2b4e1877a00517279824aee269efbca02d766fbdaf4ecd8987351d9a670deb0`.
+- Scan coverage: 305 tracked/current files (4,012,374 bytes), 984 reachable selected-history blobs with three existing exact reviewed-fixture exceptions, and five fresh beta.31 logs (16,422 bytes).
+- Final ignored generated output was rebuilt from exact selected commit `7e3044f` and matches beta.31 commit/tree/build/source identity.
 
 ## Invalidation History
 
@@ -98,7 +102,8 @@ All commands ran through the repository-approved managed Node `v24.20.0` runtime
 | beta.27 | unpublished, permanently invalidated | Complete integration passed 348/349; the old positive live-gate fixture used a nonmonotonic equal timestamp. |
 | beta.28 | unpublished, permanently invalidated | Complete integration passed 348/349; one transient macOS process-observation cleanup failed, and the exact focused recheck then passed without source change. |
 | beta.29 | published, historical, permanently invalidated | Release `380689537`, tag and both assets exist, but the first and only anonymous verifier attempt produced no availability receipt. Public objects remain untouched; the identity must never be retried, reused or overwritten. |
-| beta.30 | active selection/report only | All five suites, zero-disabled gate and four-surface scan passed freshly against unchanged production source. No signing, assembly or publication has occurred. |
+| beta.30 | published, historical, permanently invalidated | Release `380716930`, tag and both assets exist, but the first and only anonymous verifier attempt again reached the CDN before both exact assets were ready and produced no availability receipt. Public objects remain untouched; the identity must never be retried, reused or overwritten. |
+| beta.31 | active selection/report only | All five suites, zero-disabled gate and four-surface scan passed freshly against the readiness-corrected source. No signing, assembly or publication has occurred. |
 
 ## Task Commits
 
@@ -117,6 +122,11 @@ All commands ran through the repository-approved managed Node `v24.20.0` runtime
 13. **Invalidate published availability-unproven beta.29 without remote mutation** — `0f3be00`
 14. **Task 1: lock beta.30** — `887d57d`
 15. **Task 2: bind complete fresh beta.30 quality evidence** — `d055b20`
+16. **RED: define bounded anonymous pre-verifier readiness** — `c43797d`
+17. **GREEN: implement exact metadata/HEAD readiness before the one verifier** — `666d3a8`
+18. **Invalidate published availability-unproven beta.30 without remote mutation** — `7e3044f`
+19. **Task 1: lock beta.31** — `27088ac`
+20. **Task 2: bind complete fresh beta.31 quality evidence** — `670299d`
 
 ## Deviations from Plan
 
@@ -136,18 +146,25 @@ All commands ran through the repository-approved managed Node `v24.20.0` runtime
 - **Fix:** Changed only the fresh synthetic receipt to a later valid in-window timestamp while keeping immutable fields exact.
 - **Commit:** `d83415c`; focused live/release tests passed 34/34.
 
-**3. [Rule 3 - Generated Build Output] Restored the selected beta.30 generated identity**
+**3. [Rule 1 - Anonymous CDN Readiness] Added a bounded gate before the first full verifier attempt**
+
+- **Found during:** beta.29 and beta.30 publication availability verification
+- **Issue:** Both immutable releases were published successfully, but the first and only full anonymous byte verifier reached GitHub's CDN before both exact assets were ready. The no-retry contract correctly left each release availability-unproven, revealing the need for readiness observation before consuming the verifier attempt.
+- **Fix:** Poll only exact anonymous release metadata and safe HEAD/redirect/content-length state for the two allowlisted asset IDs/URLs. The gate has a fixed 120-second ceiling and fixed seven-attempt schedule, treats only an explicit transient HTTP set as retryable, makes no byte/signature/receipt/pass claim, and invokes the full verifier exactly once only after both assets are ready. Identity, redirect, length and timeout failures remain fail closed.
+- **Commits:** RED `c43797d`, GREEN `666d3a8`; focused readiness 3/3, full release gates 22/22, typecheck and syntax all passed.
+
+**4. [Rule 3 - Generated Build Output] Restored the selected beta.31 generated identity**
 
 - **Found during:** final source/build binding
 - **Issue:** Integration fixtures rebuilt ignored `dist/build` for their current test identity.
-- **Fix:** Rebuilt variant B from selected commit `0f3be00` in an isolated local clone, copied only generated output, and revalidated exact commit/tree/build/source binding. The first driver invocation stopped before output because macOS canonicalized `/tmp` to `/private/tmp`; rerunning the identical entrypoint through `realpath` produced the exact selected build.
+- **Fix:** Rebuilt variant B from selected commit `7e3044f` in an isolated local clone, copied only generated output, and revalidated exact commit/tree/build/source binding.
 - **Commit:** no tracked source change.
 
-The beta.26 host-runtime failure, beta.28 transient OS process-observation failure and beta.29 anonymous verifier race were not hidden or converted into passes. Each consumed its selected identity and forced a complete fresh rerun.
+The beta.26 host-runtime failure, beta.28 transient OS process-observation failure and beta.29/beta.30 anonymous verifier races were not hidden or converted into passes. Each consumed its selected identity and forced a complete fresh rerun.
 
 ## TDD Gate Compliance
 
-The approved correction has an explicit RED/GREEN sequence: `348e9f4` fails the valid-later, nonmonotonic and immutable-drift cases; `ef52b6c` passes them with the narrow fail-closed implementation. The later `d83415c` change updates only a directly related positive fixture exposed by the complete gate.
+Both approved corrections have explicit RED/GREEN sequences: `348e9f4` → `ef52b6c` separates volatile receipt time from immutable identity, while `c43797d` → `666d3a8` adds bounded anonymous readiness without consuming or duplicating the one full verifier attempt. The later `d83415c` change updates only a directly related positive fixture exposed by the complete gate.
 
 ## Hard Gaps
 
@@ -175,19 +192,19 @@ None. No signing key, GitHub authentication, school authentication or MFA was ac
 
 - No signing, Keychain access, assembly, tag, publication, push, remote mutation, installation or update occurred.
 - No login, Profile, school/source, live UAT or EvidenceLedger L action occurred.
-- Public beta.25 and beta.29 remain intact as immutable historical data. Neither is an active install/update candidate, and neither was overwritten or deleted by this rerun.
+- Public beta.25, beta.29 and beta.30 remain intact as immutable historical data. None is an active install/update candidate, and none was overwritten or deleted by this rerun.
 
 ## Next Phase Readiness
 
-- Plan 02-39 must assemble and sign fresh beta.30 artifacts from the exact selection/report. No beta.25–beta.29 artifact, prompt, receipt or result may be reused or relabelled.
-- Plan 02-13 must then publish beta.30 through its separate no-overwrite/public-versus-consumed flow before Plan 02-14 can restart.
+- Plan 02-39 must assemble and sign fresh beta.31 artifacts from the exact selection/report. No beta.25–beta.30 artifact, prompt, receipt or result may be reused or relabelled.
+- Plan 02-13 must then publish beta.31 through its separate no-overwrite/public-versus-consumed flow and the new readiness-before-verification contract before Plan 02-14 can restart.
 - Windows native and all live login/reopen/restart/Codex-exit/cross-day/reauth checks remain `not_run/human_needed`; Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
-- Active selection/report files exist and validate to canonical SHA-256 `54d163b61ee66d1e7409ad7e19e77c7e3588bfbffc1531ecfb32f9b7d477103c` and `f12d14cbece2461280c1a0422b50e7d957b5f8bdac80ce02f828771f5cd960d7`.
-- All fifteen corrective/invalidation/selection/report commits listed above resolve in Git; no task commit deleted an unrelated tracked file.
-- beta.25–beta.29 invalidation records exist; beta.29 release `380689537` remains public historical data, and beta.30 remains absent from local/direct-remote tags and public releases.
+- Active selection/report files exist and validate to canonical SHA-256 `09502dcab1c9b1bab4f3b70d89d7436835ded3d5deec1b215d404528bf36c2e4` and `356a3cbe76475c5980667af17b8eb3588df15b66bb5dd07db7fa308f7f90b384`.
+- All twenty corrective/invalidation/selection/report commits listed above resolve in Git; no task commit deleted an unrelated tracked file.
+- beta.25–beta.30 invalidation records exist; beta.29 release `380689537` and beta.30 release `380716930` remain public historical data, and beta.31 remains absent from local/direct-remote tags and public releases.
 - Final source/build binding, receipt validation and `git diff --check` pass.
 
 ---
