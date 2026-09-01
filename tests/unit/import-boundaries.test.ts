@@ -16,9 +16,12 @@ function boundaryErrors(graph: Graph): string[] {
       const credentialEdge = file === 'packages/client/src/credentials.ts' && target === 'packages/platform/src/credentials.ts';
       const discoveryEdge = file === 'packages/client/src/discovery.ts' && ['packages/platform/src/installation.ts','packages/platform/src/client-endpoint.ts'].includes(target);
       const hostEdge = file === 'packages/client/src/host.ts' && target === 'packages/platform/src/client-host.ts';
+      const authenticatedClientEdge = file === 'packages/client/src/http.ts' && target === 'packages/application/src/policy.ts';
       const forbidden = tier === 'domain' ? !target.startsWith('packages/domain/')
         : tier === 'application' ? (local ? !/^packages\/(application|domain|contracts)\//.test(target) : !['zod', 'node:crypto'].includes(target))
-        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring)(?:\/|$)/.test(target) || /^packages\/(persistence|platform)\//.test(target) && !credentialEdge && !discoveryEdge && !hostEdge || /profile/i.test(target);
+        : /^(node:)?(fs|fs\/promises|child_process|process|worker_threads)$/.test(target) || /^(better-sqlite3|@napi-rs\/keyring|playwright)(?:\/|$)/.test(target) ||
+          /^packages\/persistence\//.test(target) || file.startsWith('packages/client/') && /^packages\/application\//.test(target) && !authenticatedClientEdge ||
+          /^packages\/platform\//.test(target) && !credentialEdge && !discoveryEdge && !hostEdge || /(?:profile|browser|store)(?:[-/.]|$)/i.test(target);
       if (forbidden) errors.push(`${tier}: ${file} -> ${target}`);
       else if (local && !credentialEdge && !discoveryEdge && !hostEdge) traverse(target, tier, seen);
     }
@@ -56,6 +59,27 @@ describe('transitive architecture boundaries', () => {
       ['apps/mcp/src/main.ts', ['../../../packages/client/src/http.js']],
       ['packages/client/src/http.ts', ['../../persistence/src/database.js']],
     ]))).toHaveLength(3);
+  });
+  it('rejects application driver imports and MCP bypasses of the authenticated client boundary', () => {
+    expect(boundaryErrors(new Map([['packages/application/src/auth.ts', ['playwright']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['packages/application/src/auth.ts', ['../../platform/src/browser.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['packages/application/src/auth.ts', ['../../persistence/src/auth.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/client/src/http.js']], ['packages/client/src/http.ts', ['../../application/src/ports.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/client/src/browser.js']]]))).toHaveLength(1);
+    expect(boundaryErrors(new Map([['apps/mcp/src/main.ts', ['../../../packages/client/src/profile-store.js']]]))).toHaveLength(1);
+  });
+  it('publishes only sealed Phase 2 ports with exact ownership and evidence keys', () => {
+    const source = readFileSync('packages/application/src/ports.ts', 'utf8');
+    for (const name of [
+      'SourceProbePort', 'SourceConfigStore', 'SourceObservationStore', 'AccountBindingStore',
+      'ProfileOwnershipStore', 'EvidenceLedger', 'ProfileOwnershipCoordinator',
+    ]) expect(source).toMatch(new RegExp(`export interface ${name}\\b`));
+    expect(source).toMatch(/probe\(request: SourceProbeRequest, signal: AbortSignal\): Promise<SourceProbeResult>/);
+    expect(source).toMatch(/list\(key: EvidenceCellKey\): Promise<EvidenceReceipt\[\]>/);
+    expect(source).toMatch(/reserve\(/);
+    expect(source).toMatch(/attach\(/);
+    expect(source).toMatch(/markConfirmedExited\(/);
+    expect(source).not.toMatch(/\b(?:navigate|evaluate|selector|browserHandle|download|upload|postBody|storageState|profilePath)\b/);
   });
   it('allows only the narrow approved client credential/discovery adapters', () => {
     expect(boundaryErrors(new Map([
