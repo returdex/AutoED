@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: User approved the two-layer install-prompt contract; resuming Plan 02-39
-last_updated: "2026-09-01T05:48:36.961Z"
+stopped_at: Plan 02-38 revalidated corrected source as beta.23; Plan 02-39 may resume local assembly/signing
+last_updated: "2026-09-01T13:19:24.000Z"
 last_activity: 2026-09-01
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Apply the approved two-layer install-prompt contract, then assemble, sign and locally verify beta.22 without publication.
+**Current focus:** Resume Plan 02-39 local assembly/signing from the corrected beta.23 selection without publication.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-39 resumed; 17 of 41 completed
-Status: Executing the explicitly approved two-layer prompt correction
+Plan: 02-38 revalidated; 17 of 41 completed; 02-39 ready to resume
+Status: Corrected beta.23 selected after fresh complete green gates; unsigned and unpublished
 Last activity: 2026-09-01
 
 Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -45,7 +45,7 @@ Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 17 completed / 41 planned | In progress; beta.22 selected after complete green gates, but not signed/published and live/Windows gates remain blocked | N/A |
+| 2 | 17 completed / 41 planned | In progress; drifted beta.22 invalidated and beta.23 selected after fresh complete green gates; not signed/published and live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
@@ -131,6 +131,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T05:48:36.957Z
-Stopped at: Completed 02-08-PLAN.md
+Last session: 2026-09-01T13:19:24.000Z
+Stopped at: Revalidated 02-38-PLAN.md after approved two-layer prompt correction
 Resume file: None
