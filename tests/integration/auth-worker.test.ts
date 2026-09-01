@@ -217,18 +217,23 @@ function intercepted(store: AuthJobStore, handlers: Partial<{
 }
 
 describe('T2-05 request and commit fencing', () => {
-  it('before-request cancellation prevents any SourceProbePort call', async () => {
+  it.each(['cancel', 'expired lease', 'stale generation', 'stale fence'] as const)('before-request %s prevents any SourceProbePort call', async loss => {
     const f = fixture(); const requested = await f.service.requestProbe(command('moodle'), context);
     let checks = 0;
     const store = intercepted(f.store, {
       assertCurrent: async (...args) => {
-        if (++checks === 1) await f.store.requestCancel(requested.jobId, 'moodle', context);
+        if (++checks === 1) {
+          if (loss === 'cancel') await f.store.requestCancel(requested.jobId, 'moodle', context);
+          else if (loss === 'expired lease') f.db.prepare('UPDATE source_auth_jobs SET lease_until=0 WHERE id=?').run(requested.jobId);
+          else if (loss === 'stale generation') f.db.prepare('UPDATE source_auth_jobs SET generation=generation+1 WHERE id=?').run(requested.jobId);
+          else f.db.prepare('UPDATE source_auth_jobs SET fence=fence+1 WHERE id=?').run(requested.jobId);
+        }
         return f.store.assertCurrent(...args);
       },
     });
     const port = new QueueProbe([result('moodle', 'AUTHENTICATED', iso(0))]);
     await expect(new AuthJobRunner(store, port, { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 }).runOnce('old', context))
-      .rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+      .rejects.toMatchObject({ code: expect.stringMatching(/CANCEL|LEASE|GENERATION/) });
     expect(port.calls).toHaveLength(0);
     expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
   });
@@ -254,17 +259,22 @@ describe('T2-05 request and commit fencing', () => {
     expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
   });
 
-  it('before-commit authority loss discards the late result and writes no observation or follow-up', async () => {
+  it.each(['cancel', 'expired lease', 'stale generation', 'stale fence'] as const)('before-commit %s discards the late result and writes no observation or follow-up', async loss => {
     const f = fixture(); const requested = await f.service.requestProbe(command('moodle', 'user_login_completed'), context);
     let checks = 0;
     const store = intercepted(f.store, {
       assertCurrent: async (...args) => {
-        if (++checks === 2) await f.store.requestCancel(requested.jobId, 'moodle', context);
+        if (++checks === 2) {
+          if (loss === 'cancel') await f.store.requestCancel(requested.jobId, 'moodle', context);
+          else if (loss === 'expired lease') f.db.prepare('UPDATE source_auth_jobs SET lease_until=0 WHERE id=?').run(requested.jobId);
+          else if (loss === 'stale generation') f.db.prepare('UPDATE source_auth_jobs SET generation=generation+1 WHERE id=?').run(requested.jobId);
+          else f.db.prepare('UPDATE source_auth_jobs SET fence=fence+1 WHERE id=?').run(requested.jobId);
+        }
         return f.store.assertCurrent(...args);
       },
     });
     const runner = new AuthJobRunner(store, new QueueProbe([result('moodle', 'AUTHENTICATED', iso(0))]), { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 });
-    await expect(runner.runOnce('old', context)).rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    await expect(runner.runOnce('old', context)).rejects.toMatchObject({ code: expect.stringMatching(/CANCEL|LEASE|GENERATION/) });
     expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
     expect(f.db.prepare('SELECT count(*) AS n FROM source_auth_jobs WHERE parent_job_id IS NOT NULL').get()).toEqual({ n: 0 });
   });
@@ -293,7 +303,7 @@ describe('T2-05 request and commit fencing', () => {
       databasePath: f.databasePath,
       owner: 'combined',
       build,
-      auth: { probes: new QueueProbe([result('edstem', 'AUTHENTICATED', iso(0))]), clock: f.clock },
+      auth: { probes: new QueueProbe([result('edstem', 'AUTHENTICATED', iso(0))]), evidence: 'S/I', clock: f.clock },
     });
     cleanups.push(() => worker.stop());
     const deadline = Date.now() + 5_000;

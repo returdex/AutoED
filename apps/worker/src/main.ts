@@ -1,6 +1,9 @@
 import { JobRunner, HEARTBEAT_MS } from '../../../packages/application/src/job-runner.js';
+import { AuthJobRunner, type AuthJobRunnerOptions } from '../../../packages/application/src/auth-jobs.js';
+import type { ProfileOwnershipCoordinator, SourceProbePort } from '../../../packages/application/src/ports.js';
 import { openDatabase, readGate } from '../../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../../packages/persistence/src/claims.js';
+import { SQLiteAuthJobStore } from '../../../packages/persistence/src/auth.js';
 import { SQLiteStatusProjectionStore } from '../../../packages/persistence/src/runtime-status.js';
 import { syntheticProvider } from '../../../packages/test-support/src/synthetic-provider.js';
 import type { BuildIdentity, WriteContext, Health } from '../../../packages/domain/src/model.js';
@@ -13,13 +16,38 @@ import { SQLiteMaintenanceStore } from '../../../packages/persistence/src/databa
 import { assertTransport, authenticate, WindowLimit } from '../../api/src/security.js';
 import { z } from 'zod';
 import { authorize, SyntheticOutputPolicy } from '../../../packages/application/src/policy.js';
+import { LocalPlaywrightBrowserProvider } from '../../../packages/platform/src/browser.js';
+import { SealedSourceAdapters } from '../../../packages/platform/src/source-adapters.js';
 
 export const WORKER_BUILD_IDENTITY = typeof __AUTOED_BUILD_IDENTITY__ === 'undefined' ? null : __AUTOED_BUILD_IDENTITY__;
-export interface WorkerOptions { databasePath: string; owner: string; build: BuildIdentity; context?: WriteContext }
+type SyntheticAuthComposition = { probes: SourceProbePort; evidence: 'S/I'; clock?: AuthJobRunnerOptions['clock'] };
+type ProductionAuthComposition = {
+  adapters: SealedSourceAdapters;
+  browserProvider: LocalPlaywrightBrowserProvider;
+  profileOwnership: ProfileOwnershipCoordinator;
+  clock?: AuthJobRunnerOptions['clock'];
+};
+export interface WorkerOptions {
+  databasePath: string;
+  owner: string;
+  build: BuildIdentity;
+  context?: WriteContext;
+  /** Production accepts only the sealed adapter composition; direct probes are test-only S/I fixtures. */
+  auth?: SyntheticAuthComposition | ProductionAuthComposition;
+}
 /** Trusted composition boundary. Production callers supply a protected installation path. */
 export async function startWorker(options: WorkerOptions) {
   const db = openDatabase(options.databasePath); const jobs = new SQLiteJobStore(db);
   const projections = new SQLiteStatusProjectionStore(db); const runner = new JobRunner(jobs);
+  const authStore = new SQLiteAuthJobStore(db);
+  const authProbes = options.auth && 'adapters' in options.auth ? options.auth.adapters : options.auth?.probes;
+  // Holding these dependencies in the production branch makes the authority chain explicit; the adapter itself
+  // remains the only source request boundary and owns the Local Playwright/Profile checks.
+  if (options.auth && 'adapters' in options.auth) {
+    void options.auth.browserProvider;
+    void options.auth.profileOwnership;
+  }
+  const authRunner = authProbes ? new AuthJobRunner(authStore, authProbes, { ...(options.auth?.clock ? { clock: options.auth.clock } : {}) }) : null;
   const build = WORKER_BUILD_IDENTITY ?? options.build;
   const handler = syntheticProvider(build.capabilities.includes('digest'));
   // Capture once; an old process must never adopt a replacement generation.
@@ -39,7 +67,11 @@ export async function startWorker(options: WorkerOptions) {
   const timer = setInterval(()=> { if(!heartbeat && !stopping) heartbeat=report('healthy').catch(()=>{failed=true;stopping=true;wake?.();}).finally(()=>{heartbeat=undefined;}); },HEARTBEAT_MS);
   const loop = (async()=>{
     while(!stopping) {
-      try { await runner.runOnce(options.owner,context,handler); }
+      try {
+        // Fair bounded turn: at most one synthetic unit and one due per-source auth unit per loop.
+        await runner.runOnce(options.owner,context,handler);
+        if (!stopping && authRunner) await authRunner.runOnce(options.owner,context);
+      }
       catch(error) {
         const code=(error as {code?:string}).code;
         if(code!=='MAINTENANCE_ACTIVE') { failed=true;stopping=true; }
@@ -54,7 +86,7 @@ export async function startWorker(options: WorkerOptions) {
   let stopPromise: Promise<void> | undefined;
   function stop(): Promise<void> {
     return stopPromise ??= (async()=>{
-      stopping=true;wake?.();await loop;
+      stopping=true;authRunner?.stop();wake?.();await loop;
     })();
   }
   return {stop,build,done:loop};

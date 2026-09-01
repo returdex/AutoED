@@ -224,6 +224,7 @@ export class AuthJobRunner {
         }, controller.signal);
       } catch (error) {
         if (controller.signal.aborted && heartbeatError) throw heartbeatError;
+        if (controller.signal.aborted) throw Object.assign(new Error('AUTH_RUNNER_STOPPED'), { code: 'AUTH_RUNNER_STOPPED' });
         const failure = failureResult(claimed, errorCode(error), this.clock.now());
         probeResult = failure.result;
         interactionRequired = failure.interactionRequired;
