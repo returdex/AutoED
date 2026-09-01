@@ -33,14 +33,17 @@ for(const stale of ['cli','mcp','worker','manifest'] as const)it(`selfcheck reco
     const operationId=await exclusive(f,stale==='worker'?old:f.build);const {runSelfcheck}=await import(pathToFileURL(join(f.out,'scripts/install/selfcheck.mjs')).href);
     const result=await runSelfcheck({selection:f.selection,managedNode:process.execPath,cliEntry,mcpEntry,manifestPath:join(f.out,'build/identity.json'),operationId,generation:0});
     expect(result.matched).toBe(false);expect(result.featureResult).toBe('fail');const status=await (await f.request('/api/status')).json();expect(status.selfcheck.featureResult).toBe('fail');
-    expect(stale==='manifest'?status.manifest.build.buildId:status.selfcheck.probes.find((p:{role:string})=>p.role===stale).build.buildId).toBe(old.buildId);
+    if(stale==='mcp'){
+      expect(status.manifest).toBeNull();expect(status.selfcheck.probes.some((p:{role:string})=>p.role==='mcp')).toBe(false);
+      expect(status.selfcheck.probes).toEqual(result.probes);
+    }else expect(stale==='manifest'?status.manifest.build.buildId:status.selfcheck.probes.find((p:{role:string})=>p.role===stale).build.buildId).toBe(old.buildId);
   }finally{await f.cleanup();}
 },60000);
 
 it('official stdio exposes only three strict tools, denies browser instructions and reports stopped API without autostart',async()=>{
   const f=await createNativeRuntime();let client:Client|undefined;try{
     expect((await f.runCli(['start'])).code).toBe(0);client=new Client({name:'synthetic-contract-client',version:'0.1.0'});
-    const transport=new StdioClientTransport({command:process.execPath,args:[f.entries.mcp,'--root',f.selection.root,'--parent',f.selection.parent],cwd:f.out,stderr:'pipe',maxBufferSize:131072});
+    const transport=new StdioClientTransport({command:process.execPath,args:[f.entries.mcp,'--root',f.selection.root,'--parent',f.selection.parent],cwd:f.out,stderr:'pipe',maxBufferSize:131072,env:{AUTOED_SYNTHETIC_TEST:'1',AUTOED_SYNTHETIC_PORT:String(f.metadata.port)}});
     transport.stderr?.on('data',()=>{});await client.connect(transport);
     expect((await client.listTools()).tools.map(t=>t.name).sort()).toEqual(['autoed_job_get','autoed_selftest','autoed_status']);
     for(const field of ['url','js','selector','path','root']){let denied=false;try{const result=await client.callTool({name:'autoed_status',arguments:{[field]:'untrusted'}});denied=result.isError===true;}catch{denied=true;}expect(denied).toBe(true);}
