@@ -3,3 +3,8 @@
 ## Plan 02-01
 
 - **Out-of-scope verification environment conflict:** The full unit suite cannot run four existing `tests/unit/credential-redaction.test.ts` cases while the installed Phase 1 API owns the fixed loopback port `43187`. The approved Node 24.20.0 toolchain clears the separate host-Node mismatch and runs 65/69 tests successfully; all 30 Plan 02-01 targeted tests pass. Plan 02-01 does not authorize stopping the installed service or changing the fixed-port Phase 1 contracts, so this remains a verification-environment item for orchestration or a later approved maintenance window.
+
+## Plan 02-02
+
+- **Out-of-scope verification environment conflict:** The repository-wide unit run remains 65/69 because the installed Phase 1 API owns fixed loopback port `43187`. The repository-wide integration run is 93/133; most failures are fixed-port installation/runtime fixtures and their cleanup cascades. Plan 02-02 does not authorize stopping or altering that installed service. The Plan 02-02 focused integration surface passes 21/21 under the approved Node 24.20.0 toolchain.
+- **Pre-existing isolated regression outside this plan:** `tests/integration/job-recovery.test.ts` case `bounded SQLite busy failure never destroys a previous result` unexpectedly resolves instead of observing `SQLITE_BUSY`, including when run outside the full-suite port conflicts. The Plan 02-02 schema/store tests do not alter that job path, so no unrelated timing-harness change was made.

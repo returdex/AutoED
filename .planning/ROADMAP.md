@@ -215,12 +215,12 @@ updated: 2026-08-26
 
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8。2026-09-01用户批准在Phase 1/Windows缺口保持可见的前提下先准备并执行Phase 2的macOS范围；这是顺序例外，不是验收豁免。Phase 2未通过且双平台硬门禁未补齐时仍不得推进Phase 3。Phase 1 的14份计划已批准并开始执行；Phase 2已有用户讨论上下文但PLAN尚未生成/批准。计划完成数不是阶段需求验收通过数。
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8。2026-09-01用户批准在Phase 1/Windows缺口保持可见的前提下先准备并执行Phase 2的macOS范围；这是顺序例外，不是验收豁免。Phase 2未通过且双平台硬门禁未补齐时仍不得推进Phase 3。Phase 1 的14份计划已批准并开始执行；Phase 2的41份计划已批准并开始执行。计划完成数不是阶段需求验收通过数。
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 0/TBD | Context ready — macOS-first exception; plans unapproved | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 2/41 | In progress — macOS-first exception; Windows/live gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -228,7 +228,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。用户于2026-09-01批准macOS优先推进Phase 2的顺序例外，Phase 2讨论上下文已完成，下一步为研究/规划并等待相关PLAN另行批准；不自动登录、执行PLAN或推进Phase 3。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2的02-01与02-02已完成自动化实现，下一步为02-03；这不授权自动登录、live UAT或推进Phase 3。
 
 ## Backlog
 
