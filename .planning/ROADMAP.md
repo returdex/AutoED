@@ -228,7 +228,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2的02-01至02-13、02-35至02-39及02-41已完成；`0.1.0-beta.25`已在完整新鲜质量门和双目标签名后由隔离`returdex`身份不可覆盖地发布，并通过匿名完整资产复取、验签、hash、提示词及16成员/27能力闭包核验。下一依赖序计划为02-14硬人工macOS更新检查点；尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份历史完成摘要，但02-14在远程更新前因availability新鲜度比较缺陷安全失败；修正后的完整02-38质量门选择`0.1.0-beta.29`并通过typecheck、143 unit、349 integration、34 UI、24 macOS native、零disabled及四表面敏感扫描。已发布`0.1.0-beta.25`的tag/release/assets保持不可变公开历史但已永久失效，beta.26至beta.28也已消耗且不可复用。下一依赖序必须重跑02-39签名组装，再重跑02-13不可覆盖发布与匿名复取；在新beta可获取前不得恢复02-14。尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
 
 ## Backlog
 

@@ -6,11 +6,11 @@ tags: [github-release, immutable-publication, anonymous-availability, signed-bet
 requires:
   - phase: 02-poc-live
     plans: ["38", "39"]
-    provides: publisher-corrected beta.25 identity, complete fresh quality evidence and signed dual-target archives
+    provides: historical beta.25 identity and signed dual-target archives, subsequently invalidated by the update-freshness correction
 provides:
-  - immutable public beta.25 release owned and authenticated only by returdex
-  - anonymous full-byte availability proof for both signed native archives
-  - current beta.25 macOS and Windows read-only update-gate verification
+  - historical immutable public beta.25 release owned and authenticated only by returdex
+  - historical anonymous full-byte availability proof for both signed native archives
+  - sanitized proof that beta.25 public objects remain untouched but cannot satisfy the corrected update gate
 affects: [02-14 through 02-34, 02-40, Phase 2 live UAT]
 tech-stack:
   added: []
@@ -23,6 +23,7 @@ key-files:
   modified: []
 key-decisions:
   - "Only fresh beta.25 was published; invalidated beta.21 through beta.24 remain consumed but unpublished and cannot be relabelled."
+  - "A later source correction invalidated beta.25 as an active candidate without deleting or overwriting its immutable public tag, release or assets."
   - "Publication used the locked isolated returdex GitHub configuration even though the unrelated default gh account remains ywan1303."
   - "Publication and anonymous availability leave Windows native and live evidence not_run/human_needed and Phase 3 blocked."
 requirements-completed: []
@@ -32,7 +33,13 @@ completed: 2026-09-02
 
 # Phase 2 Plan 13: Immutable Beta Publication and Availability Summary
 
-**AutoED 0.1.0-beta.25 is published once under `returdex/AutoED`, with both fresh signed native archives independently refetched without authentication and verified byte-for-byte through their Ed25519 trust root, 16-member manifest and 27-capability closure.**
+**AutoED 0.1.0-beta.25 remains immutably published under `returdex/AutoED`, but a later source correction permanently invalidated it as the active update candidate; its exact public objects are preserved as historical data.**
+
+## Upstream Invalidation Amendment
+
+Plan 02-14 failed closed with `UPDATE_GATE_FRESHNESS_MISMATCH`, exposing that beta.25's verifier compared volatile `checkedAt` as though it were immutable. RED/GREEN commits `348e9f4` and `ef52b6c` corrected the contract, and Plan 02-38 invalidated beta.25 without deleting or overwriting tag `v0.1.0-beta.25`, release `380618906` or either public asset. All publication/availability values below are historical evidence only; beta.25 must not be offered for the pending update gate.
+
+After consuming beta.26 through beta.28 on honest gate failures, Plan 02-38 selected and fully qualified beta.29. Plan 02-39 must assemble/sign beta.29 and this plan must then rerun its no-overwrite publication/anonymous availability flow before Plan 02-14 restarts.
 
 ## Performance
 
@@ -148,13 +155,14 @@ None. The tag, release assets and public download URLs are the exact planned T2-
 
 ## Next Phase Readiness
 
-- The public beta.25 artifacts are available for the separately planned hard human update checkpoints beginning at Plan 02-14.
+- Public beta.25 remains available only as immutable historical data and is not eligible for Plan 02-14.
+- Rerun Plan 02-39 for beta.29, then rerun this publication plan before the hard human update checkpoint can restart.
 - Plan 02-14 must stop for the user's actual update and feedback; this summary supplies no post-update or live pass.
 - Windows and all real login/reopen/restart/Codex-exit/cross-day/reauth gates remain mandatory, and Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
-- Publication, availability and summary files exist; both strict receipt assertions pass.
+- Historical publication and availability receipt bytes remain in Git history, while their active canonical files were removed by the beta.25 invalidation; the summary and public objects remain.
 - Historical/corrective commits `e5933d4`, `c4cabf0`, `0e189bc` and final beta.25 Task commits `90b1b45`, `be0cce2` all resolve in Git.
 - Complete `phase2-release-gates.test.ts` passes 16/16 after publication, and `git diff --check` passes.
 - Remote main/tag/release target the exact selected commit; both public asset names and byte counts match the anonymous availability receipt.

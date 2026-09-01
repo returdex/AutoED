@@ -2,18 +2,18 @@
 phase: 02-poc-live
 plan: "39"
 subsystem: release-assembly
-tags: [ed25519, keychain, signed-archive, install-prompt, capability-closure, beta25]
+tags: [ed25519, keychain, signed-archive, install-prompt, capability-closure, beta25, invalidated]
 requires:
   - phase: 02-poc-live
     plans: ["38", "41"]
-    provides: publisher-corrected beta.25 identity, full quality evidence and two-layer release contracts
+    provides: historical beta.25 identity and quality evidence, subsequently invalidated by the update-freshness correction
   - phase: 01-beta
     plan: "12"
     provides: fixed protected Keychain Ed25519 trust root
 provides:
-  - active locally assembled and signed beta.25 archives for darwin-arm64 and win32-x64
-  - exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
-  - external install prompt binding the signed core to exact fresh per-target archive coordinates
+  - historical invalidated beta.25 signed-archive evidence for darwin-arm64 and win32-x64
+  - historical exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
+  - sanitized proof that published beta.25 outputs cannot be reused after source correction
 affects: [02-13, 02-40, Phase 2 publication, Phase 2 live UAT]
 tech-stack:
   added: []
@@ -24,7 +24,7 @@ key-files:
     - release/phase2-install-prompt.md
   modified: []
 key-decisions:
-  - "Beta.25 was rebuilt and signed from its selected source; no beta.24 payload byte, receipt or prompt was reused or relabelled."
+  - "Beta.25 was rebuilt and signed from its selected source, then permanently invalidated after the update-freshness source correction; its public bytes remain historical and unusable for the next release."
   - "The signed install-prompt core remains target-stable; only the external prompt binds archive URL, exact bytes and outer SHA-256."
   - "AUTH/UAT requirements remain incomplete until required native and real-user gates run; local signing is not live evidence."
 patterns-established:
@@ -37,7 +37,13 @@ completed: 2026-09-02
 
 # Phase 2 Plan 39: Signed Dual-Target Beta Assembly Summary
 
-**Fresh beta.25 macOS arm64 and Windows x64 archives are protected-Keychain Ed25519 signed, locally verified over a shared 16-member/27-capability closure, and bound by a self-reference-safe two-layer install prompt.**
+**Historical beta.25 macOS arm64 and Windows x64 archives were protected-Keychain Ed25519 signed and published, but are now permanently invalidated as active update inputs; their exact public history remains immutable.**
+
+## Upstream Invalidation Amendment
+
+Plan 02-14 failed closed because the selected beta.25 verifier treated volatile availability `checkedAt` as an immutable equality field. Corrective commits `348e9f4` and `ef52b6c` changed source, so Plan 02-38 permanently invalidated beta.25 without overwriting or deleting its public tag, release or assets. Every beta.25 identity, artifact and verification value below is historical only and must not be reused, resigned, relabelled or offered as the current update candidate.
+
+Plan 02-38 subsequently consumed beta.26 through beta.28 after honest gate failures and produced the fully green beta.29 selection/report. This plan must rerun from beta.29 before publication can restart; active `release/phase2-beta-artifacts.json` and `release/phase2-install-prompt.md` do not exist yet.
 
 ## Performance
 
@@ -66,7 +72,7 @@ completed: 2026-09-02
 
 The protected Keychain signer self-check passed before assembly. The private key was never read, exported, printed or accepted through an override, and no alternate or skip-sign path was used.
 
-## Active Artifacts
+## Historical Invalidated Artifacts
 
 | Target | Archive | Exact bytes | SHA-256 |
 |---|---|---:|---|
@@ -172,15 +178,15 @@ None. The already-approved protected Keychain identity was available and self-ch
 
 ## Next Phase Readiness
 
-- The exact beta.25 local artifacts and prompt are ready for Plan 02-13's separately controlled publication and anonymous availability flow, subject to another fresh immutable preflight.
-- Any source/tree/build/selection/report/core/archive or public-object drift must invalidate beta.25 and return to Plan 02-38; no artifact may be resigned in place under the same identity.
+- Rerun this plan to assemble and sign fresh beta.29 artifacts from selection SHA-256 `64fa28f1fd1ae033939385079009234ecfa5f10a30bec807ee18514a8fb13952` and report SHA-256 `259e38832d584e6c5d03809f23b0cb4ce97d0a3d57f7d71417a3bd73808cce71`.
+- Public beta.25 and all beta.26-beta.28 histories are consumed; none may be reused, overwritten, resigned or relabelled.
 - Windows native and real login/reopen/restart/Codex-exit/cross-day/reauth evidence remain `not_run/human_needed`; Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
-- Both tracked beta.25 outputs and both ignored fresh target archives exist with the recorded byte counts and SHA-256 values.
+- Historical beta.25 tracked outputs and ignored archives were removed from the active release surface by the beta.25 invalidation; their exact prior bytes/digests remain in Git/public history.
 - Current Task commits `6e6a304` and `fe64201`, historical RED/GREEN commits and beta.24 history all resolve in Git; task commits deleted no tracked files.
-- The final exact read-only preflight and complete 16-test release-gate file pass against beta.25.
+- The historical exact preflight passed against beta.25 before publication; current release-gate coverage passes 19/19 against the corrected contract, but beta.25 itself is no longer eligible.
 - The temporary assembly driver was removed, no selected source path differs from beta.25, and `git diff --check` passes.
 
 ---

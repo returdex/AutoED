@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-13-PLAN.md; beta.25 published and anonymously verified; update/live gates remain
-last_updated: "2026-09-01T15:30:21.059Z"
+stopped_at: Completed corrective 02-38 beta.29 revalidation; 02-39 and 02-13 must rerun before update
+last_updated: "2026-09-01T16:58:00.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Plan 02-13 published and anonymously verified beta.25; next dependency-ordered plan is 02-14's hard human macOS update checkpoint.
+**Current focus:** Rerun Plan 02-39 assembly/signing for active beta.29, then rerun Plan 02-13 publication; public beta.25 is immutable invalidated history.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-13 completed; 19 of 41 completed; 02-14 is next in dependency order
-Status: beta.25 is published and anonymously verified; no update, login, Windows native or live evidence has run
+Plan: 02-38 revalidated; 19 of 41 have historical completion summaries; corrective 02-39 then 02-13 reruns are required
+Status: beta.29 selected after complete fresh green gates; unsigned and unpublished; beta.25 remains publicly available but permanently invalidated
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plans completed: 31
+- Total plan summaries on disk: 32 (02-39 and 02-13 require corrective reruns before they are current release evidence)
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 completed / 41 planned | In progress; beta.25 published and anonymously verified; update/live/Windows gates remain blocked | N/A |
+| 2 | 19 historical summaries / 41 planned | In progress; beta.29 quality-bound, downstream assembly/publication reruns required; update/live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-37, 02-41, 02-38, 02-39, 02-13
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active corrective position returned to 02-38 completion
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -63,6 +63,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
 | Phase 02 P39 | 1h42min cumulative | 2 tasks | 2 files |
 | Phase 02 P13 | 20min active | 2 tasks | 3 files |
+| Phase 02 P38 corrective freshness rerun | 1h15min | 2 tasks | 10 tracked files |
 
 ## Accumulated Context
 
@@ -96,12 +97,12 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Full source identity and canonical origin exist only in the paired local-UI protected projection; bearer/model/receipt outputs are rebuilt from redacted allowlists. — Prevents protected identity from reaching CLI, MCP, logs, diagnostics or receipts.
 - [Phase 02]: Ordinary login action IDs are restart-revoked, single-use and bound to the authenticated browser session, source, approved config and runtime generation; they grant no evidence authority. — Prevents forged, cross-session or replayed login completion from authorizing probes or live receipts.
 - [Phase 02]: Auth mutations require paired cookie principal, exact same-origin and CSRF together; CLI and MCP remain auth status/receipt read-only. — Preserves one local control plane without bearer mutation authority.
-- [Phase 02]: beta.21 through beta.24 remain permanently invalidated; beta.25 is the sole active source-bound selection — Exact absent-tag and public-versus-consumed publisher corrections changed source before remote mutation, so beta.25 received a complete fresh quality gate.
-- [Phase 02]: Historical signed beta.24 used one stable signed install-prompt core plus an external exact-target binding, but those unpublished bytes cannot be reused after invalidation. — A fresh beta.25 assembly must preserve the same self-reference-safe contract.
+- [Phase 02]: beta.21 through beta.28 are permanently consumed and invalidated; beta.29 is the sole active source-bound selection/report. — beta.25 remains immutable published history, while beta.26-beta.28 each failed an honest selected-source gate and cannot be reused.
+- [Phase 02]: Historical signed beta.24/beta.25 used one stable signed install-prompt core plus an external exact-target binding, but those bytes cannot be reused after invalidation. — A fresh beta.29 assembly must preserve the same self-reference-safe contract.
 - [Phase 02]: Plan 02-39 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; AUTH/UAT requirements remain pending. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
-- [Phase 02]: Fresh beta.25 archives replace invalidated beta.24 as the sole active Plan 02-39 outputs; historical bytes remain untouched and unusable for publication. — Publisher corrections changed selected source, so immutable release identity requires a complete rebuild and new signature rather than relabelling.
-- [Phase 02]: Beta.25 is the sole published Phase 2 beta; invalidated beta.21 through beta.24 remain consumed and unpublished. — Publication used only the locked isolated returdex identity and exact no-overwrite checks.
-- [Phase 02]: Anonymous beta.25 availability proves distribution only; Windows native/live evidence remain not_run/human_needed and Phase 3 remains blocked. — Release availability cannot substitute for user update, native runtime or L evidence.
+- [Phase 02]: Published beta.25 remains immutable public history but is not an active update candidate. — The update-freshness correction changed selected source; no tag, release or asset was overwritten or deleted.
+- [Phase 02]: Availability `checkedAt` is a separately validated volatile observation: it must be valid, in-window and strictly later; every immutable identity/asset field must remain exact. — Prevents stale/equal observations without misclassifying legitimate fresh refetch time as identity drift.
+- [Phase 02]: beta.29 complete quality evidence is automated distribution evidence only; Windows native/live remain not_run/human_needed and Phase 3 remains blocked. — Quality and publication cannot substitute for user update, native runtime or L evidence.
 
 ### Pending Todos
 
@@ -139,6 +140,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T15:30:21.059Z
-Stopped at: Completed 02-13-PLAN.md; beta.25 published and anonymously verified; update/live gates remain
+Last session: 2026-09-01T16:58:00.000Z
+Stopped at: Completed corrective 02-38 beta.29 revalidation; 02-39 and 02-13 must rerun before update
 Resume file: None
