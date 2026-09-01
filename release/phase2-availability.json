@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "status": "pass",
+  "anonymous": true,
+  "immutable": true,
+  "version": "0.1.0-beta.25",
+  "tag": "v0.1.0-beta.25",
+  "buildId": "6c44e404b42e72c8dfb3f1dfef3bb9aa1f5cb95f17de32280019cc23c89c20e5",
+  "manifestSha256": "c2c1100f338a078fe8682bb05927c2e552973de4acb8977257307179604204a8",
+  "assets": {
+    "macos": {
+      "id": 539741564,
+      "name": "autoed-0.1.0-beta.25-darwin-arm64.tar.gz",
+      "bytes": 227413903,
+      "sha256": "56f141ff2e3d8e054c5cb299bcc7e715e1bd638ac88aa8ce2b867ca4e995d338",
+      "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.25/autoed-0.1.0-beta.25-darwin-arm64.tar.gz"
+    },
+    "windows": {
+      "id": 539741557,
+      "name": "autoed-0.1.0-beta.25-win32-x64.tar.gz",
+      "bytes": 250419021,
+      "sha256": "579fbdea67e103734842ffe8157f5f5c97e66d8c1bbfec24a2ed006cdc1728ec",
+      "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.25/autoed-0.1.0-beta.25-win32-x64.tar.gz"
+    }
+  },
+  "checkedAt": "2026-09-01T15:26:30.516Z"
+}
