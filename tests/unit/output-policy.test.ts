@@ -184,6 +184,7 @@ describe('AuthControlApplication', () => {
       await expect(f.application.openLogin(p, { source: 'moodle', approvedConfigId: f.configs.moodle.id }, randomUUID(), new AbortController().signal)).rejects.toThrow('FORBIDDEN');
       await expect(f.application.requestProbe(p, { source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId, trigger: 'background', idempotencyKey: 'safe-idempotency' })).rejects.toThrow('FORBIDDEN');
       await expect(f.application.recordLogoutIntent(p, { source: 'moodle', acknowledged: true })).rejects.toThrow('FORBIDDEN');
+      await expect(f.application.confirmBinding(p, { candidateBindingId: randomUUID(), decision: 'confirm' })).rejects.toThrow('FORBIDDEN');
     }
     expect(f.calls).toEqual({ config: 0, launch: 0, probe: 0, logout: 0, binding: 0, receipts: 2 });
   });
@@ -194,8 +195,12 @@ describe('AuthControlApplication', () => {
     await expect(f.application.openLogin(paired('auth:login:write'), { source: 'moodle', approvedConfigId: f.configs.moodle.id }, randomUUID(), new AbortController().signal)).resolves.toMatchObject({ accepted: true });
     await expect(f.application.requestProbe(paired('auth:probe:write'), { source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId, trigger: 'background', idempotencyKey: 'safe-idempotency' })).resolves.toMatchObject({ accepted: true });
     await expect(f.application.recordLogoutIntent(paired('auth:logout:write'), { source: 'moodle', acknowledged: true })).resolves.toMatchObject({ accepted: true });
+    const status = ProtectedAuthStatusProjectionSchema.parse(await f.application.readStatus(f.principal('local_ui', ['auth:read'])));
+    expect(status.nextAction.kind).toBe('confirm_binding');
+    if (status.nextAction.kind !== 'confirm_binding') throw new Error('EXPECTED_BINDING_CANDIDATE');
+    await expect(f.application.confirmBinding(paired('auth:binding:write'), { candidateBindingId: status.nextAction.candidateBindingId, decision: 'confirm' })).resolves.toMatchObject({ accepted: true, resultCode: 'BINDING_CONFIRMED' });
     await expect(f.application.requestProbe(paired('auth:probe:write'), { source: 'moodle', approvedConfigId: randomUUID(), approvedScopeId: scopeId, trigger: 'background', idempotencyKey: 'wrong-config' })).rejects.toThrow('CONFIGURATION_MISMATCH');
-    expect(f.calls).toMatchObject({ config: 1, launch: 1, probe: 1, logout: 1, binding: 0 });
+    expect(f.calls).toMatchObject({ config: 1, launch: 1, probe: 1, logout: 1, binding: 1 });
   });
 
   it('maps unknown source/storage errors to a fixed three-field API error without reading sensitive messages', () => {
