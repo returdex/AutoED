@@ -1,4 +1,4 @@
-import { spawnSync, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync, type ChildProcess } from 'node:child_process';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import {
   chmodSync, copyFileSync, cpSync, createReadStream, existsSync, lstatSync, mkdtempSync,
@@ -10,7 +10,10 @@ import { dirname, join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { chromium } from 'playwright';
 import type { MaintenanceStore, SecretStore } from '../../application/src/ports.js';
-import type { MaintenanceGate, ProcessIdentity, ProfileOwnerIdentity } from '../../domain/src/model.js';
+import type { EvidenceReceipt, MaintenanceGate, ProcessIdentity, ProfileOwnerIdentity, SourceProbeResult } from '../../domain/src/model.js';
+import { AuthJobRunner, AuthJobService } from '../../application/src/auth-jobs.js';
+import { openDatabase } from '../../persistence/src/database.js';
+import { SQLiteAuthJobStore, SQLiteEvidenceLedger } from '../../persistence/src/auth.js';
 import { LocalPlaywrightBrowserProvider, type BrowserProbeSession } from '../../platform/src/browser.js';
 import { createManagedRoot, managedPaths, type RootSelection } from '../../platform/src/paths.js';
 import { protectPath, verifyProtectedPath } from '../../platform/src/permissions.js';
@@ -71,6 +74,12 @@ export interface NativeProfileHarness {
   verifyLeaseFencing(): Promise<{ code: 'PROFILE_IN_USE'; launches: 1; productSignals: 0 }>;
   verifyPidReuse(): Promise<{ unconfirmed: 3; productSignals: 0; holderAlive: true }>;
   verifyCaptureBoundary(): Promise<{ externalRequests: 0; sensitiveCaptures: 0 }>;
+  verifyWorkerCrash(): Promise<{ workerExited: true; browserSeparated: true; lateCommits: 0 }>;
+  verifyCancel(): Promise<{ aborted: true; lateRequests: 0; lateCommits: 0 }>;
+  verifyAuthorityLoss(): Promise<{ blockedStages: 3; productSignals: 0 }>;
+  verifyCodexBoundary(): Promise<{ scenario: 'native_process_boundary'; evidence: 'N'; launcherExited: true; servicesAlive: true }>;
+  verifyOwnedReclaim(): Promise<{ exactReclaimed: 1; rejected: 6; unrelatedAlive: true }>;
+  verifyNativeEvidence(): Promise<{ macosN: 2; rejected: 3; windows: 'not_run'; live: 'human_needed'; phase3: 'blocked' }>;
   cleanup(): Promise<void>;
 }
 
@@ -117,6 +126,85 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
   let cleaned = false;
   let productSignals = 0;
   let maintenanceGeneration = 1;
+  type OwnedChild = {
+    child: ChildProcess; installationId: string; jobId: string; nonce: string; osStartIdentity: string;
+    executable: string; controlProof: string;
+  };
+  const ownedChildren = new Set<OwnedChild>();
+  const harnessChildren = new Set<OwnedChild>();
+
+  async function spawnHarnessChild(jobId: string, command = process.execPath, args = ['-e', 'setInterval(()=>{},1000)']): Promise<OwnedChild> {
+    const child = spawn(command, args, {
+      cwd: parent, stdio: 'ignore', detached: true, env: { PATH: process.env.PATH, AUTOED_NATIVE_HARNESS: '1' },
+    });
+    const pid = child.pid;
+    if (!pid) throw new Error('HUMAN_ACTION_REQUIRED');
+    let observed = null;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      observed = await observeProcess(pid);
+      if (observed) break;
+      await delay(20);
+    }
+    if (!observed || observed.executable !== realpathSync(command)) throw new Error('HUMAN_ACTION_REQUIRED');
+    const nonce = randomUUID();
+    const value: OwnedChild = {
+      child, installationId, jobId, nonce, ...observed,
+      controlProof: createHmac('sha256', controlKey).update(JSON.stringify([installationId, jobId, nonce, pid, observed])).digest('hex'),
+    };
+    harnessChildren.add(value);
+    return value;
+  }
+
+  async function spawnOwnedChild(jobId: string): Promise<OwnedChild> {
+    const value = await spawnHarnessChild(jobId);
+    ownedChildren.add(value);
+    return value;
+  }
+
+  async function assertOwnedChildExact(value: OwnedChild): Promise<void> {
+    if (!harnessChildren.has(value) || !ownedChildren.has(value) || value.installationId !== installationId || !value.jobId || !value.nonce || !value.controlProof ||
+        value.child.pid === undefined || value.child.pid < 1) throw new Error('HUMAN_ACTION_REQUIRED');
+    const observed = await observeProcess(value.child.pid);
+    if (!observed || observed.osStartIdentity !== value.osStartIdentity || observed.executable !== value.executable) throw new Error('HUMAN_ACTION_REQUIRED');
+    const proof = createHmac('sha256', controlKey).update(JSON.stringify([
+      value.installationId, value.jobId, value.nonce, value.child.pid, observed,
+    ])).digest('hex');
+    if (proof !== value.controlProof) throw new Error('HUMAN_ACTION_REQUIRED');
+  }
+
+  async function stopOwnedChild(value: OwnedChild): Promise<void> {
+    await assertOwnedChildExact(value);
+    await stopHarnessChild(value);
+    ownedChildren.delete(value);
+  }
+
+  async function stopHarnessChild(value: OwnedChild): Promise<void> {
+    if (!harnessChildren.has(value) || value.installationId !== installationId || !value.jobId || !value.nonce || !value.controlProof || !value.child.pid) {
+      throw new Error('HUMAN_ACTION_REQUIRED');
+    }
+    const observed = await observeProcess(value.child.pid);
+    const proof = observed && createHmac('sha256', controlKey).update(JSON.stringify([
+      value.installationId, value.jobId, value.nonce, value.child.pid, observed,
+    ])).digest('hex');
+    if (!observed || observed.osStartIdentity !== value.osStartIdentity || observed.executable !== value.executable || proof !== value.controlProof) {
+      throw new Error('HUMAN_ACTION_REQUIRED');
+    }
+    const exited = once(value.child, 'exit');
+    if (!value.child.kill('SIGTERM')) throw new Error('HUMAN_ACTION_REQUIRED');
+    await Promise.race([exited, delay(5_000).then(() => { throw new Error('HUMAN_ACTION_REQUIRED'); })]);
+    harnessChildren.delete(value);
+  }
+
+  function safeProbeResult(checkedAt: string): SourceProbeResult {
+    return {
+      request: { source: 'moodle', action: 'moodle.auth_probe', approvedConfigId: randomUUID(), approvedScopeId: randomUUID() },
+      observation: {
+        source: 'moodle', auth: 'not_observed', capability: 'unknown', health: 'degraded', freshness: 'not_observed',
+        completeness: 'not_observed', outcome: 'not_observed', checkedAt, resultCode: 'NOT_OBSERVED', courseAccess: 'blocked', lastSuccess: null,
+      },
+      identity: null, selectedCourseVisible: null,
+    };
+  }
 
   async function loopbackOrigin(): Promise<string> {
     if (origin) return origin;
@@ -313,6 +401,150 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
       if (sensitiveCaptures !== 0 || loopbackRequests < 1) throw new Error('HUMAN_ACTION_REQUIRED');
       return { externalRequests: 0, sensitiveCaptures: 0 } as const;
     },
+    async verifyWorkerCrash() {
+      const browser = await open();
+      const worker = await spawnOwnedChild('native-worker-crash');
+      await stopOwnedChild(worker);
+      const workerExited = await observeProcess(worker.child.pid!) === null;
+      const browserState = await coordinator!.inspect(browser.owner);
+      const browserSeparated = browserState.resultCode === 'PROFILE_IN_USE' &&
+        matchesProcess(identity(browser.owner), await observeProcess(browser.owner.pid));
+      if (!workerExited || !browserSeparated || !existsSync(join(paths.runtime, 'profile-ownership.json'))) {
+        throw new Error('HUMAN_ACTION_REQUIRED');
+      }
+      return { workerExited: true, browserSeparated: true, lateCommits: 0 } as const;
+    },
+    async verifyCancel() {
+      const db = openDatabase(join(paths.runtime, 'native-cancel.sqlite'));
+      try {
+        const checkedAt = new Date(10_000).toISOString();
+        const clock = { now: () => checkedAt };
+        const store = new SQLiteAuthJobStore(db, clock);
+        const service = new AuthJobService(store);
+        let began!: () => void;
+        const started = new Promise<void>(resolveStarted => { began = resolveStarted; });
+        let calls = 0;
+        let sawAbort = false;
+        const runner = new AuthJobRunner(store, {
+          async probe(_request, signal) {
+            calls += 1;
+            began();
+            if (!signal.aborted) await once(signal, 'abort');
+            sawAbort = signal.aborted;
+            return safeProbeResult(checkedAt);
+          },
+        }, { clock, heartbeatMs: 5, leaseMs: 1_000 });
+        const command = {
+          source: 'moodle' as const, approvedConfigId: randomUUID(), approvedScopeId: randomUUID(),
+          trigger: 'background' as const, idempotencyKey: randomUUID(),
+        };
+        const requested = await service.requestProbe(command, { expectedGeneration: 0 });
+        const running = runner.runOnce('native-worker', { expectedGeneration: 0 }).catch(() => null);
+        await started;
+        await store.requestCancel(requested.jobId, 'moodle', { expectedGeneration: 0 });
+        await running;
+        const observations = (db.prepare('SELECT count(*) AS count FROM source_observations').get() as { count: number }).count;
+        if (!sawAbort || calls !== 1 || observations !== 0) throw new Error('HUMAN_ACTION_REQUIRED');
+        return { aborted: true, lateRequests: 0, lateCommits: 0 } as const;
+      } finally { db.close(); }
+    },
+    async verifyAuthorityLoss() {
+      const db = openDatabase(join(paths.runtime, 'native-authority.sqlite'));
+      try {
+        const checkedAt = new Date(20_000).toISOString();
+        const store = new SQLiteAuthJobStore(db, { now: () => checkedAt });
+        const service = new AuthJobService(store);
+        const requested = await service.requestProbe({
+          source: 'moodle', approvedConfigId: randomUUID(), approvedScopeId: randomUUID(),
+          trigger: 'background', idempotencyKey: randomUUID(),
+        }, { expectedGeneration: 0 });
+        const claimed = await store.claim({ owner: 'native-worker', now: checkedAt, leaseMs: 1_000 }, { expectedGeneration: 0 });
+        if (!claimed?.lease) throw new Error('HUMAN_ACTION_REQUIRED');
+        let blockedStages = 0;
+        for (const stale of [
+          { ...claimed.lease, generation: claimed.lease.generation + 1 },
+          { ...claimed.lease, fence: claimed.lease.fence + 1 },
+          claimed.lease,
+        ]) {
+          try {
+            const at = stale === claimed.lease ? new Date(21_000).toISOString() : checkedAt;
+            await store.assertCurrent(requested.jobId, stale, at, { expectedGeneration: 0 });
+          } catch { blockedStages += 1; }
+        }
+        if (blockedStages !== 3 || productSignals !== 0) throw new Error('HUMAN_ACTION_REQUIRED');
+        return { blockedStages: 3, productSignals: 0 } as const;
+      } finally { db.close(); }
+    },
+    async verifyCodexBoundary() {
+      const api = await spawnOwnedChild('native-api-boundary');
+      const worker = await spawnOwnedChild('native-worker-boundary');
+      const browser = await open();
+      const launcher = spawn(process.execPath, ['-e', 'process.exit(0)'], { cwd: parent, stdio: 'ignore' });
+      await once(launcher, 'exit');
+      const launcherExited = launcher.pid ? await observeProcess(launcher.pid) === null : false;
+      const guard = browser.session.requestGuard(new AbortController().signal, browser.owner.generation);
+      await browser.session.navigate(new URL((await loopbackOrigin()) + '/boundary'), guard);
+      const servicesAlive = !!api.child.pid && !!worker.child.pid &&
+        await observeProcess(api.child.pid) !== null && await observeProcess(worker.child.pid) !== null &&
+        await observeProcess(browser.owner.pid) !== null;
+      if (!launcherExited || !servicesAlive) throw new Error('HUMAN_ACTION_REQUIRED');
+      return { scenario: 'native_process_boundary', evidence: 'N', launcherExited: true, servicesAlive: true } as const;
+    },
+    async verifyOwnedReclaim() {
+      const owned = await spawnOwnedChild('native-owned-reclaim');
+      const unregistered = await spawnHarnessChild('native-unregistered');
+      const dailyStyle = await spawnHarnessChild('native-daily-style', '/bin/sleep', ['60']);
+      await delay(50);
+      let rejected = 0;
+      const variants: OwnedChild[] = [
+        { ...owned, installationId: randomUUID() },
+        { ...owned, nonce: randomUUID() },
+        { ...owned, osStartIdentity: 'stale-start' },
+        { ...owned, executable: '/bin/false' },
+        unregistered,
+        dailyStyle,
+      ];
+      for (const candidate of variants) {
+        try { await assertOwnedChildExact(candidate); }
+        catch { rejected += 1; }
+      }
+      const unrelatedAlive = !!unregistered.child.pid && !!dailyStyle.child.pid &&
+        await observeProcess(unregistered.child.pid) !== null && await observeProcess(dailyStyle.child.pid) !== null;
+      await stopOwnedChild(owned);
+      if (rejected !== 6 || !unrelatedAlive) throw new Error('HUMAN_ACTION_REQUIRED');
+      return { exactReclaimed: 1, rejected: 6, unrelatedAlive: true } as const;
+    },
+    async verifyNativeEvidence() {
+      await prepareBrowser();
+      const db = openDatabase(join(paths.runtime, 'native-evidence.sqlite'));
+      try {
+        const ledger = new SQLiteEvidenceLedger(db, { now: () => 30_000 });
+        const authority = { kind: 'automated' as const, evidence: 'N' as const, platform: 'macos' as const, producerId: 'native.macos' };
+        const checkedAt = new Date(30_000).toISOString();
+        const receipt = (source: 'moodle' | 'edstem', scenario: EvidenceReceipt['scenario']): EvidenceReceipt => ({
+          receiptId: randomUUID(), buildId: buildId!, version: '0.1.0-beta.19', platform: 'macos', source, scenario,
+          evidence: 'N', status: 'pass', resultCode: 'NATIVE_PROFILE_LIFECYCLE_PASS', bindingConsistency: 'not_observed',
+          gaps: [], checkedAt, provenance: { kind: 'automated', evidence: 'N', producerId: 'native.macos' },
+        });
+        async function appendExact(value: EvidenceReceipt, source: 'moodle' | 'edstem', scenario: EvidenceReceipt['scenario']): Promise<void> {
+          if (value.source !== source || value.scenario !== scenario) throw new Error('EVIDENCE_AUTHORITY_MISMATCH');
+          await ledger.append(value, authority, { expectedGeneration: 0 });
+        }
+        await appendExact(receipt('moodle', 'b.worker_restart'), 'moodle', 'b.worker_restart');
+        await appendExact(receipt('edstem', 'b.worker_restart'), 'edstem', 'b.worker_restart');
+        let rejected = 0;
+        try { await ledger.append({ ...receipt('moodle', 'b.worker_restart'), evidence: 'L', provenance: { kind: 'human_action', actionReceiptId: randomUUID() } }, authority, { expectedGeneration: 0 }); }
+        catch { rejected += 1; }
+        try { await ledger.append({ ...receipt('moodle', 'b.worker_restart'), platform: 'windows' }, { ...authority, platform: 'windows' }, { expectedGeneration: 0 }); }
+        catch { rejected += 1; }
+        try { await appendExact(receipt('edstem', 'b.codex_exit'), 'edstem', 'b.worker_restart'); }
+        catch { rejected += 1; }
+        const rows = (db.prepare('SELECT count(*) AS count FROM uat_receipts').get() as { count: number }).count;
+        const contaminated = (db.prepare("SELECT count(*) AS count FROM uat_receipts WHERE platform!='macos' OR evidence!='N'").get() as { count: number }).count;
+        if (rows !== 2 || rejected !== 3 || contaminated !== 0) throw new Error('HUMAN_ACTION_REQUIRED');
+        return { macosN: 2, rejected: 3, windows: 'not_run', live: 'human_needed', phase3: 'blocked' } as const;
+      } finally { db.close(); }
+    },
     async cleanup() {
       if (cleaned) return;
       if (active) {
@@ -322,6 +554,8 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
         }
       }
       if (registered.size > 0) throw new Error('HUMAN_ACTION_REQUIRED');
+      for (const value of [...ownedChildren]) await stopOwnedChild(value);
+      for (const value of [...harnessChildren]) await stopHarnessChild(value);
       if (server) await new Promise<void>((resolveClose, reject) => server!.close(error => error ? reject(error) : resolveClose()));
       const current = lstatSync(parent);
       if (current.ino !== parentStat.ino || current.dev !== parentStat.dev || realpathSync(parent) !== canonicalParent) throw new Error('HUMAN_ACTION_REQUIRED');
