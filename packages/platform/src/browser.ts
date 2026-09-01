@@ -73,6 +73,8 @@ export interface NavigationObservation {
 }
 
 export interface BrowserProbeSession {
+  /** Creates the exact attached-owner guard; callers cannot invent or replace the session owner. */
+  requestGuard(signal: AbortSignal, expectedGeneration: number): BrowserRequestGuard;
   navigate(target: URL, guard: BrowserRequestGuard): Promise<NavigationObservation>;
   waitFor(locator: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<'visible'>;
   readVisible(locator: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<string | null>;
@@ -117,6 +119,8 @@ type BrowserCode =
   | 'BROWSER_DOWNLOAD_BLOCKED'
   | 'BROWSER_WRITE_BLOCKED'
   | 'BROWSER_ORIGIN_BLOCKED'
+  | 'BROWSER_NETWORK_UNAVAILABLE'
+  | 'BROWSER_OUTPUT_AMBIGUOUS'
   | 'BROWSER_OUTPUT_LIMIT'
   | 'PROFILE_IN_USE'
   | 'PROFILE_OWNERSHIP_UNCONFIRMED';
@@ -216,7 +220,11 @@ class SealedBrowserProbeSession implements BrowserProbeSession {
     return this.#run(guard, async () => {
       this.#navigationOrigins = [];
       try {
-        await this.#page.goto(target.href, { waitUntil: 'domcontentloaded' });
+        try { await this.#page.goto(target.href, { waitUntil: 'domcontentloaded' }); }
+        catch (error) {
+          if (error instanceof BrowserFailure || this.#failure) throw error;
+          throw new BrowserFailure('BROWSER_NETWORK_UNAVAILABLE');
+        }
         const finalOrigin = this.#safeOrigin(this.#page.url());
         if (!this.#originAllowed(finalOrigin, 'GET')) throw new BrowserFailure('BROWSER_ORIGIN_BLOCKED');
         const redirectOrigins = [...this.#navigationOrigins];
@@ -233,7 +241,12 @@ class SealedBrowserProbeSession implements BrowserProbeSession {
 
   async readVisible(spec: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<string | null> {
     const locator = this.#locator(spec);
-    return this.#run(guard, async () => this.#bounded(await locator.innerText(), 4096, 8192));
+    return this.#run(guard, async () => {
+      const count = await this.#locatorCount(locator);
+      if (count === 0) return null;
+      if (count !== 1) throw new BrowserFailure('BROWSER_OUTPUT_AMBIGUOUS');
+      return this.#bounded(await locator.innerText(), 4096, 8192);
+    });
   }
 
   async readAttribute(spec: BrowserLocatorSpec, attributeInput: string, guard: BrowserRequestGuard): Promise<string | null> {
@@ -241,7 +254,17 @@ class SealedBrowserProbeSession implements BrowserProbeSession {
     let attribute: z.infer<typeof safeAttributeSchema>;
     try { attribute = safeAttributeSchema.parse(attributeInput); }
     catch { throw new BrowserFailure('BROWSER_INPUT_INVALID'); }
-    return this.#run(guard, async () => this.#bounded(await locator.getAttribute(attribute), 2048, 4096));
+    return this.#run(guard, async () => {
+      const count = await this.#locatorCount(locator);
+      if (count === 0) return null;
+      if (count !== 1) throw new BrowserFailure('BROWSER_OUTPUT_AMBIGUOUS');
+      return this.#bounded(await locator.getAttribute(attribute), 2048, 4096);
+    });
+  }
+
+  requestGuard(signal: AbortSignal, expectedGeneration: number): BrowserRequestGuard {
+    if (expectedGeneration !== this.#owner.generation) throw new BrowserFailure('BROWSER_FENCED');
+    return { signal, expectedGeneration, owner: { ...this.#owner } };
   }
 
   async close(guard: BrowserRequestGuard): Promise<void> {
@@ -288,6 +311,11 @@ class SealedBrowserProbeSession implements BrowserProbeSession {
     if (value === null) return null;
     if (value.length > characters || Buffer.byteLength(value, 'utf8') > bytes) throw new BrowserFailure('BROWSER_OUTPUT_LIMIT');
     return value;
+  }
+
+  async #locatorCount(locator: Locator): Promise<number> {
+    // The fallback keeps older injected Playwright doubles compatible; real Playwright always supplies count().
+    return typeof locator.count === 'function' ? locator.count() : 1;
   }
 
   async #run<T>(guard: BrowserRequestGuard, operation: () => Promise<T>): Promise<T> {
