@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed corrective 02-38 beta.25 revalidation; 02-39 must rerun assembly/signing
-last_updated: "2026-09-01T15:05:01.188Z"
+stopped_at: Completed corrective 02-39 beta.25 local assembly/signing; remains unpublished
+last_updated: "2026-09-01T15:17:52.348Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Rerun Plan 02-39 assembly/signing for the active beta.25 selection; beta.24 signed bytes are invalidated historical data.
+**Current focus:** Plan 02-39 completed fresh beta.25 assembly/signing; next dependency-ordered plan is 02-13 publication and anonymous availability verification.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-38 revalidated; 18 of 41 have historical completion summaries; 02-39 corrective rerun required
-Status: beta.25 selected after fresh complete green gates; unsigned and unpublished; beta.24 permanently invalidated
+Plan: 02-39 revalidated for beta.25; 18 of 41 completed; 02-13 is next in dependency order
+Status: beta.25 dual-target archives are signed and locally verified; no beta.25 tag, release or remote asset exists yet
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -45,7 +45,7 @@ Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 18 completed / 41 planned | In progress; beta.21-beta.24 invalidated and beta.25 selected after fresh complete green gates; beta.25 not signed/published and live/Windows gates remain blocked | N/A |
+| 2 | 18 completed / 41 planned | In progress; beta.25 dual-target archives signed and verified locally but unpublished; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
@@ -61,7 +61,7 @@ Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P06 | 12min | 2 tasks | 5 files |
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
-| Phase 02 P39 | 1h35min cumulative | 2 tasks | 2 files |
+| Phase 02 P39 | 1h42min cumulative | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -98,6 +98,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: beta.21 through beta.24 remain permanently invalidated; beta.25 is the sole active source-bound selection — Exact absent-tag and public-versus-consumed publisher corrections changed source before remote mutation, so beta.25 received a complete fresh quality gate.
 - [Phase 02]: Historical signed beta.24 used one stable signed install-prompt core plus an external exact-target binding, but those unpublished bytes cannot be reused after invalidation. — A fresh beta.25 assembly must preserve the same self-reference-safe contract.
 - [Phase 02]: Plan 02-39 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; AUTH/UAT requirements remain pending. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
+- [Phase 02]: Fresh beta.25 archives replace invalidated beta.24 as the sole active Plan 02-39 outputs; historical bytes remain untouched and unusable for publication. — Publisher corrections changed selected source, so immutable release identity requires a complete rebuild and new signature rather than relabelling.
 
 ### Pending Todos
 
@@ -135,6 +136,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T15:05:01.183Z
-Stopped at: Completed corrective 02-38 beta.25 revalidation; 02-39 must rerun assembly/signing
+Last session: 2026-09-01T15:17:52.343Z
+Stopped at: Completed corrective 02-39 beta.25 local assembly/signing; remains unpublished
 Resume file: None
