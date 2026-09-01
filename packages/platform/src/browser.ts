@@ -1,7 +1,7 @@
 import { lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 import { z } from 'zod';
-import type { BrowserContext, BrowserType, ChromiumBrowser, Page } from 'playwright';
+import type { BrowserContext, BrowserType, ChromiumBrowser, Locator, Page, Request, Route } from 'playwright';
 import type { MaintenanceStore, ProfileOwnershipCoordinator } from '../../application/src/ports.js';
 import type { ProfileOwnerIdentity, ProfileReservation, SourceId } from '../../domain/src/model.js';
 import { ProfileOwnerIdentitySchema } from '../../contracts/src/index.js';
@@ -27,6 +27,15 @@ const browserOpenInputSchema = z.strictObject({
   fence: z.number().int().nonnegative(),
 });
 const interactiveLoginOpenInputSchema = browserOpenInputSchema.extend({ actionReceiptId: z.uuid() });
+const boundedText = z.string().min(1).max(512).refine(value => !value.includes('\0'));
+const locatorSpecSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('role'), role: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/), name: boundedText.optional(), exact: z.literal(true) }),
+  z.strictObject({ kind: z.literal('text'), text: boundedText, exact: z.literal(true) }),
+  z.strictObject({ kind: z.literal('label'), text: boundedText, exact: z.literal(true) }),
+  z.strictObject({ kind: z.literal('css'), selector: boundedText.refine(value =>
+    !/^\s*(?:\/\/|xpath=)/i.test(value) && !value.includes('://'), 'selector') }),
+]);
+const safeAttributeSchema = z.enum(['aria-label', 'aria-current', 'aria-expanded', 'aria-selected', 'role', 'title', 'data-testid']);
 
 export interface BrowserOpenInput {
   installationId: string;
@@ -144,38 +153,257 @@ class SealedBrowserProbeSession implements BrowserProbeSession {
   #owner: ProfileOwnerIdentity;
   #coordinator: ProfileOwnershipCoordinator;
   #maintenance: MaintenanceStore;
+  #mode: 'background' | 'interactive';
+  #readOrigins: ReadonlySet<string>;
+  #authenticationOrigins: ReadonlySet<string>;
+  #lifecycle = new AbortController();
+  #failure: BrowserFailure | null = null;
+  #closing = false;
+  #contextClosed = false;
+  #released = false;
+  #activeGuard: BrowserRequestGuard | null = null;
+  #operations = new Set<Promise<unknown>>();
+  #networkChecks = new Set<Promise<void>>();
+  #requestGuards = new WeakMap<object, BrowserRequestGuard>();
+  #navigationOrigins: string[] | null = null;
 
-  constructor(input: {
+  static async create(input: {
     context: BrowserContext;
     page: Page;
     owner: ProfileOwnerIdentity;
     coordinator: ProfileOwnershipCoordinator;
     maintenance: MaintenanceStore;
+    mode: 'background' | 'interactive';
+    readOrigins: readonly string[];
+    authenticationOrigins: readonly string[];
+  }): Promise<SealedBrowserProbeSession> {
+    const session = new SealedBrowserProbeSession(input);
+    await input.context.route('**/*', route => session.#route(route));
+    input.context.on('requestfinished', request => session.#networkPost(request));
+    input.context.on('requestfailed', request => session.#networkPost(request));
+    input.context.on('page', page => session.#extraPage(page));
+    session.#guardPage(input.page);
+    return session;
+  }
+
+  private constructor(input: {
+    context: BrowserContext;
+    page: Page;
+    owner: ProfileOwnerIdentity;
+    coordinator: ProfileOwnershipCoordinator;
+    maintenance: MaintenanceStore;
+    mode: 'background' | 'interactive';
+    readOrigins: readonly string[];
+    authenticationOrigins: readonly string[];
   }) {
     this.#context = input.context;
     this.#page = input.page;
-    this.#owner = input.owner;
+    this.#owner = ProfileOwnerIdentitySchema.parse(input.owner);
     this.#coordinator = input.coordinator;
     this.#maintenance = input.maintenance;
+    this.#mode = input.mode;
+    this.#readOrigins = new Set(input.readOrigins);
+    this.#authenticationOrigins = new Set(input.authenticationOrigins);
   }
 
-  async navigate(_target: URL, _guard: BrowserRequestGuard): Promise<NavigationObservation> {
-    throw new BrowserFailure('BROWSER_FENCED');
+  async navigate(target: URL, guard: BrowserRequestGuard): Promise<NavigationObservation> {
+    let targetOrigin: string;
+    try {
+      if (!(target instanceof URL)) throw new Error('target');
+      targetOrigin = target.origin;
+      if (!this.#originAllowed(targetOrigin, 'GET')) throw new Error('origin');
+    } catch { throw new BrowserFailure('BROWSER_ORIGIN_BLOCKED'); }
+    return this.#run(guard, async () => {
+      this.#navigationOrigins = [];
+      try {
+        await this.#page.goto(target.href, { waitUntil: 'domcontentloaded' });
+        const finalOrigin = this.#safeOrigin(this.#page.url());
+        if (!this.#originAllowed(finalOrigin, 'GET')) throw new BrowserFailure('BROWSER_ORIGIN_BLOCKED');
+        const redirectOrigins = [...this.#navigationOrigins];
+        if (!redirectOrigins.includes(finalOrigin)) redirectOrigins.push(finalOrigin);
+        return { redirectOrigins, finalOrigin };
+      } finally { this.#navigationOrigins = null; }
+    });
   }
-  async waitFor(_locator: BrowserLocatorSpec, _guard: BrowserRequestGuard): Promise<'visible'> {
-    throw new BrowserFailure('BROWSER_FENCED');
+
+  async waitFor(spec: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<'visible'> {
+    const locator = this.#locator(spec);
+    return this.#run(guard, async () => { await locator.waitFor({ state: 'visible' }); return 'visible' as const; });
   }
-  async readVisible(_locator: BrowserLocatorSpec, _guard: BrowserRequestGuard): Promise<string | null> {
-    throw new BrowserFailure('BROWSER_FENCED');
+
+  async readVisible(spec: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<string | null> {
+    const locator = this.#locator(spec);
+    return this.#run(guard, async () => this.#bounded(await locator.innerText(), 4096, 8192));
   }
-  async readAttribute(_locator: BrowserLocatorSpec, _attribute: string, _guard: BrowserRequestGuard): Promise<string | null> {
-    throw new BrowserFailure('BROWSER_FENCED');
+
+  async readAttribute(spec: BrowserLocatorSpec, attributeInput: string, guard: BrowserRequestGuard): Promise<string | null> {
+    const locator = this.#locator(spec);
+    let attribute: z.infer<typeof safeAttributeSchema>;
+    try { attribute = safeAttributeSchema.parse(attributeInput); }
+    catch { throw new BrowserFailure('BROWSER_INPUT_INVALID'); }
+    return this.#run(guard, async () => this.#bounded(await locator.getAttribute(attribute), 2048, 4096));
   }
-  async close(_guard: BrowserRequestGuard): Promise<void> {
-    await this.#context.close();
+
+  async close(guard: BrowserRequestGuard): Promise<void> {
+    if (this.#released) return;
+    this.#assertGuardIdentity(guard);
+    this.#closing = true;
+    this.#lifecycle.abort();
+    const inFlight = [...this.#operations];
+    if (inFlight.length > 0) {
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        await Promise.race([
+          Promise.allSettled(inFlight),
+          new Promise<void>(resolve => { timer = setTimeout(resolve, 2_000); timer.unref(); }),
+        ]);
+      } finally { if (timer) clearTimeout(timer); }
+    }
+    await this.#assertCleanupCurrent(guard);
+    if (!this.#contextClosed) {
+      try { await this.#context.close(); this.#contextClosed = true; }
+      catch { /* Actual process state below is authoritative. */ }
+    }
     const state = await this.#coordinator.inspect(this.#owner);
-    if (state.resultCode === 'PROFILE_CONFIRMED_EXITED') { await this.#coordinator.release(this.#owner); return; }
-    throw new BrowserFailure(state.resultCode === 'PROFILE_IN_USE' ? 'PROFILE_IN_USE' : 'PROFILE_OWNERSHIP_UNCONFIRMED');
+    if (state.resultCode === 'PROFILE_CONFIRMED_EXITED' && sameOwner(state.owner, this.#owner)) {
+      await this.#coordinator.release(this.#owner); this.#released = true; return;
+    }
+    throw new BrowserFailure(state.resultCode === 'PROFILE_IN_USE' && sameOwner(state.owner, this.#owner)
+      ? 'PROFILE_IN_USE' : 'PROFILE_OWNERSHIP_UNCONFIRMED');
+  }
+
+  #locator(input: BrowserLocatorSpec): Locator {
+    let spec: z.infer<typeof locatorSpecSchema>;
+    try { spec = locatorSpecSchema.parse(input); }
+    catch { throw new BrowserFailure('BROWSER_INPUT_INVALID'); }
+    switch (spec.kind) {
+      case 'role': return this.#page.getByRole(spec.role as never, { ...(spec.name === undefined ? {} : { name: spec.name }), exact: true });
+      case 'text': return this.#page.getByText(spec.text, { exact: true });
+      case 'label': return this.#page.getByLabel(spec.text, { exact: true });
+      case 'css': return this.#page.locator(spec.selector);
+    }
+  }
+
+  #bounded(value: string | null, characters: number, bytes: number): string | null {
+    if (value === null) return null;
+    if (value.length > characters || Buffer.byteLength(value, 'utf8') > bytes) throw new BrowserFailure('BROWSER_OUTPUT_LIMIT');
+    return value;
+  }
+
+  async #run<T>(guard: BrowserRequestGuard, operation: () => Promise<T>): Promise<T> {
+    if (this.#closing || this.#activeGuard !== null) throw new BrowserFailure('BROWSER_FENCED');
+    const task = (async () => {
+      await this.#assertCurrent(guard);
+      this.#activeGuard = guard;
+      let result: T;
+      try { result = await operation(); }
+      catch (error) {
+        if (this.#failure) throw this.#failure;
+        throw safeFailure(error, this.#lifecycle.signal.aborted ? 'BROWSER_ABORTED' : 'BROWSER_FENCED');
+      } finally { this.#activeGuard = null; }
+      if (this.#networkChecks.size > 0) await Promise.allSettled([...this.#networkChecks]);
+      if (this.#failure) throw this.#failure;
+      await this.#assertCurrent(guard);
+      return result;
+    })();
+    this.#operations.add(task);
+    try { return await task; } finally { this.#operations.delete(task); }
+  }
+
+  #assertGuardIdentity(guard: BrowserRequestGuard): void {
+    try {
+      if (guard.expectedGeneration !== this.#owner.generation || !sameOwner(ProfileOwnerIdentitySchema.parse(guard.owner), this.#owner)) {
+        throw new Error('guard');
+      }
+    } catch { throw new BrowserFailure('BROWSER_FENCED'); }
+  }
+
+  async #assertCurrent(guard: BrowserRequestGuard): Promise<void> {
+    if (this.#failure) throw this.#failure;
+    this.#assertGuardIdentity(guard);
+    if (guard.signal.aborted || this.#lifecycle.signal.aborted) throw new BrowserFailure('BROWSER_ABORTED');
+    const gate = await this.#maintenance.read();
+    if (guard.signal.aborted || this.#lifecycle.signal.aborted) throw new BrowserFailure('BROWSER_ABORTED');
+    if (gate.state !== 'open' || gate.generation !== guard.expectedGeneration) throw new BrowserFailure('BROWSER_FENCED');
+    const state = await this.#coordinator.inspect(this.#owner);
+    if (guard.signal.aborted || this.#lifecycle.signal.aborted) throw new BrowserFailure('BROWSER_ABORTED');
+    if (state.resultCode !== 'PROFILE_IN_USE' || !sameOwner(state.owner, this.#owner)) throw new BrowserFailure('BROWSER_FENCED');
+  }
+
+  async #assertCleanupCurrent(guard: BrowserRequestGuard): Promise<void> {
+    const gate = await this.#maintenance.read();
+    if (gate.state !== 'open' || gate.generation !== guard.expectedGeneration) throw new BrowserFailure('BROWSER_FENCED');
+    const state = await this.#coordinator.inspect(this.#owner);
+    if (state.resultCode !== 'PROFILE_IN_USE' || !sameOwner(state.owner, this.#owner)) throw new BrowserFailure('BROWSER_FENCED');
+  }
+
+  #ambientGuard(): BrowserRequestGuard {
+    return this.#activeGuard ?? { signal: this.#lifecycle.signal, expectedGeneration: this.#owner.generation, owner: this.#owner };
+  }
+
+  async #route(route: Route): Promise<void> {
+    const request = route.request();
+    const guard = this.#ambientGuard();
+    try {
+      await this.#assertCurrent(guard);
+      const requestOrigin = this.#safeOrigin(request.url());
+      const method = request.method().toUpperCase();
+      if (!this.#originAllowed(requestOrigin, method)) {
+        const code = this.#methodAllowed(method) ? 'BROWSER_ORIGIN_BLOCKED' : 'BROWSER_WRITE_BLOCKED';
+        this.#fail(code); await route.abort('blockedbyclient'); return;
+      }
+      this.#requestGuards.set(request, guard);
+      if (this.#navigationOrigins && !this.#navigationOrigins.includes(requestOrigin)) this.#navigationOrigins.push(requestOrigin);
+      await route.continue();
+    } catch (error) {
+      this.#fail(safeFailure(error, 'BROWSER_FENCED').code);
+      try { await route.abort('blockedbyclient'); } catch { /* Route may already be resolved. */ }
+    }
+  }
+
+  #networkPost(request: Request): Promise<void> {
+    const guard = this.#requestGuards.get(request);
+    if (!guard) return Promise.resolve();
+    const check = this.#assertCurrent(guard).catch(error => { this.#fail(safeFailure(error, 'BROWSER_FENCED').code); });
+    this.#networkChecks.add(check);
+    void check.finally(() => this.#networkChecks.delete(check));
+    return check;
+  }
+
+  #methodAllowed(method: string): boolean {
+    return this.#mode === 'background' ? ['GET', 'HEAD'].includes(method) : ['GET', 'HEAD', 'POST', 'OPTIONS'].includes(method);
+  }
+
+  #originAllowed(value: string, method: string): boolean {
+    if (!this.#methodAllowed(method)) return false;
+    return this.#mode === 'background'
+      ? this.#readOrigins.has(value) || this.#authenticationOrigins.has(value)
+      : this.#authenticationOrigins.has(value);
+  }
+
+  #safeOrigin(value: string): string {
+    try { return new URL(value).origin; }
+    catch { throw new BrowserFailure('BROWSER_ORIGIN_BLOCKED'); }
+  }
+
+  #fail(code: BrowserCode): void {
+    if (!this.#failure) this.#failure = new BrowserFailure(code);
+  }
+
+  #guardPage(page: Page): void {
+    page.on('popup', popup => {
+      if (this.#mode === 'background') { this.#fail('BROWSER_INTERACTION_REQUIRED'); void popup.close().catch(() => undefined); }
+    });
+    page.on('download', download => { this.#fail('BROWSER_DOWNLOAD_BLOCKED'); void download.cancel().catch(() => undefined); });
+    page.on('dialog', dialog => {
+      if (this.#mode === 'background') { this.#fail('BROWSER_INTERACTION_REQUIRED'); void dialog.dismiss().catch(() => undefined); }
+    });
+  }
+
+  #extraPage(page: Page): void {
+    if (page === this.#page) return;
+    if (this.#mode === 'background') { this.#fail('BROWSER_INTERACTION_REQUIRED'); void page.close().catch(() => undefined); return; }
+    this.#guardPage(page);
   }
 }
 
@@ -283,7 +511,12 @@ export class LocalPlaywrightBrowserProvider {
       owner = attached.owner;
       await this.#assertOwnerCurrent(owner, guard);
       const page = context.pages()[0] ?? await context.newPage();
-      return new SealedBrowserProbeSession({ context, page, owner, coordinator: this.#coordinator, maintenance: this.#maintenance });
+      return await SealedBrowserProbeSession.create({
+        context, page, owner, coordinator: this.#coordinator, maintenance: this.#maintenance,
+        mode: headless ? 'background' : 'interactive',
+        readOrigins: input.readOrigins,
+        authenticationOrigins: input.authenticationOrigins,
+      });
     } catch (error) {
       if (context) {
         try { await context.close(); } catch { /* Context ownership stays recorded when close is unconfirmed. */ }
