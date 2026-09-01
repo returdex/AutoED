@@ -330,6 +330,20 @@ describe('human-action headed gate', () => {
       expect(value.events).not.toContain('authorize');
     }
   });
+
+  it('does not consume a one-time receipt when cancellation or maintenance fencing already blocks open', async () => {
+    const aborted = fixture({ authorizer: 'valid' }); const controller = new AbortController(); controller.abort();
+    await expect(aborted.provider.openOfficialLogin(
+      { ...aborted.input, actionReceiptId: randomUUID() }, { signal: controller.signal, expectedGeneration: 4 },
+    )).rejects.toThrow('BROWSER_ABORTED');
+    expect(aborted.events).not.toContain('authorize'); expect(aborted.browserType.launchPersistentContext).not.toHaveBeenCalled();
+
+    const fenced = fixture({ authorizer: 'valid' });
+    fenced.setGate({ operationId: null, generation: 5, state: 'open', owner: null, leaseUntil: null });
+    await expect(fenced.provider.openOfficialLogin({ ...fenced.input, actionReceiptId: randomUUID() }, fenced.guard))
+      .rejects.toThrow('BROWSER_FENCED');
+    expect(fenced.events).not.toContain('authorize'); expect(fenced.browserType.launchPersistentContext).not.toHaveBeenCalled();
+  });
 });
 
 describe('capture disabled ownership launch', () => {

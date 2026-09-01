@@ -455,6 +455,9 @@ export class LocalPlaywrightBrowserProvider {
     let parsed: InteractiveLoginOpenInput;
     try { parsed = interactiveLoginOpenInputSchema.parse(input); }
     catch { throw new BrowserFailure('BROWSER_INPUT_INVALID'); }
+    if (parsed.installationId !== this.#installationId || parsed.browserBuildId !== this.#browserBuildId ||
+        parsed.generation !== guard.expectedGeneration) throw new BrowserFailure('BROWSER_INPUT_INVALID');
+    await this.#assertOpenGuard(guard);
     if (!this.#humanLoginActions) throw new BrowserFailure('BROWSER_HUMAN_ACTION_REQUIRED');
     try {
       const consumed = await this.#humanLoginActions.consume({
