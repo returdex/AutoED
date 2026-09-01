@@ -82,7 +82,7 @@ async function authUiFixture() {
   };
   const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo' as const] };
   const sessions = new SQLiteSessions(db, installationId);
-  const api = await startApi({ host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), sessions, shutdown: async () => {}, runtimeGeneration: 0, assetsRoot: assets, auth });
+  const api = await startApi({ host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), sessions, shutdown: async () => {}, assetsRoot: assets, auth });
   async function approve(code: string) {
     return harness.fetch(`${api.origin}/api/pairing/${code}/approve`, { method: 'POST', headers: { authorization: `Bearer ${values.get('cli')}`, 'content-type': 'application/json' }, body: JSON.stringify({ confirmedCode: code }) });
   }
@@ -94,8 +94,10 @@ async function authUiFixture() {
 
 async function pair(page: import('@playwright/test').Page, fixture: Awaited<ReturnType<typeof authUiFixture>>) {
   await page.goto(`${fixture.api.origin}/status`);
+  await expect(page.locator('#pair-code')).toHaveText(/^[A-F0-9]{16}$/);
   const code = await page.locator('#pair-code').innerText();
-  expect((await fixture.approve(code)).status).toBe(200);
+  const approved = await fixture.approve(code);
+  expect(approved.status, await approved.text()).toBe(200);
   await page.getByRole('button', { name: '刷新状态' }).click();
   await expect(page.getByRole('status')).toHaveText('本地状态已读取。');
 }
@@ -128,7 +130,7 @@ test.describe('paired Phase 2 auth status UI', () => {
         return {
           attributeText, live: document.querySelector('[role="status"]')?.textContent ?? '',
           local: Object.keys(localStorage), session: Object.keys(sessionStorage),
-          privacyBeforeIdentity: Boolean(document.querySelector('.privacy-notice')?.compareDocumentPosition(document.querySelector('.source-card')!) & Node.DOCUMENT_POSITION_FOLLOWING),
+          privacyBeforeIdentity: Boolean((document.querySelector('.privacy-notice')?.compareDocumentPosition(document.querySelector('.source-card')!) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING),
           cardLabels: [...document.querySelectorAll('.source-card')].map(card => [...card.querySelectorAll('dt')].map(item => item.textContent)),
         };
       }, PRIVATE_SENTINELS);
