@@ -5,7 +5,7 @@ import {
   LIVE_SCENARIO_WORKFLOWS,
   PairedLiveCheckpointService,
   type LiveCheckpointAuthorityPort,
-  type LiveCheckpointRuntimePort,
+  type PairedLiveCheckpointRuntimePort,
   type PairedLiveAuthority,
 } from '../../packages/application/src/live-checkpoints.js';
 import type {
@@ -14,8 +14,14 @@ import type {
   PendingLiveAction,
 } from '../../packages/domain/src/live-evidence.js';
 import { SQLiteLiveCheckpointStore } from '../../packages/persistence/src/auth.js';
-import { openDatabase } from '../../packages/persistence/src/database.js';
+import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
+import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
+import { SQLiteStatusProjectionStore } from '../../packages/persistence/src/runtime-status.js';
+import { SQLiteSessions } from '../../packages/persistence/src/sessions.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
+import { issueCredential } from '../../packages/platform/src/credentials.js';
+import type { SecretStore } from '../../packages/application/src/ports.js';
+import { startApi } from '../../apps/api/src/main.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const cleanups: Array<() => Promise<void>> = [];
@@ -26,18 +32,23 @@ function fixture() {
   const db = openDatabase(join(harness.root, 'live-workflows.sqlite'));
   cleanups.push(async () => { db.close(); });
   let now = Date.parse('2026-09-01T08:30:00.000Z');
-  let generation = 7;
+  let generation = 0;
   const installationId = randomUUID();
   const store = new SQLiteLiveCheckpointStore(db, { now: () => now });
   const calls: string[] = [];
-  const authorityValue: PairedLiveAuthority = {
-    kind: 'paired_server_authenticated', secret: randomUUID(), principalSessionHash: hash('paired-server-principal'),
-  };
+  const authoritySecret = randomUUID();
+  const authorityFor = (binding: LiveCheckpointBinding): PairedLiveAuthority => ({
+    kind: 'paired_server_authenticated', secret: authoritySecret, principalSessionHash: hash(JSON.stringify(binding)),
+  });
   const authority: LiveCheckpointAuthorityPort = {
-    async mint(binding) { calls.push(`mint:${binding.scenario}:${binding.source}`); return authorityValue; },
-    async resolve(action) { calls.push(`resolve:${action.scenario}:${action.source}`); return authorityValue; },
+    async mint(binding) { calls.push(`mint:${binding.scenario}:${binding.source}`); return authorityFor(binding); },
+    async resolve(action) {
+      calls.push(`resolve:${action.scenario}:${action.source}`);
+      const { actionId: _id, issuedAt: _issued, expiresAt: _expires, state: _state, consumedAt: _consumed, ...binding } = action;
+      return authorityFor(binding);
+    },
   };
-  const runtime: LiveCheckpointRuntimePort = {
+  const runtime: PairedLiveCheckpointRuntimePort = {
     platform: () => 'macos',
     async prepare(scenario, source) {
       calls.push(`prepare:${scenario}:${source}`);
@@ -50,7 +61,8 @@ function fixture() {
     },
     async current(action) {
       calls.push(`current:${action.scenario}:${action.source}`);
-      return { ...action, generation };
+      const { actionId: _id, issuedAt: _issued, expiresAt: _expires, state: _state, consumedAt: _consumed, ...binding } = action;
+      return { ...binding, generation };
     },
     async observe(action, acknowledgement): Promise<PairedLiveResult | { status: 'human_needed'; resultCode: string; checkedAt: string }> {
       calls.push(`observe:${action.scenario}:${action.source}:${acknowledgement}`);
@@ -66,7 +78,7 @@ function fixture() {
     },
   };
   const service = new PairedLiveCheckpointService(store, authority, runtime, { expectedGeneration: generation }, () => now);
-  return { db, store, service, calls, setGeneration(value: number) { generation = value; }, now: () => now };
+  return { harness, db, store, service, calls, setGeneration(value: number) { generation = value; }, now: () => now };
 }
 
 async function completeBundle(
@@ -151,11 +163,11 @@ describe('paired live checkpoint scenario workflows', () => {
     const restarted = new PairedLiveCheckpointService(reopenedStore, {
       mint: async () => ({ kind: 'paired_server_authenticated', secret: randomUUID(), principalSessionHash: hash('unused') }),
       resolve: async () => ({ kind: 'paired_server_authenticated', secret: (f as never), principalSessionHash: hash('unused') }),
-    } as never, {} as never, { expectedGeneration: 7 }, f.now);
+    } as never, {} as never, { expectedGeneration: 0 }, f.now);
     // The production service can be reconstructed after restart; the original action IDs are recovered by scenario/platform.
     expect((await f.service.resumeB3CodexExit()).actions.map(item => item.actionId).sort()).toEqual(b3.actions.map(item => item.actionId).sort());
     void restarted;
-    f.setGeneration(8);
+    f.setGeneration(1);
     await expect(f.service.resultB3CodexExit({ actionId: b3.actions[0]!.actionId, acknowledgement: 'completed' }))
       .rejects.toMatchObject({ code: 'LIVE_ACTION_BINDING_MISMATCH' });
     expect(f.db.prepare("SELECT count(*) AS n FROM uat_receipts WHERE scenario='b.codex_exit'").get()).toEqual({ n: 0 });
@@ -170,5 +182,52 @@ describe('paired live checkpoint scenario workflows', () => {
     expect(f.db.prepare('SELECT count(*) AS n FROM pending_live_actions').get()).toEqual(before);
     await expect(f.service.resultA1Login({ actionId: randomUUID(), acknowledgement: 'completed' }))
       .rejects.toMatchObject({ code: 'LIVE_ACTION_NOT_FOUND' });
+  });
+
+  it('admits only fixed paired same-origin CSRF routes and rejects forbidden fields before the service', async () => {
+    const f = fixture();
+    const installationId = randomUUID();
+    const values = new Map<string, string>();
+    const secrets: SecretStore = {
+      async get(_installationId, name) { return values.get(name) ?? null; },
+      async set(_installationId, name, value) { values.set(name, value); },
+      async delete(_installationId, name) { values.delete(name); },
+    };
+    const scope = { installationId, source: 'synthetic' as const, courseId: 'selftest' as const };
+    const credentials = [await issueCredential(secrets, installationId, 'cli', scope, 'local_cli')];
+    const sessions = new SQLiteSessions(f.db, installationId);
+    const api = await startApi({
+      host: '127.0.0.1', port: 0, installationId,
+      build: { version: '0.1.0-beta.20', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1, schemaMin: 1, schemaMax: 1, capabilities: ['echo'] },
+      secrets, credentials, sessions, jobs: new SQLiteJobStore(f.db), maintenance: new SQLiteMaintenanceStore(f.db),
+      projections: new SQLiteStatusProjectionStore(f.db), shutdown: async () => {}, live: f.service,
+    });
+    cleanups.push(() => api.close());
+    const cookies = (response: Response) => response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
+    const request = (path: string, options: { body?: unknown; cookie?: string; csrf?: string; bearer?: boolean; origin?: string } = {}) => {
+      const headers: Record<string, string> = options.bearer && options.origin === undefined ? {} : { origin: options.origin ?? api.origin };
+      if (options.body !== undefined) headers['content-type'] = 'application/json';
+      if (options.cookie) headers.cookie = options.cookie;
+      if (options.csrf) headers['x-autoed-csrf'] = options.csrf;
+      if (options.bearer) headers.authorization = `Bearer ${values.get('cli')}`;
+      return f.harness.fetch(api.origin + path, { method: options.body === undefined ? 'GET' : 'POST', headers, ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }) });
+    };
+    const nonceResponse = await request('/api/pairing/nonce'); const nonce = (await nonceResponse.json()).nonce as string;
+    const pending = await request('/api/pairing/pending', { body: { nonce }, cookie: cookies(nonceResponse), csrf: nonce });
+    const code = (await pending.json()).code as string;
+    expect((await request(`/api/pairing/${code}/approve`, { body: { confirmedCode: code }, bearer: true })).status).toBe(200);
+    const exchange = await request('/api/pairing/exchange', { body: {}, cookie: cookies(pending), csrf: nonce });
+    const paired = { cookie: cookies(exchange), csrf: (await exchange.json()).csrf as string };
+    const path = '/api/auth/live-action/a1-login/issue';
+    expect([401, 403]).toContain((await request(path, { body: {} })).status);
+    expect((await request(path, { body: {}, bearer: true })).status).toBe(403);
+    expect((await request(path, { body: {}, cookie: paired.cookie })).status).toBe(403);
+    expect((await request(path, { body: {}, cookie: paired.cookie, csrf: paired.csrf, origin: 'http://evil.invalid' })).status).toBe(403);
+    for (const field of ['operation', 'cell', 'authority', 'url', 'selector', 'js', 'credential', 'profilePath']) {
+      expect((await request(path, { body: { [field]: 'PRIVATE_SENTINEL' }, cookie: paired.cookie, csrf: paired.csrf })).status).toBe(400);
+    }
+    const issued = await request(path, { body: {}, cookie: paired.cookie, csrf: paired.csrf });
+    expect(issued.status).toBe(200); expect((await issued.json()).actions).toHaveLength(2);
+    expect((await request('/api/auth/live-action/operation', { body: {}, cookie: paired.cookie, csrf: paired.csrf })).status).toBe(404);
   });
 });

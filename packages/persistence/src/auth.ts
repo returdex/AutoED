@@ -4,7 +4,7 @@ import { z, ZodError } from 'zod';
 import type {
   AccountBindingStore, Clock, EvidenceLedger, EvidenceWriterAuthority, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
 } from '../../application/src/ports.js';
-import type { LiveCheckpointStore, PairedLiveAuthority } from '../../application/src/live-checkpoints.js';
+import type { LiveCheckpointOutcome, LiveCheckpointStore, PairedLiveAuthority } from '../../application/src/live-checkpoints.js';
 import type {
   AuthJob, AuthJobLease, AuthJobResultCode, AuthJobStore, AuthProbeCommand,
 } from '../../application/src/auth-jobs.js';
@@ -412,6 +412,28 @@ export class SQLiteLiveCheckpointStore implements LiveCheckpointStore {
     if (!z.uuid().safeParse(actionId).success) return null;
     const row = this.db.prepare('SELECT * FROM pending_live_actions WHERE action_id=?').get(actionId) as LiveActionRow | undefined;
     return row ? this.toAction(row, this.checkedClock()) : null;
+  }
+
+  async listPending(platform: PendingLiveAction['platform'], scenario: PendingLiveAction['scenario']): Promise<PendingLiveAction[]> {
+    const now = this.checkedClock();
+    if (!['macos', 'windows'].includes(platform) || !requiredEvidenceKeys().some(key => key.platform === platform && key.scenario === scenario)) {
+      throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+    }
+    const rows = this.db.prepare(`SELECT * FROM pending_live_actions
+      WHERE platform=? AND scenario=? AND state='pending' AND expires_at>?
+      ORDER BY issued_at,action_id`).all(platform, scenario, now) as LiveActionRow[];
+    return rows.map(row => this.toAction(row, now));
+  }
+
+  async latestOutcome(platform: PendingLiveAction['platform'], sourceId: PendingLiveAction['source'], scenario: PendingLiveAction['scenario']): Promise<LiveCheckpointOutcome | null> {
+    if (!requiredEvidenceKeys().some(key => key.platform === platform && key.source === sourceId && key.scenario === scenario)) {
+      throw new StorageError('LIVE_ACTION_BINDING_MISMATCH');
+    }
+    const row = this.db.prepare(`SELECT event_id,status,observed_at FROM uat_receipts
+      WHERE platform=? AND source=? AND scenario=? AND evidence='L'
+      ORDER BY recorded_at DESC,event_id DESC LIMIT 1`).get(platform, sourceId, scenario) as
+      { event_id: string; status: LiveCheckpointOutcome['status']; observed_at: number } | undefined;
+    return row ? { eventId: row.event_id, status: row.status, checkedAt: new Date(row.observed_at).toISOString() } : null;
   }
 
   async recordFailure(actionId: string, code: string, checkedAt: string, context: WriteContext): Promise<LiveActionFailure> {

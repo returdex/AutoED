@@ -2,8 +2,10 @@ import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { BuildIdentity } from '../../../packages/domain/src/model.js';
-import type { JobStore, MaintenanceStore, SecretStore, StatusProjectionStore } from '../../../packages/application/src/ports.js';
+import { createHash } from 'node:crypto';
+import { uptime } from 'node:os';
+import type { BuildIdentity, SourceId, UatScenario } from '../../../packages/domain/src/model.js';
+import type { AccountBindingStore, JobStore, MaintenanceStore, ProfileOwnershipStore, SecretStore, SourceConfigStore, SourceObservationStore, StatusProjectionStore } from '../../../packages/application/src/ports.js';
 import type { CredentialRecord } from '../../../packages/platform/src/credentials.js';
 import { ApiApplication, ApplicationError, AuthControlApplication, SyntheticOutputPolicy, authorize, toSafeAuthApiError, type AuthControlDependencies, type Principal } from '../../../packages/application/src/policy.js';
 import { ApplicationStatus } from '../../../packages/application/src/status.js';
@@ -14,16 +16,77 @@ import {SelfcheckCredentials,SelfcheckCredentialInput} from '../../../packages/p
 import { browserPrincipal, publicPairingPaths, registerPairing } from './pairing.js';
 import { publicStaticPaths, registerStatic } from './static.js';
 import { registerAuthRoutes } from './auth.js';
+import { PairedLiveCheckpointService, type LiveActionAcknowledgement, type PairedLiveCheckpointRuntimePort } from '../../../packages/application/src/live-checkpoints.js';
+import type { LiveCheckpointBinding, PairedLiveResult, PendingLiveAction } from '../../../packages/domain/src/live-evidence.js';
 import { fileURLToPath } from 'node:url';
 import type { SQLiteSessions } from '../../../packages/persistence/src/sessions.js';
 import { SQLiteSessions as Sessions } from '../../../packages/persistence/src/sessions.js';
 import { openDatabase, readGate, SQLiteMaintenanceStore } from '../../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../../packages/persistence/src/claims.js';
 import { SQLiteStatusProjectionStore } from '../../../packages/persistence/src/runtime-status.js';
+import { SQLiteAccountBindingStore, SQLiteLiveCheckpointStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore } from '../../../packages/persistence/src/auth.js';
 import { NativeSecretStore } from '../../../packages/platform/src/credentials.js';
 import { readInstallation } from '../../../packages/platform/src/installation.js';
 import { assertManagedPath, managedPaths } from '../../../packages/platform/src/paths.js';
 import { serviceSelection, runtimeIdentity, publishProcess, processProof, type ProcessRecord } from '../../../packages/platform/src/processes.js';
+import { DurablePairedLiveAuthority } from './auth.js';
+
+const liveDigest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function liveUuid(value: unknown): string {
+  const bytes = Buffer.from(liveDigest(value).slice(0, 32), 'hex'); bytes[6] = (bytes[6]! & 0x0f) | 0x40; bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = bytes.toString('hex'); return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/** Production runtime reads actual durable auth/build/lifecycle state; acknowledgement alone cannot create pass. */
+class ProductionLiveCheckpointRuntime implements PairedLiveCheckpointRuntimePort {
+  constructor(
+    private readonly build: BuildIdentity,
+    private readonly installationId: string,
+    private readonly generation: number,
+    private readonly configs: SourceConfigStore,
+    private readonly observations: SourceObservationStore,
+    private readonly bindings: AccountBindingStore,
+    private readonly ownership: ProfileOwnershipStore,
+    private readonly projections: StatusProjectionStore,
+  ) {}
+  platform() { if (process.platform === 'darwin') return 'macos' as const; if (process.platform === 'win32') return 'windows' as const; throw new ApplicationError('FORBIDDEN'); }
+  async prepare(scenario: UatScenario, source: SourceId): Promise<LiveCheckpointBinding> {
+    const [config, binding, ownership, status] = await Promise.all([this.configs.read(source), this.bindings.read(), this.ownership.read(), this.projections.read()]);
+    if (!config || status.installationId && status.installationId !== this.installationId || !status.manifest ||
+        status.manifest.build.buildId !== this.build.buildId || status.manifest.build.version !== this.build.version || status.manifest.evidence !== 'verified_release_manifest') {
+      throw Object.assign(new Error('LIVE_ACTION_BUILD_UNCONFIRMED'), { code: 'LIVE_ACTION_BINDING_MISMATCH' });
+    }
+    if (ownership.state === 'in_use' || ownership.state === 'unconfirmed' || ownership.reservation &&
+        (ownership.reservation.installationId !== this.installationId || ownership.reservation.browserBuildId !== this.build.buildId || ownership.reservation.generation !== this.generation)) {
+      throw Object.assign(new Error('LIVE_ACTION_PROFILE_UNCONFIRMED'), { code: 'LIVE_ACTION_BINDING_MISMATCH' });
+    }
+    return {
+      buildId: this.build.buildId, artifactId: status.manifest.manifestHash, version: this.build.version, installationId: this.installationId,
+      platform: this.platform(), source, scenario, approvedConfigId: config.id, approvedScopeId: config.approvedScopeId,
+      bindingFingerprint: liveDigest(binding), generation: this.generation,
+      parentCheckpointId: liveUuid([this.installationId, this.build.buildId, this.platform(), 'phase2-live-root']), priorEvidenceEventId: null,
+    };
+  }
+  async current(action: PendingLiveAction): Promise<LiveCheckpointBinding> {
+    const current = await this.prepare(action.scenario, action.source);
+    return { ...current, parentCheckpointId: action.parentCheckpointId, priorEvidenceEventId: action.priorEvidenceEventId };
+  }
+  async observe(action: PendingLiveAction, acknowledgement: LiveActionAcknowledgement): Promise<PairedLiveResult | { status: 'human_needed'; resultCode: string; checkedAt: string }> {
+    const checkedAt = new Date().toISOString();
+    if (acknowledgement === 'human_needed') return { status: 'human_needed', resultCode: 'HUMAN_ACTION_REQUIRED', checkedAt };
+    if (acknowledgement === 'failed') return { actionId: action.actionId, status: 'fail', resultCode: 'CHECKPOINT_FAILED', bindingConsistency: 'not_observed', gaps: ['CHECKPOINT_FAILED'], checkedAt, correctionOfEventId: action.priorEvidenceEventId };
+    const [observation, binding, status] = await Promise.all([this.observations.read(action.source), this.bindings.read(), this.projections.read()]);
+    const issuedAt = Date.parse(action.issuedAt);
+    let confirmed = observation?.auth === 'authenticated' && observation.capability === 'available' && observation.health === 'healthy' &&
+      observation.freshness === 'fresh' && observation.checkedAt !== null && Date.parse(observation.checkedAt) >= issuedAt;
+    if (action.scenario !== 'a.login') confirmed = confirmed && binding.status === 'confirmed' && binding.courseAccess === 'allowed';
+    if (action.scenario === 'a.course_visibility') confirmed = confirmed && observation?.courseAccess === 'allowed';
+    if (action.scenario === 'b.worker_restart') confirmed = confirmed && status.worker?.checkedAt !== null && status.worker?.checkedAt !== undefined && Date.parse(status.worker.checkedAt) >= issuedAt;
+    if (action.scenario === 'c.os_restart') confirmed = confirmed && Date.now() - uptime() * 1000 >= issuedAt;
+    if (!confirmed) return { status: 'human_needed', resultCode: 'LIVE_RESULT_NOT_CONFIRMED', checkedAt };
+    return { actionId: action.actionId, status: 'pass', resultCode: 'CHECKPOINT_CONFIRMED', bindingConsistency: 'consistent', gaps: [], checkedAt, correctionOfEventId: action.priorEvidenceEventId };
+  }
+}
 
 // Production build replaces this symbol; source tests supply a synthetic identity.
 export const API_BUILD_IDENTITY = typeof __AUTOED_BUILD_IDENTITY__ === 'undefined' ? null : __AUTOED_BUILD_IDENTITY__;
@@ -38,6 +101,7 @@ export interface ApiOptions {
   assetsRoot?: string;
   selfcheckCredentials?:SelfcheckCredentials;
   auth?: Omit<AuthControlDependencies, 'installationId' | 'expectedGeneration' | 'outputPolicy'>;
+  live?: PairedLiveCheckpointService;
 }
 const JobOutput = z.strictObject({
   id: z.uuid(), request: JobRequestSchema, state: z.enum(['queued','running','retry_wait','succeeded','failed','cancelled']), cancelRequested: z.boolean(), attempt: z.number().int(), maxAttempts: z.number().int(),
@@ -96,7 +160,7 @@ export async function startApi(options: ApiOptions) {
     : reply.code(404).send({ code: 'NOT_FOUND', stage: 'api', nextAction: 'use_registered_endpoint' }));
   const principal = (request: FastifyRequest) => { const p = principals.get(request); if (!p) throw new ApplicationError('UNAUTHORIZED', 401); return p; };
   registerPairing(app, options.sessions, () => origin, principal, policy);
-  registerAuthRoutes(app, { application: authApplication, expectedGeneration: options.runtimeGeneration ?? 0, principal });
+  registerAuthRoutes(app, { application: authApplication, liveApplication: options.live ?? null, expectedGeneration: options.runtimeGeneration ?? 0, principal });
   registerStatic(app, options.assetsRoot);
   app.get('/api/status', async request => StatusSchema.parse(await status.read(principal(request))));
   app.post('/api/client/identity',async request=>{
@@ -149,9 +213,13 @@ async function standaloneApi() {
       {...context,operationId:readGate(db).operationId});last=now;
   }
   const secrets=new NativeSecretStore();const maintenance=new SQLiteMaintenanceStore(db);
+  const sourceConfigs=new SQLiteSourceConfigStore(db),observations=new SQLiteSourceObservationStore(db),bindings=new SQLiteAccountBindingStore(db),ownership=new SQLiteProfileOwnershipStore(db);
+  const liveStore=new SQLiteLiveCheckpointStore(db),liveAuthority=new DurablePairedLiveAuthority(secrets,metadata.installationId);
+  const live=new PairedLiveCheckpointService(liveStore,liveAuthority,
+    new ProductionLiveCheckpointRuntime(API_BUILD_IDENTITY,metadata.installationId,context.expectedGeneration,sourceConfigs,observations,bindings,ownership,projections),context);
   const service=await startApi({host:'127.0.0.1',port:metadata.port,installationId:metadata.installationId,build:API_BUILD_IDENTITY,secrets,credentials:metadata.credentials,
     jobs:new SQLiteJobStore(db),maintenance,projections,sessions:new Sessions(db,metadata.installationId),selfcheckCredentials:new SelfcheckCredentials(launch.selection,secrets,maintenance),
-    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop(),assetsRoot:fileURLToPath(new URL('../../status/',import.meta.url))});
+    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop(),assetsRoot:fileURLToPath(new URL('../../status/',import.meta.url)),live});
   let pulse:Promise<void>|undefined;
   const timer=setInterval(()=>{if(!closing&&!pulse)pulse=report('healthy').catch(()=>{setImmediate(()=>{void stop();});}).finally(()=>{pulse=undefined;});},5000);
   async function stop() {
