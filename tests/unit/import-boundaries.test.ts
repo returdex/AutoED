@@ -75,7 +75,7 @@ describe('transitive architecture boundaries', () => {
       'ProfileOwnershipStore', 'EvidenceLedger', 'ProfileOwnershipCoordinator',
     ]) expect(source).toMatch(new RegExp(`export interface ${name}\\b`));
     expect(source).toMatch(/probe\(request: SourceProbeRequest, signal: AbortSignal\): Promise<SourceProbeResult>/);
-    expect(source).toMatch(/list\(key: EvidenceCellKey\): Promise<EvidenceReceipt\[\]>/);
+    expect(source).toMatch(/list\(key: EvidenceCellKey, expectedGeneration\?: number\): Promise<EvidenceReceipt\[\]>/);
     expect(source).toMatch(/reserve\(/);
     expect(source).toMatch(/attach\(/);
     expect(source).toMatch(/markConfirmedExited\(/);

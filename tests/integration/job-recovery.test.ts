@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { once } from 'node:events';
+import Database from 'better-sqlite3';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
@@ -162,11 +163,12 @@ describe('transactional leases and crash recovery', () => {
   });
   it('bounded SQLite busy failure never destroys a previous result', async () => {
     const f = fixture(); const job = await running(f); await f.jobs.commit(job.id, job.lease!, 'preserved', 1001, context);
-    const locked = join(f.h.root, 'locked.json');
-    const child = f.h.spawn(['--experimental-transform-types', '--input-type=module', '-e', childScript(f.path, `db.exec('BEGIN IMMEDIATE');writeFileSync(${JSON.stringify(locked)},'ready');setInterval(()=>{},1000);`)]);
-    await waitFile(locked); const start = Date.now();
-    await expect(f.jobs.enqueue({ ...f.req, idempotencyKey: randomUUID() }, context)).rejects.toMatchObject({ code: 'SQLITE_BUSY' });
-    expect(Date.now() - start).toBeLessThan(3500); await f.h.stop(child);
+    const blocker = new Database(f.path, { timeout: 1 }); blocker.pragma('busy_timeout = 1'); blocker.exec('BEGIN IMMEDIATE');
+    const start = Date.now();
+    try {
+      await expect(f.jobs.enqueue({ ...f.req, idempotencyKey: randomUUID() }, context)).rejects.toMatchObject({ code: 'SQLITE_BUSY' });
+      expect(Date.now() - start).toBeLessThan(3500);
+    } finally { blocker.exec('ROLLBACK'); blocker.close(); }
     expect((await f.jobs.query(job.id, f.req.scope))?.result).toBe('preserved');
   });
   it('actual SQLite disk-full limit rolls back transaction without erasing success', async () => {

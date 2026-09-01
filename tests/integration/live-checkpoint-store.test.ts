@@ -46,10 +46,10 @@ function fixture() {
 }
 
 describe('durable live checkpoint migration and issuance', () => {
-  it('migrates through schema v4 without rebuilding existing auth/evidence tables', () => {
+  it('migrates through schema v5 without rebuilding existing auth/evidence tables', () => {
     const f = fixture();
-    expect(f.db.pragma('user_version', { simple: true })).toBe(4);
-    expect(f.db.prepare("SELECT version FROM schema_migrations ORDER BY version").pluck().all()).toEqual([1, 2, 3, 4]);
+    expect(f.db.pragma('user_version', { simple: true })).toBe(5);
+    expect(f.db.prepare("SELECT version FROM schema_migrations ORDER BY version").pluck().all()).toEqual([1, 2, 3, 4, 5]);
     expect(f.db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name IN ('pending_live_actions','live_action_failures') ORDER BY name").pluck().all())
       .toEqual(['live_action_failures', 'pending_live_actions']);
     expect(f.db.prepare("SELECT count(*) AS n FROM uat_receipts").get()).toEqual({ n: 0 });
