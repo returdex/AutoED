@@ -143,9 +143,15 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
   const ownedChildren = new Set<OwnedChild>();
   const harnessChildren = new Set<OwnedChild>();
 
-  async function spawnHarnessChild(jobId: string, command = process.execPath, args = ['-e', 'setInterval(()=>{},1000)']): Promise<OwnedChild> {
+  async function spawnHarnessChild(
+    jobId: string,
+    command = process.execPath,
+    args = ['-e', 'setInterval(()=>{},1000)'],
+    extraEnvironment: Record<string, string> = {},
+  ): Promise<OwnedChild> {
     const child = spawn(command, args, {
-      cwd: parent, stdio: 'ignore', detached: true, env: { PATH: process.env.PATH, AUTOED_NATIVE_HARNESS: '1' },
+      cwd: parent, stdio: 'ignore', detached: true,
+      env: { PATH: process.env.PATH, AUTOED_NATIVE_HARNESS: '1', ...extraEnvironment },
     });
     const pid = child.pid;
     if (!pid) throw new Error('HUMAN_ACTION_REQUIRED');
@@ -168,6 +174,40 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
   async function spawnOwnedChild(jobId: string): Promise<OwnedChild> {
     const value = await spawnHarnessChild(jobId);
     ownedChildren.add(value);
+    return value;
+  }
+
+  async function spawnActualWorker(jobId: string): Promise<OwnedChild> {
+    const workerModule = resolve('dist/apps/worker/src/main.js');
+    if (!existsSync(workerModule)) throw new Error('HUMAN_ACTION_REQUIRED');
+    const script = `
+      const module = await import(process.env.AUTOED_WORKER_MODULE);
+      const worker = await module.startWorker({
+        databasePath: process.env.AUTOED_WORKER_DATABASE,
+        owner: 'native-worker',
+        build: JSON.parse(process.env.AUTOED_WORKER_BUILD)
+      });
+      let stopping = false;
+      process.on('SIGTERM', async () => {
+        if (stopping) return;
+        stopping = true;
+        await worker.stop();
+        process.exit(0);
+      });
+      await worker.done;
+    `;
+    const build = JSON.stringify({
+      version: '0.1.0-beta.19', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40),
+      dependencyHash: 'd'.repeat(64), protocol: 1, schemaMin: 1, schemaMax: 1, capabilities: ['echo'],
+    });
+    const value = await spawnHarnessChild(jobId, process.execPath, ['--input-type=module', '-e', script], {
+      AUTOED_WORKER_MODULE: new URL(`file://${workerModule}`).href,
+      AUTOED_WORKER_DATABASE: join(paths.runtime, `${jobId}.sqlite`),
+      AUTOED_WORKER_BUILD: build,
+    });
+    ownedChildren.add(value);
+    await delay(100);
+    if (value.child.exitCode !== null || value.child.signalCode !== null) throw new Error('HUMAN_ACTION_REQUIRED');
     return value;
   }
 
@@ -413,7 +453,7 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
     },
     async verifyWorkerCrash() {
       const browser = await open();
-      const worker = await spawnOwnedChild('native-worker-crash');
+      const worker = await spawnActualWorker('native-worker-crash');
       await stopOwnedChild(worker);
       const workerExited = await observeProcess(worker.child.pid!) === null;
       const browserState = await coordinator!.inspect(browser.owner);
@@ -487,7 +527,7 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
     },
     async verifyCodexBoundary() {
       const api = await spawnOwnedChild('native-api-boundary');
-      const worker = await spawnOwnedChild('native-worker-boundary');
+      const worker = await spawnActualWorker('native-worker-boundary');
       const browser = await open();
       const launcher = spawn(process.execPath, ['-e', 'process.exit(0)'], { cwd: parent, stdio: 'ignore' });
       await once(launcher, 'exit');
