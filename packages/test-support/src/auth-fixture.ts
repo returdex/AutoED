@@ -40,7 +40,7 @@ export type MaliciousSourceScenario =
   | 'direct' | 'redirect-1' | 'redirect-2' | 'redirect-3'
   | 'cross-first' | 'cross-middle' | 'cross-final'
   | 'positive' | 'login-required' | 'missing-marker' | 'ambiguous-marker' | 'oversize-marker' | 'network-error'
-  | 'wrong-marker' | 'hidden-marker' | 'identity-missing' | 'identity-oversize'
+  | 'wrong-marker' | 'hidden-marker' | 'identity-missing' | 'identity-oversize' | 'identity-conflict'
   | 'course-visible' | 'course-denied' | 'course-not-observed' | 'course-out-of-scope' | 'course-error'
   | 'popup' | 'interaction' | 'download' | 'form-post' | 'quiz-start' | 'upload' | 'api-fallback'
   | 'aborted-navigate' | 'aborted-wait' | 'aborted-read' | 'aborted-close'
@@ -198,9 +198,10 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
       const key = locatorKey(locator);
       if (scenario === 'identity-missing' && (key.includes('subject') || key.includes('organization'))) return null;
       if (scenario === 'identity-oversize' && key.includes('subject')) return 'x'.repeat(600);
-      if (key.includes('subject')) return `stable-${openInputs.at(-1)!.source}-subject`;
+      if (key.includes('subject')) return scenario === 'identity-conflict' && openInputs.at(-1)!.source === 'edstem'
+        ? 'stable-conflicting-subject' : 'stable-synthetic-subject';
       if (key.includes('organization')) return 'stable-synthetic-organization';
-      if (key.includes('tenant')) return `stable-${openInputs.at(-1)!.source}-tenant`;
+      if (key.includes('tenant')) return 'stable-synthetic-tenant';
       if (key.includes('course')) return scenario === 'course-denied' ? 'denied'
         : scenario === 'course-not-observed' ? null
           : scenario === 'course-out-of-scope' ? '90000000-0000-4000-8000-000000000009' : FIXTURE_SCOPE_ID;

@@ -135,9 +135,21 @@ describe('identity evidence', () => {
     }
     expect(results[0]!.identity?.source).toBe('moodle');
     expect(results[1]!.identity?.source).toBe('edstem');
-    expect(results[0]!.identity?.subjectFingerprint).not.toBe(results[1]!.identity?.subjectFingerprint);
+    expect(results[0]!.identity?.subjectFingerprint).toBe(results[1]!.identity?.subjectFingerprint);
+    expect(results[0]!.identity?.organizationFingerprint).toBe(results[1]!.identity?.organizationFingerprint);
     const output = serialized(results);
-    expect(output).not.toMatch(/Synthetic Private Name|synthetic@example\.invalid|stable-(?:moodle|edstem)-subject|stable-synthetic-organization/);
+    expect(output).not.toMatch(/Synthetic Private Name|synthetic@example\.invalid|stable-synthetic-(?:subject|organization|tenant)/);
+  });
+
+  it('keeps conflicting stable subjects independent despite matching display hints', async () => {
+    const results = [];
+    for (const source of ['moodle', 'edstem'] as const) {
+      const { fixture, adapters } = setup('identity-conflict');
+      results.push(await adapters.probe(fixture.request(source, `${source}.auth_probe`), new AbortController().signal));
+    }
+    expect(results[0]!.identity?.subjectFingerprint).not.toBe(results[1]!.identity?.subjectFingerprint);
+    expect(results[0]!.identity?.organizationFingerprint).toBe(results[1]!.identity?.organizationFingerprint);
+    expect(serialized(results)).not.toContain('Synthetic Private Name');
   });
 
   it('keeps manual confirmation possible when stable evidence is absent', async () => {

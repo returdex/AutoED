@@ -77,12 +77,12 @@ function fingerprint(kind: 'subject' | 'organization' | 'tenant', value: string)
 
 function safeText(value: string | null, maximum: number, required: boolean): string | null {
   if (value === null) {
-    if (required) throw new AdapterFailure('PARSER_CHANGED', true);
+    if (required) throw new AdapterFailure('PARSER_CHANGED');
     return null;
   }
   const normalized = value.normalize('NFC');
   if (normalized !== value || value.trim() !== value || value.length < 1 || value.length > maximum || value.includes('\0') || /[\r\n]/.test(value)) {
-    throw new AdapterFailure('PARSER_CHANGED', true);
+    throw new AdapterFailure('PARSER_CHANGED');
   }
   return value;
 }
@@ -147,13 +147,13 @@ function assertOrigin(config: ApprovedSourceConfig, observed: string): void {
 export class SealedSourceAdapters implements SourceProbePort {
   readonly #browser: BackgroundBrowser;
   readonly #configs: SourceConfigStore;
-  readonly #context: AdapterContext;
+  readonly #runtime: AdapterContext;
   readonly #clock: () => string;
 
   constructor(options: { browser: BackgroundBrowser; configs: SourceConfigStore; context: AdapterContext; clock?: () => string }) {
     this.#browser = options.browser;
     this.#configs = options.configs;
-    this.#context = adapterContextSchema.parse(options.context);
+    this.#runtime = adapterContextSchema.parse(options.context);
     this.#clock = options.clock ?? (() => new Date().toISOString());
   }
 
@@ -164,34 +164,42 @@ export class SealedSourceAdapters implements SourceProbePort {
     if (descriptorValue.source !== request.source || descriptorValue.action !== request.action) throw new Error('SOURCE_PROBE_REJECTED');
     const checkedAt = z.iso.datetime().parse(this.#clock());
     const openInput: BrowserOpenInput = {
-      installationId: this.#context.installationId,
-      browserBuildId: this.#context.browserBuildId,
+      installationId: this.#runtime.installationId,
+      browserBuildId: this.#runtime.browserBuildId,
       approvedConfigId: config.id,
       source: request.source,
       readOrigins: [config.officialOrigin],
       authenticationOrigins: [config.officialOrigin],
-      generation: this.#context.generation,
-      fence: this.#context.fence,
+      generation: this.#runtime.generation,
+      fence: this.#runtime.fence,
     };
     let session: BrowserProbeSession | null = null;
     let guard: ReturnType<BrowserProbeSession['requestGuard']> | null = null;
     let result: SourceProbeResult | null = null;
+    let primaryFailure = false;
     try {
-      session = await this.#browser.openBackground(openInput, { signal, expectedGeneration: this.#context.generation });
-      guard = session.requestGuard(signal, this.#context.generation);
+      session = await this.#browser.openBackground(openInput, { signal, expectedGeneration: this.#runtime.generation });
+      guard = session.requestGuard(signal, this.#runtime.generation);
       const target = new URL(descriptorValue.routeSuffix, config.officialOrigin);
       const navigation = await session.navigate(target, guard);
       for (const hop of navigation.redirectOrigins) assertOrigin(config, hop);
       assertOrigin(config, navigation.finalOrigin);
       result = await this.#read(descriptorValue, request, session, guard, checkedAt);
     } catch (error) {
+      primaryFailure = true;
       const failure = safeCode(error);
       result = observation(request, failure.resultCode, checkedAt, failure.authenticated);
     } finally {
       if (session && guard) {
         try { await session.close(guard); }
-        catch { /* A cleanup failure never replaces the original bounded result. */ }
+        catch (error) {
+          if (!primaryFailure) {
+            const failure = safeCode(error);
+            result = observation(request, failure.resultCode, checkedAt, failure.authenticated);
+          }
+        }
       }
+      if (!primaryFailure && signal.aborted) result = observation(request, 'NOT_OBSERVED', checkedAt);
     }
     return SourceProbeResultSchema.parse(result);
   }
