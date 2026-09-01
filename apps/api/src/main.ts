@@ -16,20 +16,21 @@ import {SelfcheckCredentials,SelfcheckCredentialInput} from '../../../packages/p
 import { browserPrincipal, publicPairingPaths, registerPairing } from './pairing.js';
 import { publicStaticPaths, registerStatic } from './static.js';
 import { registerAuthRoutes } from './auth.js';
-import { PairedLiveCheckpointService, type LiveActionAcknowledgement, type PairedLiveCheckpointRuntimePort } from '../../../packages/application/src/live-checkpoints.js';
-import type { LiveCheckpointBinding, PairedLiveResult, PendingLiveAction } from '../../../packages/domain/src/live-evidence.js';
+import { NativeEvidenceService, PairedLiveCheckpointService, type LiveActionAcknowledgement, type PairedLiveCheckpointRuntimePort, type NativeEvidenceRuntimePort } from '../../../packages/application/src/live-checkpoints.js';
+import type { LiveCheckpointBinding, PairedLiveResult, PendingLiveAction, NativeEvidenceRuntimeBinding, Phase2GateRuntimeProjection } from '../../../packages/domain/src/live-evidence.js';
 import { fileURLToPath } from 'node:url';
 import type { SQLiteSessions } from '../../../packages/persistence/src/sessions.js';
 import { SQLiteSessions as Sessions } from '../../../packages/persistence/src/sessions.js';
 import { openDatabase, readGate, SQLiteMaintenanceStore } from '../../../packages/persistence/src/database.js';
 import { SQLiteJobStore } from '../../../packages/persistence/src/claims.js';
 import { SQLiteStatusProjectionStore } from '../../../packages/persistence/src/runtime-status.js';
-import { SQLiteAccountBindingStore, SQLiteLiveCheckpointStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore } from '../../../packages/persistence/src/auth.js';
+import { SQLiteAccountBindingStore, SQLiteLiveCheckpointStore, SQLiteNativeEvidenceStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore } from '../../../packages/persistence/src/auth.js';
 import { NativeSecretStore } from '../../../packages/platform/src/credentials.js';
 import { readInstallation } from '../../../packages/platform/src/installation.js';
 import { assertManagedPath, managedPaths } from '../../../packages/platform/src/paths.js';
 import { serviceSelection, runtimeIdentity, publishProcess, processProof, type ProcessRecord } from '../../../packages/platform/src/processes.js';
 import { DurablePairedLiveAuthority } from './auth.js';
+import { assertOwnedLaunchers } from '../../../packages/installer/src/launchers.js';
 
 const liveDigest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function liveUuid(value: unknown): string {
@@ -84,7 +85,18 @@ class ProductionLiveCheckpointRuntime implements PairedLiveCheckpointRuntimePort
     if (action.scenario === 'b.worker_restart') confirmed = confirmed && status.worker?.checkedAt !== null && status.worker?.checkedAt !== undefined && Date.parse(status.worker.checkedAt) >= issuedAt;
     if (action.scenario === 'c.os_restart') confirmed = confirmed && Date.now() - uptime() * 1000 >= issuedAt;
     if (!confirmed) return { status: 'human_needed', resultCode: 'LIVE_RESULT_NOT_CONFIRMED', checkedAt };
-    return { actionId: action.actionId, status: 'pass', resultCode: 'CHECKPOINT_CONFIRMED', bindingConsistency: 'consistent', gaps: [], checkedAt, correctionOfEventId: action.priorEvidenceEventId };
+    const resultCode:Record<UatScenario,string>={'a.login':'AUTHENTICATED','a.binding':'BINDING_CONFIRMED','a.course_visibility':'COURSE_VISIBLE','b.reopen_1':'CHECKPOINT_CONFIRMED','b.reopen_2':'CHECKPOINT_CONFIRMED','b.reopen_3':'CHECKPOINT_CONFIRMED','b.worker_restart':'CHECKPOINT_CONFIRMED','b.codex_exit':'B3_COMPLETE','c.os_restart':'CHECKPOINT_CONFIRMED','d.24h_recheck':'CHECKPOINT_CONFIRMED',reauth:'REAUTH_COMPLETE'};
+    return { actionId: action.actionId, status: 'pass', resultCode: resultCode[action.scenario], bindingConsistency: 'consistent', gaps: [], checkedAt, correctionOfEventId: action.priorEvidenceEventId };
+  }
+}
+
+class ProductionNativeEvidenceRuntime implements NativeEvidenceRuntimePort {
+  constructor(private readonly build:BuildIdentity,private readonly artifactSha256:string,private readonly manifestSha256:string,private readonly generation:number,private readonly projections:StatusProjectionStore){}
+  async current():Promise<NativeEvidenceRuntimeBinding>{
+    const status=await this.projections.read(),platform=process.platform==='darwin'?'macos':process.platform==='win32'?'windows':null;
+    if(!platform||!status.manifest||status.manifest.build.buildId!==this.build.buildId||status.manifest.manifestHash!==this.manifestSha256||
+      status.worker?.health!=='healthy'||status.worker.build?.buildId!==this.build.buildId||status.selfcheck?.featureResult!=='pass'||status.install?.cleanup!=='complete')throw new ApplicationError('FORBIDDEN');
+    return{platform,version:this.build.version,buildId:this.build.buildId,artifactSha256:this.artifactSha256,manifestSha256:this.manifestSha256,generation:this.generation,checkedAt:new Date().toISOString()};
   }
 }
 
@@ -102,6 +114,8 @@ export interface ApiOptions {
   selfcheckCredentials?:SelfcheckCredentials;
   auth?: Omit<AuthControlDependencies, 'installationId' | 'expectedGeneration' | 'outputPolicy'>;
   live?: PairedLiveCheckpointService;
+  nativeEvidence?: NativeEvidenceService;
+  gateRuntime?: () => Promise<Phase2GateRuntimeProjection>;
 }
 const JobOutput = z.strictObject({
   id: z.uuid(), request: JobRequestSchema, state: z.enum(['queued','running','retry_wait','succeeded','failed','cancelled']), cancelRequested: z.boolean(), attempt: z.number().int(), maxAttempts: z.number().int(),
@@ -160,7 +174,7 @@ export async function startApi(options: ApiOptions) {
     : reply.code(404).send({ code: 'NOT_FOUND', stage: 'api', nextAction: 'use_registered_endpoint' }));
   const principal = (request: FastifyRequest) => { const p = principals.get(request); if (!p) throw new ApplicationError('UNAUTHORIZED', 401); return p; };
   registerPairing(app, options.sessions, () => origin, principal, policy);
-  registerAuthRoutes(app, { application: authApplication, liveApplication: options.live ?? null, expectedGeneration: options.runtimeGeneration ?? 0, principal });
+  registerAuthRoutes(app, { application: authApplication, liveApplication: options.live ?? null, nativeEvidenceApplication:options.nativeEvidence??null,gateRuntime:options.gateRuntime??null,expectedGeneration: options.runtimeGeneration ?? 0, principal });
   registerStatic(app, options.assetsRoot);
   app.get('/api/status', async request => StatusSchema.parse(await status.read(principal(request))));
   app.post('/api/client/identity',async request=>{
@@ -217,9 +231,11 @@ async function standaloneApi() {
   const liveStore=new SQLiteLiveCheckpointStore(db),liveAuthority=new DurablePairedLiveAuthority(secrets,metadata.installationId);
   const live=new PairedLiveCheckpointService(liveStore,liveAuthority,
     new ProductionLiveCheckpointRuntime(API_BUILD_IDENTITY,metadata.installationId,context.expectedGeneration,sourceConfigs,observations,bindings,ownership,projections),context);
+  const active=assertOwnedLaunchers(launch.selection);if(!active.artifactSha256)throw new Error('ACTIVE_ARTIFACT_IDENTITY_MISSING');const nativeStore=new SQLiteNativeEvidenceStore(db),nativeRuntime=new ProductionNativeEvidenceRuntime(API_BUILD_IDENTITY,active.artifactSha256,active.manifestHash,context.expectedGeneration,projections),nativeEvidence=new NativeEvidenceService(nativeStore,nativeRuntime,context);
+  const gateRuntime=async():Promise<Phase2GateRuntimeProjection>=>{const current=await nativeRuntime.current(),ids=await nativeEvidence.listPassed(current.buildId,current.generation);return{schema:1,platform:current.platform,version:current.version,buildId:current.buildId,artifactSha256:current.artifactSha256,manifestSha256:current.manifestSha256,runtimeGeneration:current.generation,phase1:'partial',api:'healthy',worker:'healthy',pairedUi:'ready',cleanup:'complete',checkedAt:current.checkedAt,buildObligations:ids.map(id=>({id,status:'pass',buildId:current.buildId,generation:current.generation}))};};
   const service=await startApi({host:'127.0.0.1',port:metadata.port,installationId:metadata.installationId,build:API_BUILD_IDENTITY,secrets,credentials:metadata.credentials,
     jobs:new SQLiteJobStore(db),maintenance,projections,sessions:new Sessions(db,metadata.installationId),selfcheckCredentials:new SelfcheckCredentials(launch.selection,secrets,maintenance),
-    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop(),assetsRoot:fileURLToPath(new URL('../../status/',import.meta.url)),live});
+    processRecord:()=>record,runtimeGeneration:context.expectedGeneration,shutdown:()=>stop(),assetsRoot:fileURLToPath(new URL('../../status/',import.meta.url)),live,nativeEvidence,gateRuntime});
   let pulse:Promise<void>|undefined;
   const timer=setInterval(()=>{if(!closing&&!pulse)pulse=report('healthy').catch(()=>{setImmediate(()=>{void stop();});}).finally(()=>{pulse=undefined;});},5000);
   async function stop() {

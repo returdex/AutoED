@@ -66,7 +66,8 @@ export type Permission =
   | 'auth:login:write'
   | 'auth:probe:write'
   | 'auth:logout:write'
-  | 'auth:binding:write';
+  | 'auth:binding:write'
+  | 'auth:native-evidence:write';
 export interface Principal {
   scope: Scope;
   destination: OutputDestination;
@@ -313,7 +314,7 @@ export class AuthControlApplication {
   async readReceipts(principal: Principal, input: unknown) {
     const key: EvidenceCellKey = EvidenceCellKeySchema.parse(input);
     await this.admit(principal, 'auth:receipts:read');
-    const [receipts, binding] = await Promise.all([this.dependencies.evidence.list(key), this.dependencies.bindings.read()]);
+    const [receipts, binding] = await Promise.all([this.dependencies.evidence.list(key, this.dependencies.expectedGeneration), this.dependencies.bindings.read()]);
     return presentEvidenceReceipts(receipts, binding);
   }
 }

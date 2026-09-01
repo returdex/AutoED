@@ -7,9 +7,12 @@ import {
   type LiveCheckpointAuthorityPort,
   type PairedLiveAuthority,
   type PairedLiveCheckpointService,
+  type NativeEvidenceService,
 } from '../../../packages/application/src/live-checkpoints.js';
 import type { LiveCheckpointBinding, PairedLiveResult } from '../../../packages/domain/src/live-evidence.js';
 import { ApprovedSourceConfigSchema, EvidenceCellKeySchema } from '../../../packages/contracts/src/index.js';
+import { NativeEvidenceCommandSchema, Phase2GateRuntimeProjectionSchema } from '../../../packages/contracts/src/live-evidence.js';
+import type { Phase2GateRuntimeProjection } from '../../../packages/domain/src/live-evidence.js';
 
 const source = z.enum(['moodle', 'edstem']);
 const configurationBody = z.strictObject({ config: ApprovedSourceConfigSchema });
@@ -95,6 +98,8 @@ class LoginActionRegistry {
 export interface AuthRouteDependencies {
   application: AuthControlApplication | null;
   liveApplication?: PairedLiveCheckpointService | null;
+  nativeEvidenceApplication?: NativeEvidenceService | null;
+  gateRuntime?: (() => Promise<Phase2GateRuntimeProjection>) | null;
   expectedGeneration: number;
   principal(request: FastifyRequest): Principal;
 }
@@ -109,6 +114,10 @@ export function registerAuthRoutes(app: FastifyInstance, dependencies: AuthRoute
     if (!dependencies.liveApplication) throw new ApplicationError('INTERNAL_ERROR', 503);
     return dependencies.liveApplication;
   };
+  const nativeEvidenceApplication = () => {
+    if (!dependencies.nativeEvidenceApplication) throw new ApplicationError('INTERNAL_ERROR', 503);
+    return dependencies.nativeEvidenceApplication;
+  };
   const paired = (request: FastifyRequest) => {
     const principal = dependencies.principal(request);
     if (principal.destination !== 'local_ui' || !principal.browserSessionId) throw new ApplicationError('FORBIDDEN');
@@ -116,6 +125,14 @@ export function registerAuthRoutes(app: FastifyInstance, dependencies: AuthRoute
   };
 
   app.get('/api/auth/status', async request => application().readStatus(dependencies.principal(request)));
+  app.get('/api/auth/gate-runtime', async request => {
+    const actor=dependencies.principal(request);if(!actor.permissions.includes('auth:read')||!dependencies.gateRuntime)throw new ApplicationError('FORBIDDEN');
+    return Phase2GateRuntimeProjectionSchema.parse(await dependencies.gateRuntime());
+  });
+  app.post('/api/auth/native-evidence', async request => {
+    const actor=dependencies.principal(request);if(actor.destination!=='local_cli'||!actor.permissions.includes('auth:native-evidence:write'))throw new ApplicationError('FORBIDDEN');
+    return nativeEvidenceApplication().record(NativeEvidenceCommandSchema.parse(request.body));
+  });
 
   app.post('/api/auth/configuration/confirm', async request => {
     const body = configurationBody.parse(request.body); const actor = paired(request);

@@ -4,7 +4,8 @@ import { z, ZodError } from 'zod';
 import type {
   AccountBindingStore, Clock, EvidenceLedger, EvidenceWriterAuthority, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
 } from '../../application/src/ports.js';
-import type { LiveCheckpointOutcome, LiveCheckpointStore, PairedLiveAuthority } from '../../application/src/live-checkpoints.js';
+import type { LiveCheckpointOutcome, LiveCheckpointStore, PairedLiveAuthority, NativeEvidenceAuthority, NativeEvidenceStore } from '../../application/src/live-checkpoints.js';
+import { isServerNativeEvidenceAuthority } from '../../application/src/live-checkpoints.js';
 import type {
   AuthJob, AuthJobLease, AuthJobResultCode, AuthJobStore, AuthProbeCommand,
 } from '../../application/src/auth-jobs.js';
@@ -13,12 +14,12 @@ import type {
   AccountBinding, ApprovedSourceConfig, EvidenceCellKey, EvidenceReceipt, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation,
   SourceId, SourceLastSuccess, SourceObservation, WriteContext,
 } from '../../domain/src/model.js';
-import { requiredEvidenceKeys, evidenceCellKey, type LiveActionFailure, type LiveCheckpointBinding, type PairedLiveResult, type PendingLiveAction, type PendingLiveActionIssue } from '../../domain/src/live-evidence.js';
+import { PHASE2_BUILD_OBLIGATIONS, requiredEvidenceKeys, evidenceCellKey, type LiveActionFailure, type LiveCheckpointBinding, type PairedLiveResult, type PendingLiveAction, type PendingLiveActionIssue, type NativeEvidenceBundle, type NativeEvidenceCommand, type NativeEvidenceRuntimeBinding, type NamedBuildObligation } from '../../domain/src/live-evidence.js';
 import {
   AccountBindingSchema, ApprovedSourceConfigSchema, EvidenceCellKeySchema, EvidenceReceiptSchema, ProfileOwnerIdentitySchema,
   ProfileOwnershipSchema, ProfileReservationSchema, SourceObservationSchema,
 } from '../../contracts/src/index.js';
-import { LiveCheckpointBindingSchema, PairedLiveResultSchema, PendingLiveActionIssueSchema, PendingLiveActionSchema } from '../../contracts/src/live-evidence.js';
+import { LiveCheckpointBindingSchema, NativeEvidenceCommandSchema, NativeEvidenceRuntimeBindingSchema, PairedLiveResultSchema, PendingLiveActionIssueSchema, PendingLiveActionSchema } from '../../contracts/src/live-evidence.js';
 import { recordWrite, requireWrite, StorageError } from './database.js';
 
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -285,13 +286,14 @@ export class SQLiteEvidenceLedger implements EvidenceLedger {
       recordWrite(this.db, context);
     }).immediate());
   }
-  async list(input: EvidenceCellKey): Promise<EvidenceReceipt[]> {
+  async list(input: EvidenceCellKey, expectedGeneration?: number): Promise<EvidenceReceipt[]> {
     const key = EvidenceCellKeySchema.parse(input);
+    if (expectedGeneration !== undefined && (!Number.isSafeInteger(expectedGeneration) || expectedGeneration < 0)) throw new StorageError('GENERATION_MISMATCH');
     return safeStorage(() => {
       const rows = this.db.prepare(`SELECT receipt_id,build_id,version,platform,source,scenario,evidence,status,result_code,binding_consistency,
         gap_codes,observed_at,producer_kind,producer_id FROM uat_receipts
-        WHERE platform=? AND source=? AND scenario=? AND evidence=? ORDER BY recorded_at,event_id`)
-        .all(key.platform, key.source, key.scenario, key.evidence) as EvidenceRow[];
+        WHERE platform=? AND source=? AND scenario=? AND evidence=? AND (? IS NULL OR generation=?) ORDER BY recorded_at,event_id`)
+        .all(key.platform, key.source, key.scenario, key.evidence, expectedGeneration ?? null, expectedGeneration ?? null) as EvidenceRow[];
       return rows.map(row => EvidenceReceiptSchema.parse({
         receiptId: row.receipt_id, buildId: row.build_id, version: row.version, platform: row.platform, source: row.source,
         scenario: row.scenario, evidence: row.evidence, status: row.status, resultCode: row.result_code,
@@ -523,6 +525,40 @@ export class SQLiteLiveCheckpointStore implements LiveCheckpointStore {
       priorEvidenceEventId: row.prior_evidence_event_id, issuedAt: new Date(row.issued_at).toISOString(),
       expiresAt: new Date(row.expires_at).toISOString(), state, consumedAt: row.consumed_at === null ? null : new Date(row.consumed_at).toISOString(),
     });
+  }
+}
+
+export class SQLiteNativeEvidenceStore implements NativeEvidenceStore {
+  constructor(private readonly db: Database.Database, private readonly clock: Clock = { now: () => Date.now() }) {}
+  async recordBundle(bindingInput: NativeEvidenceRuntimeBinding, commandInput: NativeEvidenceCommand, authority: NativeEvidenceAuthority, context: WriteContext): Promise<NativeEvidenceBundle> {
+    const binding = NativeEvidenceRuntimeBindingSchema.parse(bindingInput), command = NativeEvidenceCommandSchema.parse(commandInput);
+    if (!isServerNativeEvidenceAuthority(authority) || context.expectedGeneration !== binding.generation) throw new StorageError('NATIVE_EVIDENCE_AUTHORITY_INVALID');
+    const now = this.clock.now(), checkedAt = observedAt(binding.checkedAt, now, 'NATIVE_EVIDENCE_RUNTIME_INVALID');
+    const bundleHash = digest(JSON.stringify({ binding, command })), passed = command.checks.every(item => item.status === 'pass');
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      const prior = this.db.prepare('SELECT run_id,status,result_code FROM phase2_native_runs WHERE bundle_hash=?').get(bundleHash) as {run_id:string;status:'pass'|'fail';result_code:NativeEvidenceBundle['resultCode']}|undefined;
+      if (prior) return this.bundle(prior.run_id, prior.status, prior.result_code, binding, passed ? command.checks.map(item => item.id) : []);
+      const runId = randomUUID(), resultCode = passed ? 'NATIVE_EVIDENCE_RECORDED' as const : 'NATIVE_EVIDENCE_CHECK_FAILED' as const;
+      this.db.prepare(`INSERT INTO phase2_native_runs(run_id,bundle_hash,build_id,artifact_sha256,manifest_sha256,version,platform,generation,status,result_code,checked_at,recorded_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`).run(runId,bundleHash,binding.buildId,binding.artifactSha256,binding.manifestSha256,binding.version,binding.platform,binding.generation,passed?'pass':'fail',resultCode,checkedAt,now);
+      if (passed) for (const check of command.checks) {
+        const obligation = PHASE2_BUILD_OBLIGATIONS.find(item => item.id === check.id)!;
+        this.db.prepare(`INSERT INTO phase2_build_obligations(build_id,generation,obligation_id,evidence,platform,report_digest,run_id,checked_at)
+          VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(build_id,generation,obligation_id) DO NOTHING`).run(binding.buildId,binding.generation,check.id,obligation.evidence,obligation.platform,check.reportDigest,runId,checkedAt);
+        const stored = this.db.prepare('SELECT report_digest FROM phase2_build_obligations WHERE build_id=? AND generation=? AND obligation_id=?').get(binding.buildId,binding.generation,check.id) as {report_digest:string};
+        if (!sameDigest(stored.report_digest, check.reportDigest)) throw new StorageError('NATIVE_EVIDENCE_IDEMPOTENCY_CONFLICT');
+      }
+      recordWrite(this.db, context);
+      return this.bundle(runId, passed ? 'pass' : 'fail', resultCode, binding, passed ? command.checks.map(item => item.id) : []);
+    }).immediate());
+  }
+  async listPassed(buildId: string, generation: number): Promise<NamedBuildObligation['id'][]> {
+    if (!/^[a-f0-9]{64}$/.test(buildId) || !Number.isSafeInteger(generation) || generation < 0) throw new StorageError('NATIVE_EVIDENCE_RUNTIME_INVALID');
+    return (this.db.prepare('SELECT obligation_id FROM phase2_build_obligations WHERE build_id=? AND generation=? ORDER BY obligation_id').all(buildId,generation) as {obligation_id:NamedBuildObligation['id']}[]).map(row => row.obligation_id);
+  }
+  private bundle(bundleId:string,status:'pass'|'fail',resultCode:NativeEvidenceBundle['resultCode'],binding:NativeEvidenceRuntimeBinding,obligations:NamedBuildObligation['id'][]):NativeEvidenceBundle {
+    return {schema:1,status,resultCode,platform:binding.platform,version:binding.version,buildId:binding.buildId,generation:binding.generation,bundleId,obligations,gaps:status==='pass'?[]:['NATIVE_EVIDENCE_CHECK_FAILED']};
   }
 }
 

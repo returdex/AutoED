@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createHash } from 'node:crypto';
 import type { NativePlatform, SourceId, UatScenario, WriteContext } from '../../domain/src/model.js';
 import type {
   LiveActionFailure,
@@ -6,11 +7,49 @@ import type {
   PairedLiveResult,
   PendingLiveAction,
   PendingLiveActionIssue,
+  NativeEvidenceBundle,
+  NativeEvidenceCommand,
+  NativeEvidenceRuntimeBinding,
 } from '../../domain/src/live-evidence.js';
+import { PHASE2_BUILD_OBLIGATIONS } from '../../domain/src/live-evidence.js';
 import {
+  NativeEvidenceCommandSchema,
+  NativeEvidenceRuntimeBindingSchema,
   PairedLiveResultSchema,
   PendingLiveActionIssueSchema,
 } from '../../contracts/src/live-evidence.js';
+
+export interface NativeEvidenceRuntimePort { current(): Promise<NativeEvidenceRuntimeBinding> }
+export interface NativeEvidenceAuthority { readonly kind: 'signed_automated_runtime' }
+const nativeAuthorities = new WeakSet<object>();
+export function isServerNativeEvidenceAuthority(value: unknown): value is NativeEvidenceAuthority {
+  return !!value && typeof value === 'object' && nativeAuthorities.has(value as object);
+}
+export interface NativeEvidenceStore {
+  recordBundle(binding: NativeEvidenceRuntimeBinding, command: NativeEvidenceCommand, authority: NativeEvidenceAuthority, context: WriteContext): Promise<NativeEvidenceBundle>;
+  listPassed(buildId: string, generation: number): Promise<NativeEvidenceBundle['obligations']>;
+}
+const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(',')}]` : value && typeof value === 'object'
+  ? `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(',')}}` : JSON.stringify(value);
+const digestNative = (value: unknown): string => createHash('sha256').update(canonical(value)).digest('hex');
+const actualNativePlatform = () => process.platform === 'darwin' ? 'macos' as const : process.platform === 'win32' ? 'windows' as const : null;
+
+/** Fixed registry service: caller reports results, while server-held runtime state supplies all authority and scope. */
+export class NativeEvidenceService {
+  constructor(private readonly store: NativeEvidenceStore, private readonly runtime: NativeEvidenceRuntimePort, private readonly context: WriteContext) {}
+  async record(input: unknown): Promise<NativeEvidenceBundle> {
+    const command = NativeEvidenceCommandSchema.parse(input);
+    const binding = NativeEvidenceRuntimeBindingSchema.parse(await this.runtime.current());
+    if (binding.generation !== this.context.expectedGeneration || binding.platform !== actualNativePlatform()) throw liveError('NATIVE_EVIDENCE_PLATFORM_MISMATCH');
+    const expected = PHASE2_BUILD_OBLIGATIONS.filter(item => item.platform === 'cross-platform' || item.platform === binding.platform).map(item => item.id).sort();
+    const actual = command.checks.map(item => item.id).sort();
+    if (new Set(actual).size !== expected.length || JSON.stringify(actual) !== JSON.stringify(expected) || digestNative(command.checks) !== command.suiteDigest) throw liveError('NATIVE_EVIDENCE_REQUIREDNESS_MISMATCH');
+    if (command.checks.some(item => item.status === 'pass' ? item.resultCode !== 'CHECK_PASSED' : item.resultCode !== 'CHECK_FAILED')) throw liveError('NATIVE_EVIDENCE_RESULT_INVALID');
+    const authority: NativeEvidenceAuthority = Object.freeze({ kind: 'signed_automated_runtime' }); nativeAuthorities.add(authority);
+    return this.store.recordBundle(binding, command, authority, this.context);
+  }
+  listPassed(buildId: string, generation: number) { return this.store.listPassed(z.string().regex(/^[a-f0-9]{64}$/).parse(buildId), z.number().int().nonnegative().parse(generation)); }
+}
 
 /** Authenticated paired-server authority is never a request or persisted plaintext field. */
 export interface PairedLiveAuthority {

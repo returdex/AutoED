@@ -89,7 +89,7 @@ export type EvidenceWriterAuthority =
 /** Implementations must match authority evidence and platform to the complete receipt key before append. */
 export interface EvidenceLedger {
   append(receipt: EvidenceReceipt, authority: EvidenceWriterAuthority, context: WriteContext): Promise<void>;
-  list(key: EvidenceCellKey): Promise<EvidenceReceipt[]>;
+  list(key: EvidenceCellKey, expectedGeneration?: number): Promise<EvidenceReceipt[]>;
 }
 
 /**

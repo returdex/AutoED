@@ -31,6 +31,35 @@ export interface NamedBuildObligation extends EvidenceRequirement {
     | 'uat01.native_update.windows';
 }
 
+export interface NativeEvidenceRuntimeBinding {
+  platform: NativePlatform;
+  version: string;
+  buildId: string;
+  artifactSha256: string;
+  manifestSha256: string;
+  generation: number;
+  checkedAt: string;
+}
+
+export interface NativeEvidenceCheck {
+  id: NamedBuildObligation['id'];
+  status: 'pass' | 'fail';
+  resultCode: 'CHECK_PASSED' | 'CHECK_FAILED';
+  reportDigest: string;
+}
+
+export interface NativeEvidenceCommand { schema: 1; suiteDigest: string; checks: NativeEvidenceCheck[] }
+export interface NativeEvidenceBundle {
+  schema: 1; status: 'pass' | 'fail'; resultCode: 'NATIVE_EVIDENCE_RECORDED' | 'NATIVE_EVIDENCE_CHECK_FAILED';
+  platform: NativePlatform; version: string; buildId: string; generation: number; bundleId: string;
+  obligations: NamedBuildObligation['id'][]; gaps: string[];
+}
+export interface Phase2GateRuntimeProjection {
+  schema: 1; platform: NativePlatform; version: string; buildId: string; artifactSha256: string; manifestSha256: string;
+  runtimeGeneration: number; phase1: 'partial' | 'complete'; api: 'healthy'; worker: 'healthy'; pairedUi: 'ready'; cleanup: 'complete';
+  checkedAt: string; buildObligations: { id: NamedBuildObligation['id']; status: 'pass'; buildId: string; generation: number }[];
+}
+
 const PLATFORMS = ['macos', 'windows'] as const;
 const SOURCES = ['moodle', 'edstem'] as const;
 const EVIDENCE_CLASSES = ['S', 'I', 'N', 'L'] as const;

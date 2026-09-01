@@ -4,6 +4,9 @@ import {z} from 'zod';
 import {discover,isDiscoveredEndpoint} from './discovery.js';
 import {clientCredential,type ClientPurpose} from './credentials.js';
 import {StatusSchema} from '../../contracts/src/index.js';
+import {EvidenceCellKeySchema} from '../../contracts/src/index.js';
+import {RedactedAuthStatusProjectionSchema,RedactedEvidenceReceiptSchema} from '../../contracts/src/presentation.js';
+import {NativeEvidenceCommandSchema,Phase2GateRuntimeProjectionSchema} from '../../contracts/src/live-evidence.js';
 import {redactOutput} from '../../application/src/policy.js';
 import type {BuildIdentity} from '../../domain/src/model.js';
 
@@ -27,10 +30,14 @@ export class HttpClient {
   }
   async identity(){if(!this.verified){const challenge=randomUUID();const {value,token,endpoint}=await this.raw('/api/client/identity',{challenge});let actual:BuildIdentity;try{actual=endpoint.verify(value,challenge,token);}catch{throw new Error('IDENTITY_MISMATCH');}if(actual.protocol!==this.build.protocol||actual.schemaMin>this.build.schemaMax||actual.schemaMax<this.build.schemaMin)throw new Error('IDENTITY_MISMATCH');this.verified=true;}return this.endpoint!;}
   async call(path:string,body?:unknown){
-    if(!/^\/api\/(?:status|jobs(?:\/[0-9a-f-]{36}(?:\/cancel)?)?|pairing\/[A-F0-9]{16}\/approve|control\/(?:maintenance|status-projection|selfcheck-credential))$/.test(path))throw new Error('INVALID_REQUEST');
+    if(!/^\/api\/(?:status|jobs(?:\/[0-9a-f-]{36}(?:\/cancel)?)?|pairing\/[A-F0-9]{16}\/approve|control\/(?:maintenance|status-projection|selfcheck-credential)|auth\/(?:status|gate-runtime|native-evidence|receipts\?platform=(?:macos|windows)&source=(?:moodle|edstem)&scenario=(?:a\.login|a\.binding|a\.course_visibility|b\.reopen_[123]|b\.worker_restart|b\.codex_exit|c\.os_restart|d\.24h_recheck|reauth)&evidence=L))$/.test(path))throw new Error('INVALID_REQUEST');
     await this.identity();return redactOutput((await this.raw(path,body)).value);
   }
   async status(){const endpoint=await this.identity();const status=StatusSchema.parse(await this.call('/api/status'));if(status.installationId!==endpoint.installationId)throw new Error('IDENTITY_MISMATCH');return status;}
+  async authStatus(){return RedactedAuthStatusProjectionSchema.parse(await this.call('/api/auth/status'));}
+  async authReceipts(input:unknown){const key=EvidenceCellKeySchema.parse(input);if(key.evidence!=='L')throw new Error('INVALID_REQUEST');const query=`platform=${key.platform}&source=${key.source}&scenario=${key.scenario}&evidence=L`;return z.array(RedactedEvidenceReceiptSchema).parse(await this.call('/api/auth/receipts?'+query));}
+  async phase2GateRuntime(){return Phase2GateRuntimeProjectionSchema.parse(await this.call('/api/auth/gate-runtime'));}
+  async phase2NativeEvidence(input:unknown){return this.call('/api/auth/native-evidence',NativeEvidenceCommandSchema.parse(input));}
   async selftest(kind:unknown,value:unknown,idempotencyKey:string=randomUUID()){const input=z.strictObject({kind:z.enum(['echo','digest']),value:z.string().max(4096),idempotencyKey:z.uuid()}).parse({kind,value,idempotencyKey});const endpoint=await this.identity();return this.call('/api/jobs',{...input,scope:endpoint.scope});}
   job(id:string){return this.call('/api/jobs/'+z.uuid().parse(id));}
   cancel(id:string){return this.call('/api/jobs/'+z.uuid().parse(id)+'/cancel',{});}

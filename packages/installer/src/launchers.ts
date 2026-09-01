@@ -9,7 +9,7 @@ import {protectPath,windowsProbe} from '../../platform/src/permissions.js';
 import {isVerifiedManifest,verifyFileTree,type VerifiedManifest} from './verify-manifest.js';
 import type {InstallPreview} from './preview.js';
 const sha=(bytes:string|Buffer)=>createHash('sha256').update(bytes).digest('hex'),hash=z.string().regex(/^[a-f0-9]{64}$/);
-const ActiveSchema=z.strictObject({schema:z.literal(1),installationId:z.uuid(),scopeHash:hash,manifestHash:hash,build:BuildIdentitySchema,nodeVersion:z.literal('24.20.0'),browserRevision:z.literal('1234'),nodeSha256:hash,cliSha256:hash,mcpSha256:hash,state:z.literal('staged')});
+const ActiveSchema=z.strictObject({schema:z.literal(1),installationId:z.uuid(),scopeHash:hash,manifestHash:hash,artifactSha256:hash.optional(),build:BuildIdentitySchema,nodeVersion:z.literal('24.20.0'),browserRevision:z.literal('1234'),nodeSha256:hash,cliSha256:hash,mcpSha256:hash,state:z.literal('staged')});
 export type ActiveRecord=z.infer<typeof ActiveSchema>;
 export function programEntryPaths(manifest:VerifiedManifest){
   const program=manifest.manifest.artifacts.find(a=>a.role==='program');if(!program)throw new Error('ENTRY_MISSING');
@@ -25,10 +25,10 @@ export function readActive(selection:RootSelection):ActiveRecord{
 function quoted(value:string){return "'"+value.replaceAll("'","'\\''")+"'";}
 export function publishLaunchers(preview:InstallPreview,manifest:VerifiedManifest,candidateOperationId?:string){
   if(!isVerifiedManifest(manifest)||manifest.manifestHash!==preview.manifestHash)throw new Error('VERIFIED_MANIFEST_REQUIRED');const metadata=readInstallation(preview.selection);if(metadata.installationId!==preview.installationId)throw new Error('INSTALLATION_MISMATCH');
-  const entries=programEntryPaths(manifest),program=entries.program,node=manifest.manifest.artifacts.find(a=>a.role==='node')!,browser=manifest.manifest.artifacts.find(a=>a.role==='browser')!;
+  const entries=programEntryPaths(manifest),program=entries.program,node=manifest.manifest.artifacts.find(a=>a.role==='node')!,browser=manifest.manifest.artifacts.find(a=>a.role==='browser')!,installer=manifest.manifest.artifacts.find(a=>a.role==='installer');if(!installer)throw new Error('INSTALLER_ARTIFACT_REQUIRED');
   for(const [artifact,root]of [[program,preview.paths.program],[node,preview.paths.runtime],[browser,preview.paths.browser]] as const)verifyFileTree(manifest,artifact.name,root);
   const nodeName=process.platform==='darwin'?'bin/node':'bin/node.exe',nodeFile=node.files.find(f=>f.path===nodeName&&f.type!=='symlink');if(!nodeFile)throw new Error('ENTRY_MISSING');
-  const active=ActiveSchema.parse({schema:1,installationId:preview.installationId,scopeHash:preview.scopeHash,manifestHash:preview.manifestHash,build:preview.target,nodeVersion:'24.20.0',browserRevision:'1234',nodeSha256:nodeFile.sha256,cliSha256:entries.cliFile.sha256,mcpSha256:entries.mcpFile.sha256,state:'staged'}),activeBytes=JSON.stringify(active),nodePath=join(preview.paths.runtime,nodeName);
+  const active=ActiveSchema.parse({schema:1,installationId:preview.installationId,scopeHash:preview.scopeHash,manifestHash:preview.manifestHash,artifactSha256:installer.sha256,build:preview.target,nodeVersion:'24.20.0',browserRevision:'1234',nodeSha256:nodeFile.sha256,cliSha256:entries.cliFile.sha256,mcpSha256:entries.mcpFile.sha256,state:'staged'}),activeBytes=JSON.stringify(active),nodePath=join(preview.paths.runtime,nodeName);
   const cfg={root:preview.selection.root,parent:preview.selection.parent,installationId:preview.installationId,activeHash:sha(activeBytes),program:preview.paths.program,nodePath,files:program.files,entries:{cli:entries.cli,mcp:entries.mcp}};
   const resolver=`import {readFileSync,lstatSync,realpathSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';import {createHash} from 'node:crypto';import {pathToFileURL} from 'node:url';

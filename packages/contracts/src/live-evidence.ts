@@ -5,6 +5,9 @@ import type {
   PairedLiveResult,
   PendingLiveAction,
   PendingLiveActionIssue,
+  NativeEvidenceCommand,
+  NativeEvidenceRuntimeBinding,
+  Phase2GateRuntimeProjection,
 } from '../../domain/src/live-evidence.js';
 
 const phase2Requirement = z.enum(['AUTH-01', 'AUTH-02', 'AUTH-03', 'AUTH-04', 'SEC-02', 'UAT-01']);
@@ -36,6 +39,28 @@ export const EvidenceRequirementSchema: z.ZodType<EvidenceRequirement> = z.stric
       (requirement.evidence !== 'L' || requirement.platform === 'cross-platform' || requirement.source === 'both' || requirement.source === 'none')) {
     context.addIssue({ code: 'custom', message: 'Live scenario requirements are exact L cells' });
   }
+});
+
+const obligationId = z.enum([
+  'auth01.sealed_source_contract','auth02.native_lifecycle.macos','auth02.native_lifecycle.windows','auth03.state_contract',
+  'auth03.persistence_isolation','auth04.ownership_contract','auth04.ownership_integration','auth04.ownership_native.macos',
+  'auth04.ownership_native.windows','sec02.fixed_operations_contract','sec02.fixed_operations_integration',
+  'uat01.distribution_contract','uat01.native_update.macos','uat01.native_update.windows',
+]);
+export const NativeEvidenceRuntimeBindingSchema: z.ZodType<NativeEvidenceRuntimeBinding> = z.strictObject({
+  platform, version, buildId: hash, artifactSha256: hash, manifestSha256: hash,
+  generation: z.number().int().nonnegative(), checkedAt: z.iso.datetime(),
+});
+export const NativeEvidenceCommandSchema: z.ZodType<NativeEvidenceCommand> = z.strictObject({
+  schema: z.literal(1), suiteDigest: hash, checks: z.array(z.strictObject({
+    id: obligationId, status: z.enum(['pass','fail']), resultCode: z.enum(['CHECK_PASSED','CHECK_FAILED']), reportDigest: hash,
+  })).min(1).max(14),
+});
+export const Phase2GateRuntimeProjectionSchema: z.ZodType<Phase2GateRuntimeProjection> = z.strictObject({
+  schema: z.literal(1), platform, version, buildId: hash, artifactSha256: hash, manifestSha256: hash,
+  runtimeGeneration: z.number().int().nonnegative(), phase1: z.enum(['partial','complete']), api: z.literal('healthy'),
+  worker: z.literal('healthy'), pairedUi: z.literal('ready'), cleanup: z.literal('complete'), checkedAt: z.iso.datetime(),
+  buildObligations: z.array(z.strictObject({id:obligationId,status:z.literal('pass'),buildId:hash,generation:z.number().int().nonnegative()})).max(14),
 });
 
 const bindingShape = {

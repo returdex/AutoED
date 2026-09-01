@@ -209,13 +209,44 @@ const MIGRATION_V4 = `
   PRAGMA user_version = 4;
 `;
 
-function assertMigrationMetadata(db: Database.Database, version: 1 | 2 | 3 | 4): void {
+const MIGRATION_V5 = `
+  CREATE TABLE phase2_native_runs(
+    run_id TEXT PRIMARY KEY CHECK(length(run_id)=36),
+    bundle_hash TEXT NOT NULL UNIQUE CHECK(length(bundle_hash)=64),
+    build_id TEXT NOT NULL CHECK(length(build_id)=64),
+    artifact_sha256 TEXT NOT NULL CHECK(length(artifact_sha256)=64),
+    manifest_sha256 TEXT NOT NULL CHECK(length(manifest_sha256)=64),
+    version TEXT NOT NULL CHECK(length(version) BETWEEN 5 AND 64),
+    platform TEXT NOT NULL CHECK(platform IN ('macos','windows')),
+    generation INTEGER NOT NULL CHECK(generation>=0),
+    status TEXT NOT NULL CHECK(status IN ('pass','fail')),
+    result_code TEXT NOT NULL CHECK(result_code IN ('NATIVE_EVIDENCE_RECORDED','NATIVE_EVIDENCE_CHECK_FAILED')),
+    checked_at INTEGER NOT NULL CHECK(checked_at>=0),
+    recorded_at INTEGER NOT NULL CHECK(recorded_at>=0));
+  CREATE INDEX phase2_native_runs_build ON phase2_native_runs(build_id,generation,platform,recorded_at,run_id);
+  CREATE TABLE phase2_build_obligations(
+    build_id TEXT NOT NULL CHECK(length(build_id)=64), generation INTEGER NOT NULL CHECK(generation>=0),
+    obligation_id TEXT NOT NULL CHECK(obligation_id IN (
+      'auth01.sealed_source_contract','auth02.native_lifecycle.macos','auth02.native_lifecycle.windows','auth03.state_contract',
+      'auth03.persistence_isolation','auth04.ownership_contract','auth04.ownership_integration','auth04.ownership_native.macos',
+      'auth04.ownership_native.windows','sec02.fixed_operations_contract','sec02.fixed_operations_integration',
+      'uat01.distribution_contract','uat01.native_update.macos','uat01.native_update.windows')),
+    evidence TEXT NOT NULL CHECK(evidence IN ('S','I','N')),
+    platform TEXT NOT NULL CHECK(platform IN ('cross-platform','macos','windows')),
+    report_digest TEXT NOT NULL CHECK(length(report_digest)=64), run_id TEXT NOT NULL REFERENCES phase2_native_runs(run_id),
+    checked_at INTEGER NOT NULL CHECK(checked_at>=0), PRIMARY KEY(build_id,generation,obligation_id));
+  INSERT INTO schema_migrations VALUES(5,5,5,unixepoch()*1000);
+  PRAGMA user_version = 5;
+`;
+
+function assertMigrationMetadata(db: Database.Database, version: 1 | 2 | 3 | 4 | 5): void {
   const rows = db.prepare('SELECT version,schema_min,schema_max FROM schema_migrations ORDER BY version').all() as { version: number; schema_min: number; schema_max: number }[];
   const expected = [
     { version: 1, schema_min: 1, schema_max: 1 },
     { version: 2, schema_min: 2, schema_max: 2 },
     { version: 3, schema_min: 3, schema_max: 3 },
     { version: 4, schema_min: 4, schema_max: 4 },
+    { version: 5, schema_min: 5, schema_max: 5 },
   ].slice(0, version);
   if (JSON.stringify(rows) !== JSON.stringify(expected)) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
 }
@@ -230,7 +261,7 @@ export function openDatabase(path: string): Database.Database {
     db.pragma('synchronous = FULL'); db.pragma('busy_timeout = 2000');
     db.transaction(() => {
       const version = db.pragma('user_version', { simple: true });
-      if (version !== 0 && version !== 1 && version !== 2 && version !== 3 && version !== 4) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
+      if (version !== 0 && version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
       if (version === 0) db.exec(MIGRATION_V1);
       if (version < 2) {
         assertMigrationMetadata(db, 1);
@@ -244,7 +275,11 @@ export function openDatabase(path: string): Database.Database {
         assertMigrationMetadata(db, 3);
         db.exec(MIGRATION_V4);
       }
-      assertMigrationMetadata(db, 4);
+      if (version < 5) {
+        assertMigrationMetadata(db, 4);
+        db.exec(MIGRATION_V5);
+      }
+      assertMigrationMetadata(db, 5);
     }).immediate();
     return db;
   } catch (error) { db.close(); throw error; }

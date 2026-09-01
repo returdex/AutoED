@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
@@ -10,6 +10,8 @@ import { issueCredential } from '../../packages/platform/src/credentials.js';
 import type { SecretStore } from '../../packages/application/src/ports.js';
 import type { AccountBinding, ApprovedSourceConfig, ProtectedSourceIdentity, SourceId, SourceObservation } from '../../packages/domain/src/model.js';
 import { startApi } from '../../apps/api/src/main.js';
+import { NativeEvidenceService } from '../../packages/application/src/live-checkpoints.js';
+import { SQLiteNativeEvidenceStore } from '../../packages/persistence/src/auth.js';
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
@@ -17,6 +19,9 @@ afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await c
 const checkedAt = '2026-09-01T00:00:00.000Z';
 const scopeId = '10000000-0000-4000-8000-000000000001';
 const fullFingerprint = 'A'.repeat(43);
+const nativeIds=['auth01.sealed_source_contract','auth02.native_lifecycle.macos','auth03.state_contract','auth03.persistence_isolation','auth04.ownership_contract','auth04.ownership_integration','auth04.ownership_native.macos','sec02.fixed_operations_contract','sec02.fixed_operations_integration','uat01.distribution_contract','uat01.native_update.macos'];
+const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical((value as Record<string,unknown>)[key])}`).join(',')}}`:JSON.stringify(value);
+const hash=(value:unknown)=>createHash('sha256').update(canonical(value)).digest('hex');
 
 function sourceConfig(source: SourceId): ApprovedSourceConfig {
   return { id: randomUUID(), source, officialOrigin: source === 'moodle' ? 'https://moodle.example.edu' : 'https://edstem.org', approvedScopeId: scopeId, confirmedAt: checkedAt };
@@ -54,7 +59,9 @@ async function fixture() {
     login: { async open() { calls.launch++; } }, protectedIdentities: { async read(source: SourceId) { return sourceIdentity(source); } },
   };
   const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo' as const] };
-  const base = { host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), shutdown: async () => {}, runtimeGeneration: 0, auth };
+  const artifactSha256='e'.repeat(64),manifestSha256='f'.repeat(64),nativeStore=new SQLiteNativeEvidenceStore(db),nativeBinding={platform:'macos' as const,version:build.version,buildId:build.buildId,artifactSha256,manifestSha256,generation:0,checkedAt:new Date().toISOString()},nativeEvidence=new NativeEvidenceService(nativeStore,{current:async()=>nativeBinding},{expectedGeneration:0});
+  const gateRuntime=async()=>({schema:1 as const,platform:'macos' as const,version:build.version,buildId:build.buildId,artifactSha256,manifestSha256,runtimeGeneration:0,phase1:'partial' as const,api:'healthy' as const,worker:'healthy' as const,pairedUi:'ready' as const,cleanup:'complete' as const,checkedAt:new Date().toISOString(),buildObligations:(await nativeStore.listPassed(build.buildId,0)).map(id=>({id,status:'pass' as const,buildId:build.buildId,generation:0}))});
+  const base = { host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), shutdown: async () => {}, runtimeGeneration: 0, auth,nativeEvidence,gateRuntime };
   let sessions = new SQLiteSessions(db, installationId);
   let api = await startApi({ ...base, sessions }); cleanup.push(() => api.close());
   const cookies = (response: Response) => response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
@@ -75,7 +82,7 @@ async function fixture() {
     return { cookie: cookies(exchange), ...(await exchange.json() as { csrf: string; sessionId: string }) };
   }
   async function restart() { await api.close(); sessions = new SQLiteSessions(db, installationId); api = await startApi({ ...base, sessions }); }
-  return { request, pair, restart, calls, configs, observations, secretsMap, failStatus(error: unknown) { statusError = error; } };
+  return { request, pair, restart, calls, configs, observations, secretsMap,db,build, failStatus(error: unknown) { statusError = error; } };
 }
 
 describe('paired fixed auth api', () => {
@@ -172,4 +179,6 @@ describe('paired fixed auth api', () => {
     expect(response.status).toBe(200);
     expect((await response.json()).nextAction).toEqual({ kind: 'open_login', source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId });
   });
+
+  it('exposes only redacted current runtime and local-CLI fixed native bundle authority',async()=>{const f=await fixture(),runtimeResponse=await f.request('/api/auth/gate-runtime',{bearer:'cli'}),runtimeValue=await runtimeResponse.json();expect(runtimeResponse.status).toBe(200);expect(runtimeValue).toMatchObject({schema:1,platform:'macos',buildId:f.build.buildId,runtimeGeneration:0,buildObligations:[]});expect(JSON.stringify(runtimeValue)).not.toMatch(/Profile|cookie|installationId|path|PRIVATE/);const checks=nativeIds.map(id=>({id,status:'pass',resultCode:'CHECK_PASSED',reportDigest:hash(id)})),body={schema:1,suiteDigest:hash(checks),checks};expect((await f.request('/api/auth/native-evidence',{body,bearer:'mcp'})).status).toBe(403);const recorded=await f.request('/api/auth/native-evidence',{body,bearer:'cli'});expect(recorded.status).toBe(200);expect(await recorded.json()).toMatchObject({status:'pass',platform:'macos',buildId:f.build.buildId,obligations:nativeIds});expect((f.db.prepare('SELECT count(*) AS n FROM phase2_build_obligations').get() as {n:number}).n).toBe(11);expect((f.db.prepare("SELECT count(*) AS n FROM uat_receipts WHERE evidence='L'").get() as {n:number}).n).toBe(0);expect((await f.request('/api/auth/native-evidence',{body:{...body,evidence:'L'},bearer:'cli'})).status).toBe(400);expect((f.db.prepare('SELECT count(*) AS n FROM phase2_build_obligations').get() as {n:number}).n).toBe(11);});
 });
