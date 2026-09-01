@@ -64,7 +64,13 @@ function processIdentity(value: ReturnType<typeof fixture>) {
 }
 
 function safeStrings(value: unknown): string {
-  return JSON.stringify(value).toLowerCase();
+  return `${value instanceof Error ? value.message : ''} ${JSON.stringify(value)}`.toLowerCase();
+}
+
+function expectSafe(value: unknown, profilePath: string) {
+  for (const sentinel of [profilePath, 'cookie', 'storagestate', 'password', 'token', '<html', 'authorization', 'request body', 'control key']) {
+    expect(safeStrings(value)).not.toContain(sentinel.toLowerCase());
+  }
 }
 
 describe('protected Profile reservation and fencing', () => {
@@ -313,5 +319,26 @@ describe('conservative OS and authenticated control proof', () => {
     await expect(value.coordinator.release(owned.owner!)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
     await expect(value.coordinator.attach(owned.reservation!, processIdentity(value))).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
     expect(readFileSync(value.ownershipRecord)).toEqual(fenced);
+  });
+
+  it('keeps every coordinator projection and typed failure free of the Profile location and sensitive browser data', async () => {
+    let executable = '';
+    const value = fixture(1_000, {
+      observe: async () => ({ osStartIdentity: 'synthetic-start-identity', executable }),
+      control: { request: async challenge => syntheticProof(challenge, challenge.owner) },
+    });
+    executable = value.browserExecutable;
+    const reserved = await value.coordinator.reserve(reserveInput(value));
+    const owned = await value.coordinator.attach(reserved.reservation!, processIdentity(value));
+    const running = await value.coordinator.inspect(owned.owner!);
+    for (const projection of [reserved, owned, running]) expectSafe(projection, value.paths.profile);
+    let failure: unknown;
+    try { await value.coordinator.release({ ...owned.owner!, nonce: randomUUID() }); }
+    catch (error) { failure = error; }
+    expectSafe(failure, value.paths.profile);
+
+    const exited = fixture(1_000, { observe: async () => null });
+    const exitedOwner = await attached(exited);
+    expectSafe(await exited.coordinator.inspect(exitedOwner.owner!), exited.paths.profile);
   });
 });
