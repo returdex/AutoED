@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed corrective 02-38 beta.30 quality binding; 02-39 assembly/signing and 02-13 publication reruns remain
-last_updated: "2026-09-01T17:46:25.000Z"
+stopped_at: Completed corrective 02-39 beta.30 local assembly/signing; 02-13 publication rerun remains
+last_updated: "2026-09-01T17:55:46.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Rerun Plan 02-39 assembly/signing and Plan 02-13 no-overwrite publication for fully qualified beta.30; public beta.25 and beta.29 are immutable invalidated history.
+**Current focus:** Rerun Plan 02-13 no-overwrite publication and anonymous availability verification for locally signed beta.30; public beta.25 and beta.29 are immutable invalidated history.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-38 revalidated for beta.30; 19 of 41 have completion summaries; corrective 02-39 then 02-13 reruns are required
-Status: beta.30 exact selection/report is fully green; beta.29 release 380689537 is published historical data with no availability receipt and may never be retried
+Plan: 02-39 revalidated and locally signed for beta.30; 19 of 41 have completion summaries; corrective 02-13 publication rerun remains
+Status: beta.30 dual-target archives are signed and locally verified; no beta.30 tag, release or remote asset exists
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (02-38 is current for beta.30; 02-39 and 02-13 require corrective reruns before publication evidence is current)
+- Total plan summaries on disk: 32 (02-38 and 02-39 are current for beta.30; 02-13 requires a corrective rerun before publication evidence is current)
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.30 quality-bound, assembly/publication reruns required; update/live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.30 signed and locally verified, publication rerun required; update/live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active corrective position is 02-38 beta.30 completion
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active corrective position is 02-39 beta.30 completion
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -61,7 +61,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P06 | 12min | 2 tasks | 5 files |
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
-| Phase 02 P39 | 1h49min cumulative | 2 tasks | 2 files |
+| Phase 02 P39 | 1h53min cumulative | 2 tasks | 2 files |
 | Phase 02 P13 | 20min active | 2 tasks | 3 files |
 | Phase 02 P38 corrective reruns | 1h39min cumulative | 2 tasks | 11 tracked files |
 
@@ -104,7 +104,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Availability `checkedAt` is a separately validated volatile observation: it must be valid, in-window and strictly later; every immutable identity/asset field must remain exact. — Prevents stale/equal observations without misclassifying legitimate fresh refetch time as identity drift.
 - [Phase 02]: beta.30 complete quality evidence is automated distribution evidence only; Windows native/live remain not_run/human_needed and Phase 3 remains blocked. — Quality and publication cannot substitute for user update, native runtime or L evidence.
 - [Phase 02]: Published beta.29 is permanently availability-unproven because its first and only anonymous verifier attempt produced no receipt. — Release 380689537, its tag and both assets remain untouched historical data; same-version retry, reuse or overwrite is forbidden.
-- [Phase 02]: Fresh beta.30 assembly must replace invalidated beta.29 as the sole active Plan 02-39 output; historical public bytes remain untouched and unusable for update. — The new monotonic identity requires a complete rebuild and protected-key signature rather than relabelling.
+- [Phase 02]: Fresh beta.30 archives replace invalidated beta.29 as the sole active Plan 02-39 output; historical public bytes remain untouched and unusable for update. — The new monotonic identity was completely rebuilt and protected-key signed rather than relabelled.
 
 ### Pending Todos
 
@@ -142,6 +142,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T17:46:25.000Z
-Stopped at: Completed corrective 02-38 beta.30 quality binding; 02-39 assembly/signing and 02-13 publication reruns remain
+Last session: 2026-09-01T17:55:46.000Z
+Stopped at: Completed corrective 02-39 beta.30 local assembly/signing; 02-13 publication rerun remains
 Resume file: None
