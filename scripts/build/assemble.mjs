@@ -20,10 +20,20 @@ export async function assembleTarget({target,outputRoot,sourceRoot,components,di
 }
 export function auditDelivery(root){try{const report=JSON.parse(readFileSync(join(root,'delivery.json'),'utf8')),current=inventoryTree(root,report.target).filter(f=>f.path!=='delivery.json');if(JSON.stringify(current)!==JSON.stringify(report.files))throw new Error();for(const c of report.components)if(!c.sourceURL||!c.integrity||!c.license)throw new Error();return report;}catch{throw new Error('DELIVERY_INTEGRITY');}}
 
-const PHASE2_PRIVATE=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
+const PHASE2_PRIVATE=/(?:^|\/)(?:Profile|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
 const PHASE2_SECRET=/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----)/;
 function phase2Exact(value,keys){return value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===[...keys].sort().join(',');}
-function scanPhase2Tree(root){const files=inventoryTree(root,'darwin-arm64');for(const file of files){if(PHASE2_PRIVATE.test(file.path))throw new Error('PHASE2_SENSITIVE_MEMBER');if(file.type==='file'&&file.bytes<=8*1024*1024&&PHASE2_SECRET.test(readFileSync(join(root,file.path),'utf8')))throw new Error('PHASE2_SENSITIVE_MEMBER');}return files;}
+function phase2PrivatePath(path){
+  if(PHASE2_PRIVATE.test(path))return true;
+  const segments=path.split('/');
+  for(let index=0;index<segments.length;index++){
+    if(!/^cookies?$/i.test(segments[index]))continue;
+    const dependencyPackage=segments[0]==='node_modules'&&(segments[index-1]==='node_modules'||(index>1&&segments[index-2]==='node_modules'&&segments[index-1].startsWith('@')));
+    if(!dependencyPackage)return true;
+  }
+  return false;
+}
+function scanPhase2Tree(root){const files=inventoryTree(root,'darwin-arm64');for(const file of files){if(phase2PrivatePath(file.path))throw new Error('PHASE2_SENSITIVE_MEMBER');if(file.type==='file'&&file.bytes<=8*1024*1024&&PHASE2_SECRET.test(readFileSync(join(root,file.path),'utf8')))throw new Error('PHASE2_SENSITIVE_MEMBER');}return files;}
 export function createPhase2CapabilityManifest({root,selection:selectionInput,testReport:testReportInput}){
   try{
     const selection=validateBuildSelection(selectionInput);if(testReportInput?.commit!==selection.commit||testReportInput?.tree!==selection.tree||testReportInput?.buildId!==selection.buildId||testReportInput?.sourceSha256!==selection.sourceSha256)throw new Error('PHASE2_SOURCE_DRIFT');const testReport=validatePhase2TestReport(testReportInput,selection);
