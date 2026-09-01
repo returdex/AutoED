@@ -67,7 +67,14 @@ export type Permission =
   | 'auth:probe:write'
   | 'auth:logout:write'
   | 'auth:binding:write';
-export interface Principal { scope: Scope; destination: OutputDestination; permissions: readonly Permission[]; selfcheck?: { operationId: string; generation: number } }
+export interface Principal {
+  scope: Scope;
+  destination: OutputDestination;
+  permissions: readonly Permission[];
+  selfcheck?: { operationId: string; generation: number };
+  /** Set only by SQLiteSessions authentication; never accepted from a bearer or request body. */
+  browserSessionId?: string;
+}
 export class SyntheticOutputPolicy implements OutputPolicy {
   constructor(private readonly installationId: string, private readonly destinations: readonly OutputDestination[] = ['local_ui', 'local_cli', 'model']) {}
   async authorize(scope: Scope, operation: OutputOperation, destination: OutputDestination) {

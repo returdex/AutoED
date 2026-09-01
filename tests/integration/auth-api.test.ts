@@ -34,7 +34,7 @@ function candidateBinding(): AccountBinding {
 
 async function fixture() {
   const harness = createHarness(); cleanup.push(() => harness.cleanup());
-  const db = openDatabase(join(harness.root, 'auth-api.sqlite')); cleanup.push(async () => db.close());
+  const db = openDatabase(join(harness.root, 'auth-api.sqlite')); cleanup.push(async () => { db.close(); });
   const installationId = randomUUID();
   const scope = { installationId, source: 'synthetic' as const, courseId: 'selftest' as const };
   const secretsMap = new Map<string, string>();
@@ -43,9 +43,10 @@ async function fixture() {
   const configs: Record<SourceId, ApprovedSourceConfig> = { moodle: sourceConfig('moodle'), edstem: sourceConfig('edstem') };
   const observations: Record<SourceId, SourceObservation> = { moodle: sourceObservation('moodle'), edstem: sourceObservation('edstem') };
   let binding = candidateBinding();
+  let statusError: unknown = null;
   const calls = { config: 0, launch: 0, probe: 0, logout: 0, binding: 0, receiptList: 0, receiptAppend: 0 };
   const auth = {
-    sourceConfigs: { async read(source: SourceId) { return configs[source]; }, async confirm(value: ApprovedSourceConfig) { calls.config++; configs[value.source] = value; } },
+    sourceConfigs: { async read(source: SourceId) { if (statusError) throw statusError; return configs[source]; }, async confirm(value: ApprovedSourceConfig) { calls.config++; configs[value.source] = value; } },
     observations: { async read(source: SourceId) { return observations[source]; }, async write() { throw new Error('UNEXPECTED_WRITE'); } },
     bindings: { async read() { return binding; }, async write(value: AccountBinding) { calls.binding++; binding = value; } },
     evidence: { async append() { calls.receiptAppend++; throw new Error('NO_LIVE_EVIDENCE'); }, async list() { calls.receiptList++; return []; } },
@@ -74,17 +75,28 @@ async function fixture() {
     return { cookie: cookies(exchange), ...(await exchange.json() as { csrf: string; sessionId: string }) };
   }
   async function restart() { await api.close(); sessions = new SQLiteSessions(db, installationId); api = await startApi({ ...base, sessions }); }
-  return { request, pair, restart, calls, configs, secretsMap };
+  return { request, pair, restart, calls, configs, secretsMap, failStatus(error: unknown) { statusError = error; } };
 }
 
 describe('paired fixed auth api', () => {
   it('registers only the seven fixed routes and rejects forbidden capability fields before any side effect', async () => {
-    const f = await fixture(); const paired = await f.pair();
     const forbidden = ['url', 'js', 'selector', 'browserHandle', 'method', 'requestBody', 'download', 'upload', 'submit', 'reply', 'quizStart', 'cookie', 'storageState', 'profilePath', 'displayName', 'schoolEmail', 'courseName', 'screenshot'];
-    for (const key of forbidden) {
-      const response = await f.request('/api/auth/login/open', { body: { source: 'moodle', approvedConfigId: f.configs.moodle.id, [key]: 'PRIVATE_SENTINEL' }, cookie: paired.cookie, csrf: paired.csrf });
-      expect(response.status, key).toBe(400);
+    const routes = [
+      ['/api/auth/configuration/confirm', (f: Awaited<ReturnType<typeof fixture>>) => ({ config: f.configs.moodle })],
+      ['/api/auth/login/open', (f: Awaited<ReturnType<typeof fixture>>) => ({ source: 'moodle', approvedConfigId: f.configs.moodle.id })],
+      ['/api/auth/probe', (f: Awaited<ReturnType<typeof fixture>>) => ({ source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId, trigger: 'background', idempotencyKey: 'strict-body' })],
+      ['/api/auth/logout-intent', () => ({ source: 'moodle', acknowledged: true })],
+      ['/api/auth/binding/confirm', () => ({ candidateBindingId: randomUUID(), decision: 'confirm' })],
+    ] as const;
+    for (const [path, validBody] of routes) {
+      const f = await fixture(); const paired = await f.pair();
+      for (const key of forbidden) {
+        const response = await f.request(path, { body: { ...validBody(f), [key]: 'PRIVATE_SENTINEL' }, cookie: paired.cookie, csrf: paired.csrf });
+        expect(response.status, `${path}:${key}`).toBe(400);
+      }
+      expect(f.calls).toEqual({ config: 0, launch: 0, probe: 0, logout: 0, binding: 0, receiptList: 0, receiptAppend: 0 });
     }
+    const f = await fixture(); const paired = await f.pair();
     for (const [path, method] of [['/api/auth/moodle/open', 'POST'], ['/api/auth/operation', 'POST'], ['/api/auth/receipts', 'POST'], ['/api/auth/status/extra', 'GET'], ['/api/auth/status', 'PUT'], ['/api/auth/status', 'PATCH'], ['/api/auth/status', 'DELETE']] as const) {
       expect([404, 405]).toContain((await f.request(path, { method, body: method === 'GET' ? undefined : {}, cookie: paired.cookie, csrf: paired.csrf })).status);
     }
@@ -144,6 +156,10 @@ describe('paired fixed auth api', () => {
     }
     const invalid = await f.request('/api/auth/receipts?platform=macos&source=moodle&scenario=a.login&evidence=S&all=true', { bearer: 'cli' });
     expect(invalid.status).toBe(400); expect(Object.keys(await invalid.json()).sort()).toEqual(['code', 'nextAction', 'stage']);
+    f.failStatus({ code: 'UNKNOWN_ADAPTER', message: 'PRIVATE /Users/private/Profile?cookie=SECRET', cause: { schoolEmail: 'private@example.edu' }, stack: 'PRIVATE STACK' });
+    const failed = await f.request('/api/auth/status', { bearer: 'cli' }); const failedText = await failed.text();
+    expect(failed.status).toBe(403); expect(JSON.parse(failedText)).toEqual({ code: 'UNKNOWN_SOURCE_ERROR', stage: 'auth_api', nextAction: 'retry_or_check_local_service' });
+    expect(failedText).not.toMatch(/PRIVATE|Profile|cookie|example\.edu|message|cause|stack/);
     const missing = await f.request('/api/auth/private/path?PRIVATE_SENTINEL=1', { bearer: 'cli' }); const body = await missing.text();
     expect(missing.status).toBe(404); expect(body).not.toMatch(/PRIVATE_SENTINEL|private\/path|message|cause|stack/);
   });

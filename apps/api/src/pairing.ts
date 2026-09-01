@@ -18,8 +18,13 @@ export function sameOrigin(request: FastifyRequest, origin: string) {
 export function browserPrincipal(request: FastifyRequest, sessions: SQLiteSessions, origin: string): Principal {
   sameOrigin(request, origin);
   const token = request.cookies.autoed_session ?? '';
-  sessions.authenticate(token, request.method === 'GET' || request.method === 'HEAD' ? undefined : String(request.headers['x-autoed-csrf'] ?? ''));
-  return { scope: { installationId: sessions.installationId, source: 'synthetic', courseId: 'selftest' }, destination: 'local_ui', permissions: ['status:read', 'jobs:read'] };
+  const session = sessions.authenticate(token, request.method === 'GET' || request.method === 'HEAD' ? undefined : String(request.headers['x-autoed-csrf'] ?? ''));
+  return {
+    scope: { installationId: sessions.installationId, source: 'synthetic', courseId: 'selftest' },
+    destination: 'local_ui',
+    permissions: ['status:read', 'jobs:read', 'auth:read', 'auth:receipts:read', 'auth:configuration:write', 'auth:login:write', 'auth:probe:write', 'auth:logout:write', 'auth:binding:write'],
+    browserSessionId: session,
+  };
 }
 export function registerPairing(app: FastifyInstance, sessions: SQLiteSessions, origin: () => string, principal: (r: FastifyRequest) => Principal, policy: OutputPolicy) {
   const publicPolicy = async (request: FastifyRequest) => {

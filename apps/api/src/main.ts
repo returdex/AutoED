@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { BuildIdentity } from '../../../packages/domain/src/model.js';
 import type { JobStore, MaintenanceStore, SecretStore, StatusProjectionStore } from '../../../packages/application/src/ports.js';
 import type { CredentialRecord } from '../../../packages/platform/src/credentials.js';
-import { ApiApplication, ApplicationError, SyntheticOutputPolicy, authorize, type Principal } from '../../../packages/application/src/policy.js';
+import { ApiApplication, ApplicationError, AuthControlApplication, SyntheticOutputPolicy, authorize, toSafeAuthApiError, type AuthControlDependencies, type Principal } from '../../../packages/application/src/policy.js';
 import { ApplicationStatus } from '../../../packages/application/src/status.js';
 import { JobRequestSchema, MaintenanceGateSchema, StatusSchema } from '../../../packages/contracts/src/index.js';
 import { assertTransport, authenticate, authenticatedRecord, WindowLimit } from './security.js';
@@ -13,6 +13,7 @@ import { clientIdentityProof } from '../../../packages/platform/src/client-endpo
 import {SelfcheckCredentials,SelfcheckCredentialInput} from '../../../packages/platform/src/selfcheck-credentials.js';
 import { browserPrincipal, publicPairingPaths, registerPairing } from './pairing.js';
 import { publicStaticPaths, registerStatic } from './static.js';
+import { registerAuthRoutes } from './auth.js';
 import { fileURLToPath } from 'node:url';
 import type { SQLiteSessions } from '../../../packages/persistence/src/sessions.js';
 import { SQLiteSessions as Sessions } from '../../../packages/persistence/src/sessions.js';
@@ -35,6 +36,7 @@ export interface ApiOptions {
   runtimeGeneration?: number;
   assetsRoot?: string;
   selfcheckCredentials?:SelfcheckCredentials;
+  auth?: Omit<AuthControlDependencies, 'installationId' | 'expectedGeneration' | 'outputPolicy'>;
 }
 const JobOutput = z.strictObject({
   id: z.uuid(), request: JobRequestSchema, state: z.enum(['queued','running','retry_wait','succeeded','failed','cancelled']), cancelRequested: z.boolean(), attempt: z.number().int(), maxAttempts: z.number().int(),
@@ -52,6 +54,12 @@ export async function startApi(options: ApiOptions) {
   let origin = ''; let shutdownRequested = false; const principals = new WeakMap<FastifyRequest, Principal>(); const authLimit = new WindowLimit(30);
   const policy = new SyntheticOutputPolicy(options.installationId);
   const application = new ApiApplication(options.jobs, options.maintenance, options.projections, policy, async () => { shutdownRequested = true; },options.runtimeGeneration);
+  const authApplication = options.auth ? new AuthControlApplication({
+    ...options.auth,
+    installationId: options.installationId,
+    expectedGeneration: options.runtimeGeneration ?? 0,
+    outputPolicy: policy,
+  }) : null;
   app.addHook('onResponse', async (request, reply) => {
     if (shutdownRequested && request.url === '/api/control/shutdown' && reply.statusCode === 200) {
       shutdownRequested = false;
@@ -71,15 +79,23 @@ export async function startApi(options: ApiOptions) {
       : browserPrincipal(request, options.sessions, origin));
     if(options.runtimeGeneration!==undefined&&request.url!=='/api/process/inspect'&&request.url!=='/api/control/shutdown'&&(await options.maintenance.read()).generation!==options.runtimeGeneration)throw new ApplicationError('GENERATION_MISMATCH',409);
   });
-  app.setErrorHandler((error, _request, reply) => {
+  app.setErrorHandler((error, request, reply) => {
     const e = error as { code?: string; statusCode?: number };
     const validation = error instanceof z.ZodError || e.code?.startsWith('FST_ERR_CTP_');
+    if (request.url.startsWith('/api/auth/')) {
+      const safe = toSafeAuthApiError(error);
+      const statusCode = validation ? e.statusCode === 413 ? 413 : 400 : e.statusCode === 503 ? 503 : safe.code === 'INTERNAL_ERROR' ? 500 : e.statusCode ?? 403;
+      return reply.code(statusCode).send(safe);
+    }
     const code = validation ? 'INVALID_REQUEST' : e.code && safeCodes.has(e.code) ? e.code : 'INTERNAL_ERROR';
     reply.code(validation ? e.statusCode === 413 ? 413 : 400 : code === 'INTERNAL_ERROR' ? 500 : e.statusCode ?? 403).send({ code, stage: 'api', nextAction: code === 'SECRET_STORE_UNAVAILABLE' ? 'human_os_authorization_required' : code === 'CREDENTIAL_RECOVERY_REQUIRED' ? 'preserve_exact_receipt_for_human_recovery' : 'retry_or_check_local_service' });
   });
-  app.setNotFoundHandler((_request, reply) => reply.code(404).send({ code: 'NOT_FOUND', stage: 'api', nextAction: 'use_registered_endpoint' }));
+  app.setNotFoundHandler((request, reply) => request.url.startsWith('/api/auth/')
+    ? reply.code(404).send({ code: 'INVALID_REQUEST', stage: 'auth_api', nextAction: 'retry_or_check_local_service' })
+    : reply.code(404).send({ code: 'NOT_FOUND', stage: 'api', nextAction: 'use_registered_endpoint' }));
   const principal = (request: FastifyRequest) => { const p = principals.get(request); if (!p) throw new ApplicationError('UNAUTHORIZED', 401); return p; };
   registerPairing(app, options.sessions, () => origin, principal, policy);
+  registerAuthRoutes(app, { application: authApplication, expectedGeneration: options.runtimeGeneration ?? 0, principal });
   registerStatic(app, options.assetsRoot);
   app.get('/api/status', async request => StatusSchema.parse(await status.read(principal(request))));
   app.post('/api/client/identity',async request=>{

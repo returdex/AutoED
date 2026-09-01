@@ -10,8 +10,8 @@ export class WindowLimit {
   take() { const now = this.now(); if (now - this.started >= 60_000) { this.started = now; this.count = 0; } if (++this.count > this.max) throw new ApplicationError('RATE_LIMITED', 429); }
 }
 const permissions: Record<CredentialRecord['destination'], readonly Permission[]> = {
-  local_cli: ['status:read', 'jobs:read', 'jobs:write', 'control:shutdown', 'pairing:approve'],
-  model: ['status:read', 'jobs:read', 'jobs:write'], service: ['status:read'],
+  local_cli: ['status:read', 'jobs:read', 'jobs:write', 'control:shutdown', 'pairing:approve', 'auth:read', 'auth:receipts:read'],
+  model: ['status:read', 'jobs:read', 'jobs:write', 'auth:read', 'auth:receipts:read'], service: ['status:read'],
   installer: ['status:read', 'jobs:read', 'control:shutdown', 'installer'], selfcheck: ['status:read', 'jobs:read', 'jobs:selfcheck'],
 };
 const authenticatedRecords=new WeakMap<FastifyRequest,CredentialRecord>();
