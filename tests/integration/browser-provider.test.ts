@@ -97,6 +97,7 @@ function fixture(options: {
   let locatorValue: string | null = 'visible text';
   let attributeValue: string | null = 'available';
   let operationHook: (() => void | Promise<void>) | undefined;
+  let requestPostHook: (() => void | Promise<void>) | undefined;
   let waitPromise: Promise<void> | undefined;
   const locator = {
     waitFor: vi.fn(async () => { events.push('locator-wait'); await operationHook?.(); await waitPromise; }),
@@ -116,7 +117,7 @@ function fixture(options: {
     };
     if (!routeHandler) throw new Error('ROUTE_NOT_INSTALLED');
     await routeHandler(route);
-    if (continued) await emit(contextHandlers, 'requestfinished', requestValue);
+    if (continued) { await requestPostHook?.(); await emit(contextHandlers, 'requestfinished', requestValue); }
     return { continued, aborted, route, request: requestValue };
   }
   const page = {
@@ -191,7 +192,9 @@ function fixture(options: {
     context, page, contextEvents, pageEvents, owner, reservation,
     setGate(value: MaintenanceGate) { gate = value; },
     setInspectState(value: 'in_use' | 'unconfirmed' | 'confirmed_exited') { forcedInspect = value; },
+    setInspectSequence(values: Array<'in_use' | 'unconfirmed' | 'confirmed_exited'>) { inspections.push(...values); },
     setOperationHook(value: (() => void | Promise<void>) | undefined) { operationHook = value; },
+    setRequestPostHook(value: (() => void | Promise<void>) | undefined) { requestPostHook = value; },
     setLocatorValue(value: string | null) { locatorValue = value; },
     setAttributeValue(value: string | null) { attributeValue = value; },
     setWaitPromise(value: Promise<void> | undefined) { waitPromise = value; },
@@ -383,6 +386,32 @@ describe('request guard', () => {
     expect(value.events).toEqual(['generation', 'request-abort']);
   });
 
+  it('fences a request that loses generation or ownership after continue and prevents a later continue', async () => {
+    for (const kind of ['generation', 'owner'] as const) {
+      const value = fixture(); await openBackground(value);
+      value.setRequestPostHook(() => {
+        if (kind === 'generation') value.setGate({ operationId: null, generation: 5, state: 'open', owner: null, leaseUntil: null });
+        else value.setInspectState('unconfirmed');
+      });
+      value.events.length = 0;
+      expect((await value.request(`${ORIGIN}/first`, 'GET')).continued).toBe(true);
+      expect(value.events).toContain('request-continue');
+      value.setRequestPostHook(undefined); value.events.length = 0;
+      expect((await value.request(`${ORIGIN}/second`, 'GET')).continued).toBe(false);
+      expect(value.events).not.toContain('request-continue');
+      expect(value.events).toContain('request-abort');
+    }
+  });
+
+  it('aborts a caller-bound request after continue and discards the navigation result', async () => {
+    const value = fixture(); const opened = await openBackground(value); const controller = new AbortController();
+    value.setRequestPostHook(() => controller.abort());
+    await expect(opened.session.navigate(
+      new URL(`${ORIGIN}/aborted`), requestGuard(value.owner, controller.signal),
+    )).rejects.toThrow('BROWSER_ABORTED');
+    expect(value.events).toContain('request-continue');
+  });
+
   it('discards a late visible result when cancellation, generation or owner changes during the operation', async () => {
     const cases = ['abort', 'generation', 'owner'] as const;
     for (const kind of cases) {
@@ -493,7 +522,7 @@ describe('safe close', () => {
     value.setWaitPromise(pending.promise);
     const waiting = opened.session.waitFor({ kind: 'text', text: 'Status', exact: true }, opened.guard);
     await vi.waitFor(() => expect(value.events).toContain('locator-wait'));
-    value.setInspectState('confirmed_exited');
+    value.setInspectSequence(['in_use', 'confirmed_exited']);
     const closing = opened.session.close(opened.guard);
     await expect(opened.session.navigate(new URL(ORIGIN), opened.guard)).rejects.toThrow('BROWSER_FENCED');
     pending.resolve();
@@ -508,14 +537,14 @@ describe('safe close', () => {
   it.each([
     ['in_use', 'PROFILE_IN_USE'], ['unconfirmed', 'PROFILE_OWNERSHIP_UNCONFIRMED'],
   ] as const)('preserves ownership when close inspection is %s', async (state, code) => {
-    const value = fixture(); const opened = await openBackground(value); value.setInspectState(state);
+    const value = fixture(); const opened = await openBackground(value); value.setInspectSequence(['in_use', state]);
     await expect(opened.session.close(opened.guard)).rejects.toThrow(code);
     expect(value.context.close).toHaveBeenCalledOnce();
     expect(value.release).not.toHaveBeenCalled();
   });
 
   it('does not let an aborted caller skip owned-context cleanup', async () => {
-    const value = fixture(); const opened = await openBackground(value); value.setInspectState('confirmed_exited');
+    const value = fixture(); const opened = await openBackground(value); value.setInspectSequence(['in_use', 'confirmed_exited']);
     const controller = new AbortController(); controller.abort();
     await expect(opened.session.close(requestGuard(value.owner, controller.signal))).resolves.toBeUndefined();
     expect(value.context.close).toHaveBeenCalledOnce(); expect(value.release).toHaveBeenCalledOnce();
