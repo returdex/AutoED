@@ -9,8 +9,8 @@ import type {
   SourceId, SourceObservation, WriteContext,
 } from '../../domain/src/model.js';
 import {
-  AccountBindingSchema, ApprovedSourceConfigSchema, ProfileOwnerIdentitySchema, ProfileOwnershipSchema,
-  ProfileReservationSchema, SourceObservationSchema,
+  AccountBindingSchema, ApprovedSourceConfigSchema, EvidenceCellKeySchema, EvidenceReceiptSchema, ProfileOwnerIdentitySchema,
+  ProfileOwnershipSchema, ProfileReservationSchema, SourceObservationSchema,
 } from '../../contracts/src/index.js';
 import { recordWrite, requireWrite, StorageError } from './database.js';
 
@@ -54,6 +54,12 @@ interface OwnershipRow {
   control_proof_fingerprint: string | null; os_start_identity: string | null; managed_executable_identity: string | null;
   reserved_at: number | null; started_at: number | null; lease_until: number | null; generation: number; fence: number;
   state: Exclude<ProfileOwnership['state'], 'available'> | 'available';
+}
+interface EvidenceRow {
+  receipt_id: string; build_id: string; version: string; platform: EvidenceReceipt['platform']; source: EvidenceReceipt['source'];
+  scenario: EvidenceReceipt['scenario']; evidence: EvidenceReceipt['evidence']; status: EvidenceReceipt['status']; result_code: string;
+  binding_consistency: EvidenceReceipt['bindingConsistency']; gap_codes: string; observed_at: number;
+  producer_kind: EvidenceReceipt['provenance']['kind']; producer_id: string;
 }
 
 export class SQLiteSourceConfigStore implements SourceConfigStore {
@@ -239,9 +245,72 @@ export class SQLiteProfileOwnershipStore implements ProfileOwnershipStore {
 }
 
 export class SQLiteEvidenceLedger implements EvidenceLedger {
-  constructor(readonly db: Database.Database, readonly clock: Clock = { now: () => Date.now() }) {}
-  async append(_receipt: EvidenceReceipt, _authority: EvidenceWriterAuthority, _context: WriteContext): Promise<void> {
-    throw new StorageError('NOT_IMPLEMENTED');
+  constructor(private readonly db: Database.Database, private readonly clock: Clock = { now: () => Date.now() }) {}
+  async append(input: EvidenceReceipt, authority: EvidenceWriterAuthority, context: WriteContext): Promise<void> {
+    const receipt = EvidenceReceiptSchema.parse(input);
+    this.assertAuthority(receipt, authority);
+    const observed = observedAt(receipt.checkedAt, this.clock.now(), 'INVALID_EVIDENCE_TIME');
+    if (receipt.gaps.some(code => !/^[A-Z0-9_]+$/.test(code))) throw new StorageError('INVALID_EVIDENCE_GAP_CODE');
+    const canonical = JSON.stringify({ receipt, authority });
+    const idempotencyHash = digest(canonical);
+    safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      const duplicate = this.db.prepare('SELECT idempotency_hash FROM uat_receipts WHERE receipt_id=?').get(receipt.receiptId) as { idempotency_hash: string } | undefined;
+      if (duplicate) {
+        if (!sameDigest(duplicate.idempotency_hash, idempotencyHash)) throw new StorageError('EVIDENCE_IDEMPOTENCY_CONFLICT');
+        return;
+      }
+      const prior = this.db.prepare(`SELECT event_id,recorded_at FROM uat_receipts
+        WHERE platform=? AND source=? AND scenario=? AND evidence=? ORDER BY recorded_at DESC,event_id DESC LIMIT 1`)
+        .get(receipt.platform, receipt.source, receipt.scenario, receipt.evidence) as { event_id: string; recorded_at: number } | undefined;
+      const recordedAt = Math.max(this.clock.now(), (prior?.recorded_at ?? -1) + 1);
+      if (!Number.isSafeInteger(recordedAt) || recordedAt < 0) throw new StorageError('INVALID_EVIDENCE_TIME');
+      const producerId = receipt.provenance.kind === 'automated' ? receipt.provenance.producerId : receipt.provenance.actionReceiptId;
+      this.db.prepare(`INSERT INTO uat_receipts(event_id,receipt_id,idempotency_hash,prior_event_id,schema_version,build_id,artifact_id,version,
+        platform,source,scenario,evidence,status,result_code,binding_consistency,gap_codes,observed_at,recorded_at,generation,producer_kind,producer_id)
+        VALUES(?,?,?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        randomUUID(), receipt.receiptId, idempotencyHash, prior?.event_id ?? null, receipt.buildId, receipt.buildId, receipt.version,
+        receipt.platform, receipt.source, receipt.scenario, receipt.evidence, receipt.status, receipt.resultCode, receipt.bindingConsistency,
+        JSON.stringify(receipt.gaps), observed, recordedAt, context.expectedGeneration, receipt.provenance.kind, producerId,
+      );
+      recordWrite(this.db, context);
+    }).immediate());
   }
-  async list(_key: EvidenceCellKey): Promise<EvidenceReceipt[]> { throw new StorageError('NOT_IMPLEMENTED'); }
+  async list(input: EvidenceCellKey): Promise<EvidenceReceipt[]> {
+    const key = EvidenceCellKeySchema.parse(input);
+    return safeStorage(() => {
+      const rows = this.db.prepare(`SELECT receipt_id,build_id,version,platform,source,scenario,evidence,status,result_code,binding_consistency,
+        gap_codes,observed_at,producer_kind,producer_id FROM uat_receipts
+        WHERE platform=? AND source=? AND scenario=? AND evidence=? ORDER BY recorded_at,event_id`)
+        .all(key.platform, key.source, key.scenario, key.evidence) as EvidenceRow[];
+      return rows.map(row => EvidenceReceiptSchema.parse({
+        receiptId: row.receipt_id, buildId: row.build_id, version: row.version, platform: row.platform, source: row.source,
+        scenario: row.scenario, evidence: row.evidence, status: row.status, resultCode: row.result_code,
+        bindingConsistency: row.binding_consistency, gaps: JSON.parse(row.gap_codes), checkedAt: new Date(row.observed_at).toISOString(),
+        provenance: row.producer_kind === 'automated'
+          ? { kind: 'automated', evidence: row.evidence, producerId: row.producer_id }
+          : { kind: 'human_action', actionReceiptId: row.producer_id },
+      }));
+    });
+  }
+  private assertAuthority(receipt: EvidenceReceipt, authority: EvidenceWriterAuthority): void {
+    const actualPlatform = process.platform === 'win32' ? 'windows' : 'macos';
+    const expectedKeys = authority.kind === 'automated'
+      ? ['evidence', 'kind', 'platform', 'producerId']
+      : ['actionReceiptId', 'evidence', 'kind', 'platform'];
+    if (Object.keys(authority).sort().join(',') !== expectedKeys.join(',')) throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
+    if (receipt.platform !== actualPlatform || authority.platform !== actualPlatform || receipt.platform !== authority.platform || receipt.evidence !== authority.evidence) {
+      throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
+    }
+    if (authority.kind === 'automated') {
+      if (receipt.provenance.kind !== 'automated' || receipt.provenance.evidence !== authority.evidence ||
+        receipt.provenance.producerId !== authority.producerId || !/^[A-Za-z0-9._-]+$/.test(authority.producerId)) {
+        throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
+      }
+      return;
+    }
+    if (receipt.provenance.kind !== 'human_action' || receipt.provenance.actionReceiptId !== authority.actionReceiptId) {
+      throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
+    }
+  }
 }
