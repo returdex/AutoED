@@ -2,8 +2,15 @@ import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { createHarness } from '../../packages/test-support/src/harness.js';
-import { openDatabase } from '../../packages/persistence/src/database.js';
+import { openDatabase, SQLiteMaintenanceStore } from '../../packages/persistence/src/database.js';
+import {
+  SQLiteAccountBindingStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore,
+} from '../../packages/persistence/src/auth.js';
+import type {
+  AccountBinding, ApprovedSourceConfig, ProfileOwnerIdentity, ProfileReservation, SourceId, SourceObservation,
+} from '../../packages/domain/src/model.js';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -139,5 +146,169 @@ describe('schema v2 migration', () => {
       expect(columns.join('|')).not.toMatch(/profile.*path|cookie|storage|password|mfa|input|dom|html|request|response|full.*name|email|course.*(?:name|title)|screenshot|har|trace|video|console|(?:^|_)(?:blob|dump)(?:_|$)/i);
       expect(phase2.map(row => row.sql).join('\n')).not.toMatch(/profile.*path|cookie|storage_state|password|mfa|raw_(?:dom|html|network)|screenshot|har|trace|video|console/i);
     } finally { db.close(); }
+  });
+});
+
+const writeContext = { expectedGeneration: 0 };
+const scopeId = randomUUID();
+const fp = (character: string) => character.repeat(64);
+const at = (value: number) => new Date(value).toISOString();
+function config(source: SourceId, now: number, id = randomUUID()): ApprovedSourceConfig {
+  return { id, source, officialOrigin: source === 'moodle' ? 'https://moodle.example.edu' : 'https://edstem.org', approvedScopeId: scopeId, confirmedAt: at(now) };
+}
+function success(source: SourceId, now: number): SourceObservation {
+  return {
+    source, auth: 'authenticated', capability: 'available', health: 'healthy', freshness: 'fresh', completeness: 'complete',
+    outcome: 'present', checkedAt: at(now), resultCode: 'AUTHENTICATED', courseAccess: 'allowed',
+    lastSuccess: { checkedAt: at(now), subjectFingerprint: fp(source === 'moodle' ? 'a' : 'b') },
+  };
+}
+function failure(source: SourceId, now: number, resultCode: SourceObservation['resultCode']): SourceObservation {
+  const auth = resultCode === 'REAUTH_REQUIRED' ? 'reauth_required' as const : 'authenticated' as const;
+  return {
+    source, auth, capability: resultCode === 'CAPABILITY_DENIED' ? 'denied' : 'available', health: 'error', freshness: 'stale', completeness: 'partial',
+    outcome: 'error', checkedAt: at(now), resultCode, courseAccess: resultCode === 'NETWORK_UNAVAILABLE' || resultCode === 'PARSER_CHANGED' ? 'allowed' : 'blocked',
+    lastSuccess: { checkedAt: at(now), subjectFingerprint: fp('z') },
+  };
+}
+function binding(now: number, status: AccountBinding['status'] = 'confirmed'): AccountBinding {
+  return {
+    status,
+    moodle: { source: 'moodle', subjectFingerprint: fp('a'), organizationFingerprint: fp('c'), tenantFingerprint: null, approvedScopeId: scopeId, evidenceKind: 'stable_subject_organization_scope' },
+    edstem: { source: 'edstem', subjectFingerprint: fp(status === 'identity_mismatch' ? 'd' : 'a'), organizationFingerprint: fp('c'), tenantFingerprint: null, approvedScopeId: scopeId, evidenceKind: 'stable_subject_organization_scope' },
+    basis: status === 'confirmed' ? 'human_confirmed' : status === 'candidate' ? 'stable_subject_organization_scope' : 'identity_changed',
+    confirmedByActionReceiptId: status === 'confirmed' ? randomUUID() : null,
+    courseAccess: status === 'confirmed' ? 'allowed' : 'blocked', checkedAt: at(now),
+  };
+}
+function reservation(now: number): ProfileReservation {
+  return { installationId: randomUUID(), browserBuildId: fp('a'), nonce: randomUUID(), generation: 0, fence: 0, reservedAt: at(now) };
+}
+function owner(value: ProfileReservation, now: number): ProfileOwnerIdentity {
+  return { ...value, pid: 1234, osStartIdentity: 'managed-process-start-1', executable: '/managed/browser', startedAt: at(now) };
+}
+
+describe('source stores and last success', () => {
+  it('accepts only strict approved source origins and persists versioned source-isolated configuration', async () => {
+    const path = databasePath(); const db = openDatabase(path); let now = 1000;
+    const store = new SQLiteSourceConfigStore(db, { now: () => now });
+    await store.confirm(config('moodle', now), writeContext);
+    await store.confirm(config('edstem', now), writeContext);
+    expect(await store.read('moodle')).toMatchObject({ source: 'moodle', officialOrigin: 'https://moodle.example.edu' });
+    expect(await store.read('edstem')).toMatchObject({ source: 'edstem', officialOrigin: 'https://edstem.org' });
+    now++;
+    const replacement = config('moodle', now);
+    await store.confirm(replacement, writeContext);
+    expect(await store.read('moodle')).toEqual(replacement);
+    expect(db.prepare("SELECT config_version FROM source_configs WHERE source='moodle' ORDER BY config_version").pluck().all()).toEqual([1, 2]);
+    const writes = db.prepare('SELECT write_generation AS n FROM maintenance_generation').get();
+    await expect(store.confirm({ ...config('moodle', now), officialOrigin: 'https://moodle.example.edu/path?capture=1' }, writeContext)).rejects.toThrow();
+    await expect(store.confirm({ ...config('moodle', now), selector: '#account' } as ApprovedSourceConfig, writeContext)).rejects.toThrow();
+    expect(db.prepare('SELECT write_generation AS n FROM maintenance_generation').get()).toEqual(writes);
+    db.close();
+    const reopened = openDatabase(path);
+    try { expect(await new SQLiteSourceConfigStore(reopened).read('moodle')).toEqual(replacement); }
+    finally { reopened.close(); }
+  });
+
+  it('retains per-source last success through network parser capability and reauth failures', async () => {
+    const path = databasePath(); const db = openDatabase(path); let now = 1000;
+    const store = new SQLiteSourceObservationStore(db, { now: () => now });
+    const moodleSuccess = success('moodle', now); const edstemSuccess = success('edstem', now);
+    await store.write(moodleSuccess, writeContext); await store.write(edstemSuccess, writeContext);
+    for (const code of ['NETWORK_UNAVAILABLE', 'PARSER_CHANGED', 'CAPABILITY_DENIED', 'REAUTH_REQUIRED'] as const) {
+      now++;
+      await store.write(failure('moodle', now, code), writeContext);
+      expect((await store.read('moodle'))?.lastSuccess).toEqual(moodleSuccess.lastSuccess);
+      expect(await store.read('edstem')).toEqual(edstemSuccess);
+    }
+    const writes = db.prepare('SELECT write_generation AS n FROM maintenance_generation').get();
+    await expect(store.write(failure('moodle', now, 'NETWORK_UNAVAILABLE'), writeContext)).rejects.toMatchObject({ code: 'STALE_OBSERVATION' });
+    now += 10_000;
+    await expect(store.write(failure('moodle', now + 1, 'NETWORK_UNAVAILABLE'), writeContext)).rejects.toMatchObject({ code: 'FUTURE_OBSERVATION' });
+    expect(db.prepare('SELECT write_generation AS n FROM maintenance_generation').get()).toEqual(writes);
+    db.close();
+    const reopened = openDatabase(path);
+    try { expect((await new SQLiteSourceObservationStore(reopened).read('moodle'))?.lastSuccess).toEqual(moodleSuccess.lastSuccess); }
+    finally { reopened.close(); }
+  });
+
+  it('rejects stale generation writes without partially changing source state', async () => {
+    const path = databasePath(); const db = openDatabase(path); const now = 1000;
+    const store = new SQLiteSourceObservationStore(db, { now: () => now });
+    await store.write(success('moodle', now), writeContext);
+    const maintenance = new SQLiteMaintenanceStore(db); const operationId = randomUUID();
+    await maintenance.enterMaintenance({ operationId, owner: 'installer', leaseUntil: 9000, expectedGeneration: 0 });
+    await maintenance.markExclusive(operationId, 0); await maintenance.exitMaintenance(operationId, 0);
+    await expect(store.write(failure('moodle', now + 1, 'NETWORK_UNAVAILABLE'), writeContext)).rejects.toMatchObject({ code: 'GENERATION_MISMATCH' });
+    expect((await store.read('moodle'))?.resultCode).toBe('AUTHENTICATED');
+    db.close();
+  });
+});
+
+describe('binding persistence', () => {
+  it('keeps the prior confirmed binding while a changed stable subject creates a blocking mismatch event', async () => {
+    const path = databasePath(); const db = openDatabase(path); let now = 1000;
+    const store = new SQLiteAccountBindingStore(db, { now: () => now });
+    const confirmed = binding(now); await store.write(confirmed, writeContext);
+    now++;
+    const mismatch = binding(now, 'identity_mismatch'); await store.write(mismatch, writeContext);
+    expect(await store.read()).toEqual(mismatch);
+    expect(db.prepare('SELECT status,course_access FROM account_bindings ORDER BY checked_at').all()).toEqual([
+      { status: 'confirmed', course_access: 'allowed' }, { status: 'identity_mismatch', course_access: 'blocked' },
+    ]);
+    const writes = db.prepare('SELECT write_generation AS n FROM maintenance_generation').get();
+    await expect(store.write({ ...binding(now + 1), displayName: 'same display', schoolEmail: 'same@example.edu' } as AccountBinding, writeContext)).rejects.toThrow();
+    expect(db.prepare('SELECT write_generation AS n FROM maintenance_generation').get()).toEqual(writes);
+    db.close();
+  });
+});
+
+describe('profile ownership persistence', () => {
+  it('allows only one acquiring connection and rejects expired leases and stale fences until confirmed exit', async () => {
+    const path = databasePath(); const firstDb = openDatabase(path); const secondDb = openDatabase(path); let now = 1000;
+    const first = new SQLiteProfileOwnershipStore(firstDb, { now: () => now });
+    const second = new SQLiteProfileOwnershipStore(secondDb, { now: () => now });
+    const request = reservation(now);
+    const [winner, loser] = await Promise.allSettled([first.acquire(request, writeContext), second.acquire({ ...reservation(now), installationId: request.installationId }, writeContext)]);
+    expect([winner.status, loser.status].sort()).toEqual(['fulfilled', 'rejected']);
+    const acquired = winner.status === 'fulfilled' ? winner.value : (loser as PromiseFulfilledResult<Awaited<ReturnType<typeof second.acquire>>>).value;
+    const store = winner.status === 'fulfilled' ? first : second;
+    expect(acquired).toMatchObject({ state: 'reserved', reservation: { fence: 1 } });
+    const rawOwner = owner(acquired.reservation!, now);
+    now = acquired.leaseUntil! + 1;
+    await expect(first.acquire(reservation(now), writeContext)).rejects.toMatchObject({ code: 'PROFILE_IN_USE' });
+    const owned = await store.renew(rawOwner, now + 60_000, writeContext);
+    expect(owned).toMatchObject({ state: 'owned', owner: { fence: 1 } });
+    await expect(store.renew({ ...rawOwner, fence: 0 }, now + 60_001, writeContext)).rejects.toMatchObject({ code: 'PROFILE_FENCE_MISMATCH' });
+    await expect(store.release(rawOwner, writeContext)).rejects.toMatchObject({ code: 'PROFILE_EXIT_UNCONFIRMED' });
+    const exited = await store.markConfirmedExited(rawOwner, writeContext);
+    expect(exited.state).toBe('confirmed_exited');
+    await store.release(rawOwner, writeContext);
+    expect(await store.read()).toMatchObject({ state: 'available' });
+    firstDb.close(); secondDb.close();
+  });
+
+  it('reopens with only irreversible owner proof and excludes rejected identity sentinels from DB WAL and backup', async () => {
+    const path = databasePath(); const backupPath = databasePath('auth.backup.sqlite'); const db = openDatabase(path); const now = 1000;
+    const store = new SQLiteProfileOwnershipStore(db, { now: () => now });
+    const request = reservation(now); const acquired = await store.acquire(request, writeContext);
+    const rawOwner = owner(acquired.reservation!, now); await store.renew(rawOwner, now + 60_000, writeContext);
+    const sentinels = ['PROHIBITED_PROFILE_LOCATION', 'PROHIBITED_COOKIE_VALUE', 'PROHIBITED_PERSON_EMAIL'];
+    const configs = new SQLiteSourceConfigStore(db, { now: () => now });
+    await expect(configs.confirm({ ...config('moodle', now), profilePath: sentinels[0], cookie: sentinels[1], schoolEmail: sentinels[2] } as ApprovedSourceConfig, writeContext)).rejects.toThrow();
+    await db.backup(backupPath);
+    const persisted = Buffer.concat([readFileSync(path), readFileSync(`${path}-wal`), readFileSync(backupPath)]).toString('utf8');
+    for (const sentinel of sentinels) expect(persisted).not.toContain(sentinel);
+    db.close();
+    const reopened = openDatabase(path);
+    try {
+      const read = await new SQLiteProfileOwnershipStore(reopened).read();
+      expect(read.state).toBe('owned');
+      expect(read.owner?.nonce).not.toBe(rawOwner.nonce);
+      expect(reopened.prepare('SELECT nonce_hash,control_proof_fingerprint,managed_executable_identity FROM profile_ownership').get()).toMatchObject({
+        nonce_hash: expect.stringMatching(/^[a-f0-9]{64}$/), control_proof_fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/), managed_executable_identity: expect.stringMatching(/^[a-f0-9]{64}$/),
+      });
+    } finally { reopened.close(); }
   });
 });
