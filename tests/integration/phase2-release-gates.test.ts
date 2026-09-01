@@ -105,6 +105,21 @@ it('capability closure rejects wrong member bytes, stale source and a missing ca
   expect(()=>createPhase2CapabilityManifest({root:mac,selection:{...selected,tree:commit('f')},testReport:tested})).toThrow('PHASE2_SOURCE_DRIFT');
 });
 
+it('sensitive member scan permits declared cookie dependencies but rejects runtime credential artifacts',()=>{
+  const selected=selection(),tested=report(selected),production=targetRoot('production');
+  for(const path of [
+    'node_modules/@fastify/cookie/index.js',
+    'node_modules/cookie/index.js',
+    'node_modules/light-my-request/node_modules/cookie/index.js',
+  ])write(production,path,'declared production dependency');
+  expect(createPhase2CapabilityManifest({root:production,selection:selected,testReport:tested})).toMatchObject({status:'closed'});
+
+  for(const path of ['runtime/Profile/state.json','runtime/Cookie','runtime/Cookies']){
+    const root=targetRoot('private');write(root,path,'credential artifact');
+    expect(()=>createPhase2CapabilityManifest({root,selection:selected,testReport:tested})).toThrow('PHASE2_SENSITIVE_MEMBER');
+  }
+});
+
 it('two-layer install prompt signs an archive-independent core and externally binds both exact targets',()=>{
   const selected=selection(),tested=report(selected),core=renderPhase2InstallPromptCore(selected,tested),release=artifactReceipt(selected,tested),external=renderPhase2ExternalInstallPrompt(release)!;
   expect(PHASE2_RELEASE_MEMBERS).toContain('phase2/install-prompt-core.md');
