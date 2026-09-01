@@ -14,6 +14,7 @@ import {
   verifyPhase2FinalGate,
   verifyPhase2LiveCheckpoint,
 } from '../../scripts/release/phase2-live-gate.mjs';
+import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 
 const sha=(value:unknown)=>createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:JSON.stringify(value)).digest('hex');
 const buildId='a'.repeat(64),artifactSha256='b'.repeat(64),manifestSha256='c'.repeat(64),version='0.1.0-beta.20';
@@ -116,5 +117,38 @@ describe('phase 2 immutable live gate',()=>{
   it('audits possible and required counts separately and keeps the 44 missing L cells visible',async()=>{
     const empty=fixture({receipts:new Map()});const mac=await auditPhase2EvidenceMatrix({platform:'macos',runtime:'current',readOnly:true},empty);expect(mac).toMatchObject({schema:1,status:'pass',audit:'platform_matrix',platform:'macos',possibleCellCount:88,requiredCellCount:22,passCellCount:0,notRunCellCount:22,humanNeededCellCount:22,phase3:'blocked'});
     const final=await verifyPhase2FinalGate({runtime:'current',platform:'all',readOnly:true},fixture({receipts:new Map()}));expect(final).toMatchObject({schema:1,status:'blocked',resultCode:'PHASE2_GATE_BLOCKED',possibleCells:176,requiredLiveCells:44,requiredLivePass:0});expect(final.gaps).toHaveLength(44+14+1);
+  });
+});
+
+describe('phase 2 read-only update gate',()=>{
+  function updateFixture(platform:'macos'|'windows'='macos'){
+    const asset={id:platform==='macos'?101:102,name:platform==='macos'?'autoed-darwin-arm64.tar.gz':'autoed-win32-x64.zip',bytes:4096,sha256:artifactSha256,url:`https://github.com/returdex/AutoED/releases/download/v${version}/asset`};
+    const artifacts={schema:1,version,tag:`v${version}`,buildId,manifestSha256,immutable:true,promptSha256:sha('verified prompt'),targets:{[platform]:asset}};
+    const tests={schema:1,status:'pass',buildId,artifactReceiptSha256:sha(artifacts),suites:{typecheck:'pass',unit:'pass',integration:'pass',ui:'pass',native:'pass'},sensitiveScan:'pass'};
+    const publication={schema:1,status:'pass',owner:'returdex',repositoryId:1350421724,version,tag:`v${version}`,buildId,manifestSha256,immutable:true,assets:{[platform]:asset}};
+    const availability={schema:1,status:'pass',anonymous:true,immutable:true,version,tag:`v${version}`,buildId,manifestSha256,assets:{[platform]:asset},checkedAt:observedAt};
+    const receipt={schema:1,checkpoint:platform==='macos'?'02-14-macos-update':'02-25-windows-update',platform,version,tag:`v${version}`,artifactSha256,manifestSha256,buildId,result:'pass',resultCode:'UPDATE_COMPLETE',cleanup:'complete',actualBuild:'matched',entrypoints:'matched',api:'healthy',worker:'healthy',pairedUi:'ready',sourceConfiguration:{moodle:'not_confirmed',edstem:'not_confirmed'},schoolAccess:'not_started',profile:platform==='windows'?'not_created':undefined,nativePlatform:platform==='windows'?'windows-11':undefined,platformKind:platform==='windows'?'native':undefined,wsl:platform==='windows'?false:undefined,windows:platform==='macos'?'not_run/human_needed':undefined,phase3:'blocked',observedAt,feedbackDigest:'d'.repeat(64)};
+    const files=new Map<string,unknown>([['artifacts',artifacts],['tests',tests],['publication',publication],['availability',availability],['fresh',availability],['receipt',receipt]]);
+    const calls={read:0,runtime:0,mutate:0,profile:0,browser:0,source:0,process:0};
+    return {files,calls,deps:{now:()=>now,nativePlatform:platform,async readJson(path:string){calls.read++;return structuredClone(files.get(path));},async readText(path:string){calls.read++;if(path!=='prompt')throw new Error('NO');return 'verified prompt';},async readRuntime(){calls.runtime++;return runtime({platform,phase1:'partial'});}}};
+  }
+
+  it.each(['macos','windows'] as const)('%s update gate accepts exact immutable pre and current native post forms',async platform=>{
+    const f=updateFixture(platform),pre=['--artifacts','artifacts','--tests','tests','--publication','publication','--availability','availability',...(platform==='macos'?['--fresh-availability','fresh']:[]),'--prompt','prompt','--platform',platform,'--read-only'];
+    await expect(verifyPhase2UpdateGate(pre,f.deps)).resolves.toMatchObject({schema:1,status:'pass',mode:'pre-update',platform,version,buildId});
+    await expect(verifyPhase2UpdateGate(['--receipt','receipt','--artifacts','artifacts','--availability','availability','--runtime','current','--platform',platform,'--read-only'],f.deps)).resolves.toMatchObject({schema:1,status:'pass',mode:'post-update',platform,cleanup:'complete'});
+    expect(f.calls).toMatchObject({mutate:0,profile:0,browser:0,source:0,process:0});
+  });
+
+  it('rejects platform spoof, WSL, identity drift, stale availability and mutation flags before success',async()=>{
+    const cases=[
+      (f:ReturnType<typeof updateFixture>)=>{f.deps.nativePlatform='macos';},
+      (f:ReturnType<typeof updateFixture>)=>{(f.files.get('receipt') as Record<string,unknown>).wsl=true;},
+      (f:ReturnType<typeof updateFixture>)=>{(f.files.get('availability') as Record<string,unknown>).buildId='e'.repeat(64);},
+      (f:ReturnType<typeof updateFixture>)=>{(f.files.get('availability') as Record<string,unknown>).checkedAt='2026-08-20T00:00:00.000Z';},
+      (f:ReturnType<typeof updateFixture>)=>{(f.files.get('receipt') as Record<string,unknown>).cleanup='cleanup_pending';},
+    ];
+    for(const mutate of cases){const f=updateFixture('windows');mutate(f);await expect(verifyPhase2UpdateGate(['--receipt','receipt','--artifacts','artifacts','--availability','availability','--runtime','current','--platform','windows','--read-only'],f.deps)).rejects.toThrow(/^UPDATE_GATE_/);}
+    const f=updateFixture('windows');await expect(verifyPhase2UpdateGate(['--receipt','receipt','--artifacts','artifacts','--availability','availability','--runtime','current','--platform','windows','--read-only','--install'],f.deps)).rejects.toThrow('UPDATE_GATE_ARGUMENT_INVALID');expect(f.calls.read).toBe(0);
   });
 });
