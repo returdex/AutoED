@@ -334,8 +334,8 @@ function receipt(overrides: Partial<EvidenceReceipt> = {}): EvidenceReceipt {
     ...overrides,
   } as EvidenceReceipt;
 }
-function automated(evidence: 'S' | 'I' | 'N' = 'S', platform = actualPlatform): EvidenceWriterAuthority {
-  return { kind: 'automated', evidence, platform, producerId: 'phase2.integration' };
+function automated(evidence: 'S' | 'I' | 'N' = 'S', platform = actualPlatform, producerId = 'phase2.integration'): EvidenceWriterAuthority {
+  return { kind: 'automated', evidence, platform, producerId };
 }
 
 describe('append-only UAT ledger and evidence isolation', () => {
@@ -394,6 +394,7 @@ describe('append-only UAT ledger and evidence isolation', () => {
       [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('S')],
       [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('I')],
       [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), liveAuthority(live, actualPlatform)],
+      [receipt({ evidence: 'N', provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('N')],
       [live, automated('S')],
       [receipt({ platform: otherPlatform }), automated('S')],
       [receipt({ evidence: 'N', platform: otherPlatform, provenance: { kind: 'automated', evidence: 'N', producerId: 'phase2.integration' } }), automated('N', otherPlatform)],
@@ -408,8 +409,14 @@ describe('append-only UAT ledger and evidence isolation', () => {
 
   it('allows only actual-platform S I N events while Windows or L gaps keep Phase 3 blocked', async () => {
     const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
-    const receipts = (['S', 'I', 'N'] as const).map(evidence => receipt({ evidence, provenance: { kind: 'automated', evidence, producerId: 'phase2.integration' } }));
-    for (const value of receipts) await ledger.append(value, automated(value.evidence as 'S' | 'I' | 'N'), writeContext);
+    const receipts = (['S', 'I', 'N'] as const).map(evidence => {
+      const producerId = evidence === 'N' ? 'native.test' : 'phase2.integration';
+      return receipt({ evidence, provenance: { kind: 'automated', evidence, producerId } });
+    });
+    for (const value of receipts) {
+      const evidence = value.evidence as 'S' | 'I' | 'N';
+      await ledger.append(value, automated(evidence, actualPlatform, value.provenance.kind === 'automated' ? value.provenance.producerId : ''), writeContext);
+    }
     const otherPlatform: NativePlatform = actualPlatform === 'macos' ? 'windows' : 'macos';
     expect(await ledger.list({ platform: otherPlatform, source: 'moodle', scenario: 'a.login', evidence: 'L' })).toEqual([]);
     const gate = Phase2GateSchema.parse({
