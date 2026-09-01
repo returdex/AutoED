@@ -493,7 +493,7 @@ describe('bounded read', () => {
       [{ kind: 'text', text: () => 'Status', exact: true }],
       [{ kind: 'css', selector: '//input' }],
       [{ kind: 'css', selector: 'xpath=//input' }],
-      [{ kind: 'css', selector: 'https://outside.invalid' }],
+      [{ kind: 'css', selector: 'http://127.0.0.1:41799' }],
       [{ kind: 'css', selector: 'x'.repeat(513) }],
       [{ kind: 'role', role: 'status', exact: true }, 'value'],
       [{ kind: 'role', role: 'status', exact: true }, 'password'],
