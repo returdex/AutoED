@@ -88,20 +88,26 @@ class SyntheticSecretStore implements SecretStore {
   async set() { throw new Error('TEST_WRITE_FORBIDDEN'); }
   async delete() { throw new Error('TEST_DELETE_FORBIDDEN'); }
 }
-function profileFixture(mode: 'running' | 'reuse') {
+function profileFixture(mode: 'running' | 'reuse' | 'unknown' | 'executable' | 'control') {
   const harness = createHarness(); cleanups.push(() => harness.cleanup());
   const parent = realpathSync(harness.root); protectPath(parent);
   const selection: RootSelection = { root: join(parent, 'installation'), parent, excludedRoots: [] };
   const paths = createManagedRoot(selection); const browserExecutable = join(paths.browser, 'managed-browser');
   writeFileSync(browserExecutable, 'synthetic executable identity', { mode: 0o600 }); protectPath(browserExecutable);
   const installationId = randomUUID();
+  let now = 1_000;
   const coordinator = new FileProfileOwnershipCoordinator({
-    selection, installationId, browserBuildId: PROFILE_BUILD, browserExecutable, clock: { now: () => 1_000 }, leaseMs: 60_000,
+    selection, installationId, browserBuildId: PROFILE_BUILD, browserExecutable, clock: { now: () => now }, leaseMs: 60_000,
     secrets: new SyntheticSecretStore(),
-    observe: async () => ({ osStartIdentity: mode === 'running' ? 'synthetic-start' : 'reused-start', executable: browserExecutable }),
-    control: { request: async (challenge: ProfileControlChallenge) => ({ owner: challenge.owner, proof: createHmac('sha256', PROFILE_SECRET).update(JSON.stringify(challenge)).digest('hex') }) },
+    observe: async () => {
+      if (mode === 'unknown') throw new Error('SYNTHETIC_OS_UNKNOWN');
+      return { osStartIdentity: mode === 'reuse' ? 'reused-start' : 'synthetic-start', executable: mode === 'executable' ? process.execPath : browserExecutable };
+    },
+    control: { request: async (challenge: ProfileControlChallenge) => mode === 'control'
+      ? { owner: challenge.owner, proof: '0'.repeat(64) }
+      : { owner: challenge.owner, proof: createHmac('sha256', PROFILE_SECRET).update(JSON.stringify(challenge)).digest('hex') } },
   });
-  return { coordinator, reserve: { installationId, browserBuildId: PROFILE_BUILD, generation: 0, fence: 0 }, processIdentity: { pid: 4242, osStartIdentity: 'synthetic-start', executable: browserExecutable, startedAt: iso(1_000) }, record: join(paths.runtime, 'profile-ownership.json') };
+  return { coordinator, reserve: { installationId, browserBuildId: PROFILE_BUILD, generation: 0, fence: 0 }, processIdentity: { pid: 4242, osStartIdentity: 'synthetic-start', executable: browserExecutable, startedAt: iso(1_000) }, record: join(paths.runtime, 'profile-ownership.json'), setNow(value: number) { now = value; } };
 }
 
 function sourceConfig(source: SourceId): ApprovedSourceConfig {
@@ -147,10 +153,11 @@ async function apiFixture() {
     protectedIdentities: { async read(source: SourceId) { return sourceIdentity(source); } },
   };
   const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo' as const] };
+  const sessions = new SQLiteSessions(db, installationId);
   const api = await startApi({
     host: '127.0.0.1', port: 0, installationId, build, secrets, credentials,
     jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db),
-    sessions: new SQLiteSessions(db, installationId), shutdown: async () => {}, runtimeGeneration: 0, auth,
+    sessions, shutdown: async () => {}, runtimeGeneration: 0, auth,
   });
   cleanups.push(() => api.close());
   const cookies = (response: Response) => response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
@@ -163,12 +170,15 @@ async function apiFixture() {
     if (options.bearer) headers.authorization = `Bearer ${secretsMap.get(options.bearer)}`;
     return harness.fetch(api.origin + path, { method, headers, ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }) });
   };
-  const nonceResponse = await request('/api/pairing/nonce'); const { nonce } = await nonceResponse.json();
-  const pending = await request('/api/pairing/pending', { body: { nonce }, cookie: cookies(nonceResponse), csrf: nonce }); const { code } = await pending.json();
-  expect((await request(`/api/pairing/${code}/approve`, { body: { confirmedCode: code }, bearer: 'cli' })).status).toBe(200);
-  const exchange = await request('/api/pairing/exchange', { body: {}, cookie: cookies(pending), csrf: nonce });
-  const paired = { cookie: cookies(exchange), ...(await exchange.json() as { csrf: string; sessionId: string }) };
-  return { request, paired, calls, configs, origin: api.origin, failStatus(error: unknown) { statusError = error; } };
+  const pair = async () => {
+    const nonceResponse = await request('/api/pairing/nonce'); const { nonce } = await nonceResponse.json();
+    const pending = await request('/api/pairing/pending', { body: { nonce }, cookie: cookies(nonceResponse), csrf: nonce }); const { code } = await pending.json();
+    expect((await request(`/api/pairing/${code}/approve`, { body: { confirmedCode: code }, bearer: 'cli' })).status).toBe(200);
+    const exchange = await request('/api/pairing/exchange', { body: {}, cookie: cookies(pending), csrf: nonce });
+    return { cookie: cookies(exchange), ...(await exchange.json() as { csrf: string; sessionId: string }) };
+  };
+  const paired = await pair();
+  return { request, pair, paired, calls, configs, origin: api.origin, invalidateSessions() { sessions.beginBoot(); }, failStatus(error: unknown) { statusError = error; } };
 }
 
 describe('Phase 2 auth security matrix: actual adapters and durable state', () => {
@@ -223,6 +233,7 @@ describe('Phase 2 auth security matrix: Profile authority', () => {
     const reserved = await value.coordinator.reserve(value.reserve);
     const owned = await value.coordinator.attach(reserved.reservation!, value.processIdentity);
     const original = readFileSync(value.record);
+    value.setNow(owned.leaseUntil! + 1);
     expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({ resultCode: 'PROFILE_IN_USE', disposition: 'human_needed' });
     await expect(value.coordinator.release(owned.owner!)).rejects.toThrow('PROFILE_IN_USE');
     expect(readFileSync(value.record)).toEqual(original);
@@ -230,16 +241,21 @@ describe('Phase 2 auth security matrix: Profile authority', () => {
   });
 
   it('keeps PID reuse and mismatched owner facts unconfirmed with record bytes unchanged', async () => {
-    const value = profileFixture('reuse');
-    const reserved = await value.coordinator.reserve(value.reserve);
-    const owned = await value.coordinator.attach(reserved.reservation!, value.processIdentity);
-    const original = readFileSync(value.record);
-    expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({ resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED', disposition: 'human_needed' });
-    for (const caller of [{ ...owned.owner!, nonce: randomUUID() }, { ...owned.owner!, executable: process.execPath }]) {
-      await expect(value.coordinator.release(caller)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
-      expect(readFileSync(value.record)).toEqual(original);
+    const counters = { kill: 0, delete: 0, release: 0, reclaim: 0, launch: 0, adopt: 0 };
+    for (const mode of ['reuse', 'unknown', 'executable', 'control'] as const) {
+      const value = profileFixture(mode); const reserved = await value.coordinator.reserve(value.reserve);
+      const owned = await value.coordinator.attach(reserved.reservation!, value.processIdentity); const original = readFileSync(value.record);
+      expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({ resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED', disposition: 'human_needed' });
+      await expect(value.coordinator.release(owned.owner!)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+      expect(readFileSync(value.record)).toEqual(original); expect(existsSync(value.record)).toBe(true);
     }
-    expect(existsSync(value.record)).toBe(true);
+    const mismatch = profileFixture('running'); const reserved = await mismatch.coordinator.reserve(mismatch.reserve);
+    const owned = await mismatch.coordinator.attach(reserved.reservation!, mismatch.processIdentity); const original = readFileSync(mismatch.record);
+    for (const caller of [{ ...owned.owner!, nonce: randomUUID() }, { ...owned.owner!, executable: process.execPath }]) {
+      expect(await mismatch.coordinator.inspect(caller)).toMatchObject({ resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED', disposition: 'human_needed' });
+      await expect(mismatch.coordinator.release(caller)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED'); expect(readFileSync(mismatch.record)).toEqual(original);
+    }
+    expect(counters).toEqual({ kill: 0, delete: 0, release: 0, reclaim: 0, launch: 0, adopt: 0 });
     complete('PROFILE_PID_REUSE');
   });
 });
@@ -291,6 +307,20 @@ describe('Phase 2 auth security matrix: Worker request and commit fencing', () =
     expect(race.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
     expect(race.db.prepare('SELECT count(*) AS n FROM source_auth_jobs WHERE parent_job_id IS NOT NULL').get()).toEqual({ n: 0 });
     expect(race.db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 0 });
+
+    const inFlight = workerFixture(); const inFlightRequest = await inFlight.service.requestProbe(authCommand('edstem'), context);
+    let started!: () => void; const entered = new Promise<void>(resolve => { started = resolve; }); let observedAbort = false;
+    const abortingPort: SourceProbePort = { probe: async (_request, signal) => {
+      started();
+      await new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => { observedAbort = true; reject(Object.assign(new Error('ABORTED'), { code: 'ABORTED' })); }, { once: true }));
+      throw new Error('UNREACHABLE');
+    } };
+    const running = new AuthJobRunner(inFlight.store, abortingPort, { clock: inFlight.clock, leaseMs: 1_000, heartbeatMs: 5 }).runOnce('worker', context);
+    await entered; await inFlight.store.requestCancel(inFlightRequest.jobId, 'edstem', context);
+    await expect(running).rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    expect(observedAbort).toBe(true);
+    expect(inFlight.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
+    expect(inFlight.db.prepare('SELECT count(*) AS n FROM uat_receipts').get()).toEqual({ n: 0 });
     complete('WORKER_STALE_BEFORE_COMMIT');
   });
 });
@@ -299,6 +329,7 @@ describe('Phase 2 auth security matrix: actual paired loopback API', () => {
   it('rejects every unpaired/wrong-origin mutation and arbitrary operation before downstream writes', async () => {
     const f = await apiFixture();
     const body = { source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId, trigger: 'background', idempotencyKey: 'security-matrix' };
+    expect((await f.request('/api/auth/status')).status).toBe(401);
     for (const options of [
       {}, { bearer: 'cli' as const }, { bearer: 'mcp' as const }, { cookie: f.paired.cookie }, { cookie: f.paired.cookie, csrf: 'x'.repeat(43) },
       { cookie: f.paired.cookie, csrf: f.paired.csrf, origin: 'http://evil.invalid' },
@@ -323,6 +354,11 @@ describe('Phase 2 auth security matrix: actual paired loopback API', () => {
       expect([404, 405]).toContain((await f.request(path, { method, body: method === 'GET' ? undefined : {}, cookie: f.paired.cookie, csrf: f.paired.csrf })).status);
     }
     expect(f.calls).toEqual({ config: 0, launch: 0, probe: 0, logout: 0, binding: 0, receiptList: 0, receiptAppend: 0 });
+    f.invalidateSessions();
+    expect((await f.request('/api/auth/status', { cookie: f.paired.cookie })).status).toBe(401);
+    const renewed = await f.pair();
+    expect((await f.request('/api/pairing/revoke', { body: {}, cookie: renewed.cookie, csrf: renewed.csrf })).status).toBe(200);
+    expect((await f.request('/api/auth/status', { cookie: renewed.cookie })).status).toBe(401);
     complete('UI_UNPAIRED_PROTECTED_READ');
   });
 
