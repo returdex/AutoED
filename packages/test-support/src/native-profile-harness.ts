@@ -211,6 +211,59 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
     return value;
   }
 
+  async function spawnActualApi(jobId: string): Promise<OwnedChild> {
+    const modules = {
+      api: resolve('dist/apps/api/src/main.js'), database: resolve('dist/packages/persistence/src/database.js'),
+      claims: resolve('dist/packages/persistence/src/claims.js'), status: resolve('dist/packages/persistence/src/runtime-status.js'),
+      sessions: resolve('dist/packages/persistence/src/sessions.js'),
+    };
+    if (Object.values(modules).some(path => !existsSync(path))) throw new Error('HUMAN_ACTION_REQUIRED');
+    const script = `
+      const [apiModule, databaseModule, claimsModule, statusModule, sessionsModule] = await Promise.all([
+        import(process.env.AUTOED_API_MODULE), import(process.env.AUTOED_DATABASE_MODULE),
+        import(process.env.AUTOED_CLAIMS_MODULE), import(process.env.AUTOED_STATUS_MODULE),
+        import(process.env.AUTOED_SESSIONS_MODULE)
+      ]);
+      const installationId = process.env.AUTOED_INSTALLATION_ID;
+      const db = databaseModule.openDatabase(process.env.AUTOED_API_DATABASE);
+      const maintenance = new databaseModule.SQLiteMaintenanceStore(db);
+      const secrets = { get: async () => null, set: async () => {}, delete: async () => {} };
+      let service;
+      service = await apiModule.startApi({
+        host: '127.0.0.1', port: 0, installationId,
+        build: JSON.parse(process.env.AUTOED_API_BUILD), secrets, credentials: [],
+        jobs: new claimsModule.SQLiteJobStore(db), maintenance,
+        projections: new statusModule.SQLiteStatusProjectionStore(db),
+        sessions: new sessionsModule.SQLiteSessions(db, installationId),
+        shutdown: async () => service.close()
+      });
+      let stopping = false;
+      process.on('SIGTERM', async () => {
+        if (stopping) return;
+        stopping = true;
+        await service.close();
+        db.close();
+        process.exit(0);
+      });
+      await new Promise(() => {});
+    `;
+    const build = JSON.stringify({
+      version: '0.1.0-beta.19', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40),
+      dependencyHash: 'd'.repeat(64), protocol: 1, schemaMin: 1, schemaMax: 1, capabilities: ['echo'],
+    });
+    const environment = Object.fromEntries(Object.entries(modules).map(([name, path]) => [
+      `AUTOED_${name.toUpperCase()}_MODULE`, new URL(`file://${path}`).href,
+    ]));
+    const value = await spawnHarnessChild(jobId, process.execPath, ['--input-type=module', '-e', script], {
+      ...environment, AUTOED_INSTALLATION_ID: installationId, AUTOED_API_DATABASE: join(paths.runtime, `${jobId}.sqlite`),
+      AUTOED_API_BUILD: build,
+    });
+    ownedChildren.add(value);
+    await delay(100);
+    if (value.child.exitCode !== null || value.child.signalCode !== null) throw new Error('HUMAN_ACTION_REQUIRED');
+    return value;
+  }
+
   async function assertOwnedChildExact(value: OwnedChild): Promise<void> {
     if (!harnessChildren.has(value) || !ownedChildren.has(value) || value.installationId !== installationId || !value.jobId || !value.nonce || !value.controlProof ||
         value.child.pid === undefined || value.child.pid < 1) throw new Error('HUMAN_ACTION_REQUIRED');
@@ -526,7 +579,7 @@ export async function createNativeProfileHarness(): Promise<NativeProfileHarness
       } finally { db.close(); }
     },
     async verifyCodexBoundary() {
-      const api = await spawnOwnedChild('native-api-boundary');
+      const api = await spawnActualApi('native-api-boundary');
       const worker = await spawnActualWorker('native-worker-boundary');
       const browser = await open();
       const launcher = spawn(process.execPath, ['-e', 'process.exit(0)'], { cwd: parent, stdio: 'ignore' });
