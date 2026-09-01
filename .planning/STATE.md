@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: completed
-stopped_at: Completed corrective 02-38 beta.24 revalidation; 02-39 may resume local assembly/signing
-last_updated: "2026-09-01T14:03:40.308Z"
+stopped_at: Completed 02-39-PLAN.md; beta.24 signed locally and remains unpublished
+last_updated: "2026-09-01T14:15:42.479Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 55
-  completed_plans: 30
-  percent: 55
+  completed_plans: 31
+  percent: 56
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Resume Plan 02-39 local assembly/signing from the corrected beta.24 selection without publication.
+**Current focus:** Plan 02-39 completed exact local beta.24 assembly/signing; next dependency-ordered plan is 02-13 publication and anonymous availability verification.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-38 revalidated; 17 of 41 completed; 02-39 ready to resume
-Status: Assembly-corrected beta.24 selected after fresh complete green gates; unsigned and unpublished
+Plan: 02-39 completed; 18 of 41 completed; 02-13 is next in dependency order
+Status: beta.24 dual-target archives are signed and locally verified; no tag, release or remote asset exists yet
 Last activity: 2026-09-02
 
-Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
+Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 30
+- Total plans completed: 31
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 17 completed / 41 planned | In progress; beta.21-beta.23 invalidated and beta.24 selected after fresh complete green gates; not signed/published and live/Windows gates remain blocked | N/A |
+| 2 | 18 completed / 41 planned | In progress; beta.24 dual-target archives signed and verified locally but unpublished; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-11, 02-36, 02-37, 02-41, 02-38
+- Last 5 plans: 02-36, 02-37, 02-41, 02-38, 02-39
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -61,6 +61,7 @@ Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P06 | 12min | 2 tasks | 5 files |
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
+| Phase 02 P39 | 1h35min cumulative | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -95,6 +96,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Ordinary login action IDs are restart-revoked, single-use and bound to the authenticated browser session, source, approved config and runtime generation; they grant no evidence authority. — Prevents forged, cross-session or replayed login completion from authorizing probes or live receipts.
 - [Phase 02]: Auth mutations require paired cookie principal, exact same-origin and CSRF together; CLI and MCP remain auth status/receipt read-only. — Preserves one local control plane without bearer mutation authority.
 - [Phase 02]: beta.21, beta.22 and beta.23 remain permanently invalidated; beta.24 is the sole active source-bound selection — The dependency-path privacy correction changed selected source, so beta.24 received a complete fresh quality gate.
+- [Phase 02]: Signed beta.24 uses one stable signed install-prompt core plus an external exact-target binding, avoiding outer-archive hash self-reference while preserving fail-closed verification. — Both archives can bind exact outer bytes without recursively containing their own hashes.
+- [Phase 02]: Plan 02-39 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; AUTH/UAT requirements remain pending. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
 
 ### Pending Todos
 
@@ -132,6 +135,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T14:03:40.304Z
-Stopped at: Completed corrective 02-38 beta.24 revalidation; 02-39 may resume local assembly/signing
+Last session: 2026-09-01T14:15:42.475Z
+Stopped at: Completed 02-39-PLAN.md; beta.24 signed locally and remains unpublished
 Resume file: None
