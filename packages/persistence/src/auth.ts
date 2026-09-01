@@ -129,7 +129,9 @@ export class SQLiteAccountBindingStore implements AccountBindingStore {
     safeStorage(() => this.db.transaction(() => {
       requireWrite(this.db, context);
       const prior = this.db.prepare('SELECT * FROM account_bindings ORDER BY checked_at DESC,rowid DESC LIMIT 1').get() as BindingRow | undefined;
-      if (prior && checkedAt <= prior.checked_at) throw new StorageError('STALE_BINDING');
+      const sameObservationConfirmation = prior !== undefined && value.status === 'confirmed' && prior.status === 'candidate'
+        && checkedAt === prior.checked_at && !this.differs(value, this.toBinding(prior));
+      if (prior && checkedAt <= prior.checked_at && !sameObservationConfirmation) throw new StorageError('STALE_BINDING');
       if (value.status === 'confirmed' && (!prior || prior.status !== 'candidate' || this.differs(value, this.toBinding(prior)))) {
         throw new StorageError('BINDING_CONFIRMATION_INVALID');
       }

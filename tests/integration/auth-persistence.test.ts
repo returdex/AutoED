@@ -255,6 +255,16 @@ describe('source stores and last success', () => {
 });
 
 describe('binding persistence', () => {
+  it('confirms the exact candidate observation without inventing a later source timestamp', async () => {
+    const path = databasePath(); const db = openDatabase(path); const now = 1000;
+    const store = new SQLiteAccountBindingStore(db, { now: () => now });
+    const candidate = binding(now, 'candidate');
+    await store.write(candidate, writeContext);
+    await store.write({ ...candidate, status: 'confirmed', basis: 'human_confirmed', confirmedByActionReceiptId: randomUUID(), courseAccess: 'allowed' }, writeContext);
+    expect(await store.read()).toMatchObject({ status: 'confirmed', checkedAt: candidate.checkedAt, courseAccess: 'allowed' });
+    db.close();
+  });
+
   it('keeps the prior confirmed binding while a changed stable subject creates a blocking mismatch event', async () => {
     const path = databasePath(); const db = openDatabase(path); let now = 1000;
     const store = new SQLiteAccountBindingStore(db, { now: () => now });
