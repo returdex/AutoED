@@ -304,7 +304,8 @@ export class SQLiteEvidenceLedger implements EvidenceLedger {
     }
     if (authority.kind === 'automated') {
       if (receipt.provenance.kind !== 'automated' || receipt.provenance.evidence !== authority.evidence ||
-        receipt.provenance.producerId !== authority.producerId || !/^[A-Za-z0-9._-]+$/.test(authority.producerId)) {
+        receipt.provenance.producerId !== authority.producerId || !/^[A-Za-z0-9._-]+$/.test(authority.producerId) ||
+        (authority.evidence === 'N' && authority.producerId !== `native.${authority.platform}`)) {
         throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
       }
       return;

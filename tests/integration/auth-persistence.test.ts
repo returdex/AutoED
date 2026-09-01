@@ -410,7 +410,7 @@ describe('append-only UAT ledger and evidence isolation', () => {
   it('allows only actual-platform S I N events while Windows or L gaps keep Phase 3 blocked', async () => {
     const path = databasePath(); const db = openDatabase(path); const ledger = new SQLiteEvidenceLedger(db, { now: () => 2000 });
     const receipts = (['S', 'I', 'N'] as const).map(evidence => {
-      const producerId = evidence === 'N' ? 'native.test' : 'phase2.integration';
+      const producerId = evidence === 'N' ? `native.${actualPlatform}` : 'phase2.integration';
       return receipt({ evidence, provenance: { kind: 'automated', evidence, producerId } });
     });
     for (const value of receipts) {
