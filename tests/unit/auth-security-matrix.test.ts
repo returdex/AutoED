@@ -137,10 +137,10 @@ describe('Phase 2 auth security matrix: unit', () => {
     expect(() => assertSecurityMatrixCoverage(SECURITY_MATRIX_CASES.map((item, index) => index === 0 ? { ...item, layers: [] } : item))).toThrow('SECURITY_CASE_LAYER_REQUIRED');
     expect(() => assertSecurityMatrixCoverage(SECURITY_MATRIX_CASES.map((item, index) => index === 0 ? { ...item, mustNotCall: [] } : item))).toThrow('SECURITY_CASE_SIDE_EFFECT_REQUIRED');
     expect(() => assertSecurityMatrixCoverage(SECURITY_MATRIX_CASES.map((item, index) => index === 0
-      ? { ...item, threats: ['T2-99'] as SecurityMatrixCase['threats'] }
+      ? { ...item, threats: ['T2-99'] as unknown as SecurityMatrixCase['threats'] }
       : item))).toThrow('SECURITY_CASE_THREAT_UNKNOWN');
     expect(() => assertSecurityMatrixCoverage(SECURITY_MATRIX_CASES.map((item, index) => index === 0
-      ? { ...item, layers: ['transport'] as SecurityMatrixCase['layers'] }
+      ? { ...item, layers: ['transport'] as unknown as SecurityMatrixCase['layers'] }
       : item))).toThrow('SECURITY_CASE_LAYER_UNKNOWN');
   });
 
@@ -154,6 +154,7 @@ describe('Phase 2 auth security matrix: unit', () => {
     const before = observedState();
     const other = structuredClone(before.sources.edstem);
     const retained = structuredClone(before.sources.moodle.lastSuccess);
+    const retainedObservation = structuredClone(before.sources.moodle.observation.lastSuccess);
     const transition = reduceAuthFlow(before, {
       type: 'probe_result',
       source: 'moodle',
@@ -165,7 +166,7 @@ describe('Phase 2 auth security matrix: unit', () => {
     expect(SECURITY_MATRIX_CASES.find(item => item.id === caseId)?.expectedCode).toBe(code);
     expect(transition.state.sources.moodle.observation).toMatchObject(expected);
     expect(transition.state.sources.moodle.lastSuccess).toEqual(retained);
-    expect(transition.state.sources.moodle.observation.lastSuccess).toEqual(retained?.observation.lastSuccess);
+    expect(transition.state.sources.moodle.observation.lastSuccess).toEqual(retainedObservation);
     expect(transition.state.sources.edstem).toEqual(other);
     expect(transition.effects.some(effect => effect.kind === effectKind)).toBe(true);
   });
@@ -212,6 +213,7 @@ describe('Phase 2 auth security matrix: unit', () => {
     const service = new AuthJobService(store);
     const routeProbe = vi.fn(async () => { counters.source_request += 1; return { accepted: true }; });
     const app = Fastify();
+    app.setErrorHandler((_error, _request, reply) => reply.status(400).send({ code: 'INVALID_REQUEST' }));
     registerAuthRoutes(app, {
       expectedGeneration: 1,
       principal: () => ({
