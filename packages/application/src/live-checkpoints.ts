@@ -183,7 +183,7 @@ export class PairedLiveCheckpointService {
       const latest = await Promise.all(workflow.sources.map(source => this.store.latestOutcome(platform, source, workflow.scenario)));
       if (latest.every(item => item?.status === 'pass')) continue;
       const pending = await this.store.listPending(platform, workflow.scenario);
-      if (pending.length) return this.projection(workflow, 'pending', pending);
+      if (pending.length) return this.projection(workflow, 'pending', []);
       const predecessor = await this.predecessors(workflow);
       if (!predecessor.ready) return this.projection(workflow, 'blocked', []);
       const earliestActionAt = workflow.scenario === 'd.24h_recheck' ? this.dEarliest(predecessor.outcomes) : null;
@@ -290,7 +290,11 @@ export class PairedLiveCheckpointService {
       await this.store.recordFailure(action.actionId, safeFailureCode(error), new Date(this.now()).toISOString(), this.context);
       throw error;
     }
-    return this.projection(workflowByScenario.get(scenario)!, result.status === 'pass' ? 'pass' : 'failed', []);
+    const workflow = workflowByScenario.get(scenario)!;
+    const remaining = await this.store.listPending(this.runtime.platform(), scenario);
+    return remaining.length
+      ? this.projection(workflow, 'pending', remaining)
+      : this.projection(workflow, result.status === 'pass' ? 'pass' : 'failed', []);
   }
 
   private async predecessors(workflow: LiveScenarioWorkflow): Promise<{ ready: boolean; outcomes: LiveCheckpointOutcome[] }> {

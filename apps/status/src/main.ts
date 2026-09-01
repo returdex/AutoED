@@ -19,6 +19,8 @@ type AuthSnapshot = {
 type Receipt = {receiptId:string;buildId:string;version:string;platform:'macos'|'windows';source:SourceId;scenario:string;evidence:'S'|'I'|'N'|'L';status:'pass'|'fail'|'not_run'|'human_needed';resultCode:string;bindingConsistency:'consistent'|'mismatch'|'not_observed';identityFingerprint:string|null;gaps:string[];checkedAt:string;earliestRecheckAt:string|null;nextAction:'none'|'resolve_gaps'|'human_action_required'};
 type SafeAuthError = {code:string;stage:'auth_api';nextAction:string};
 type PendingLogin = {source:SourceId;approvedConfigId:string;approvedScopeId:string;actionReceiptId:string};
+type LiveActionState = 'ready'|'waiting'|'blocked'|'pending'|'human_needed'|'failed'|'pass';
+type LiveActionProjection = {platform:'macos'|'windows';scenario:(typeof scenarios)[number][0];state:LiveActionState;instruction:string;earliestActionAt:string|null;actions:Array<{source:SourceId;actionId:string}>};
 
 const unknown = '未验证，不代表已通过。';
 const privacyCopy = '以下账户和课程信息仅显示在这台设备的已配对页面中。请勿将完整姓名、邮箱、课程名、登录页面或验证码截图粘贴到聊天或公开记录。';
@@ -47,6 +49,15 @@ let pendingLogin:PendingLogin|null=null;
 let stopRequested=false;
 let safeAuthError:SafeAuthError|null=null;
 let clipboardSource:string|null=null;
+let liveProjection:LiveActionProjection|null=null;
+const liveActions=new Map<SourceId,string>();
+
+const liveScenarioRoutes = {
+  'a.login':{slug:'a1-login',label:'A 登录'},'a.binding':{slug:'a2-binding',label:'A 绑定'},'a.course_visibility':{slug:'a2-course-visibility',label:'A 课程可见性'},
+  'b.reopen_1':{slug:'b1-reopen-1',label:'B 重开 1'},'b.reopen_2':{slug:'b1-reopen-2',label:'B 重开 2'},'b.reopen_3':{slug:'b1-reopen-3',label:'B 重开 3'},
+  'b.worker_restart':{slug:'b2-worker-restart',label:'B Worker 重启'},'b.codex_exit':{slug:'b3-codex-exit',label:'B Codex 退出'},
+  'c.os_restart':{slug:'c-os-restart',label:'C 系统重启'},'d.24h_recheck':{slug:'d-24h-recheck',label:'D 跨日复查'},reauth:{slug:'reauth',label:'reauth'},
+} as const satisfies Record<(typeof scenarios)[number][0],{slug:string;label:string}>;
 
 function announce(text:string) { if(feedback.textContent!==text)feedback.textContent=text; }
 function node<K extends keyof HTMLElementTagNameMap>(tag:K,text?:string) {const result=document.createElement(tag);if(text!==undefined)result.textContent=text;return result;}
@@ -132,10 +143,23 @@ function renderBindingPanel(snapshot:AuthSnapshot|null) {
   const panel=section(snapshot?.binding.consistency==='mismatch'?'账户身份不一致，课程访问已停止':'账户绑定核对','binding-panel');if(snapshot?.binding.consistency==='mismatch')panel.classList.add('blocked');
   const grid=node('div');grid.className='binding-grid';for(const source of sourceOrder){const value=snapshot?.sources.find(item=>item.source===source);const column=node('div');column.className='binding-column';column.append(node('h3',source==='moodle'?'Moodle 身份':'EdStem 身份'));rows(column,[['完整显示名',value?.identity?.displayName??unknown],['完整学校邮箱',value?.identity?.schoolEmail??unknown],['短 fingerprint',value?.identityFingerprint??unknown]]);grid.append(column);}panel.append(grid);rows(panel,[['依据类别','稳定主体、组织 / 租户、批准范围'],['binding consistency',snapshot?.binding.consistency??'not_observed'],['说明','仅核对两个来源当前本地身份；不显示原始主体、token 或内部响应。']]);
 }
-function renderLoginActionPanel(snapshot:AuthSnapshot|null,stale:boolean) {const panel=section('登录与来源检查','login-action-panel');panel.append(node('p','只使用已批准的两个官方来源，仅进行认证与指定课程可见性检查；不会读取课程内容。'));const button=node('button',actionLabel(snapshot));button.type='button';button.className='primary-action';button.disabled=stale;panel.append(button);}
-function latestReceipt(source:SourceId,scenario:string) {return receipts.filter(receipt=>receipt.platform==='macos'&&receipt.source===source&&receipt.scenario===scenario&&receipt.evidence==='L').sort((a,b)=>b.checkedAt.localeCompare(a.checkedAt))[0]??null;}
+function liveEligible(snapshot:AuthSnapshot|null) {return Boolean(snapshot&&snapshot.overall.code==='AUTHENTICATED'&&snapshot.binding.consistency==='confirmed'&&snapshot.sources.length===2&&snapshot.sources.every(source=>source.auth==='authenticated'&&source.courseAccess==='allowed'));}
+function renderLoginActionPanel(snapshot:AuthSnapshot|null,stale:boolean) {
+  if(liveEligible(snapshot)&&liveProjection){
+    const route=liveScenarioRoutes[liveProjection.scenario];const panel=section('当前 live 人工检查','login-action-panel live-action-panel');
+    rows(panel,[['原生平台',liveProjection.platform==='macos'?'macOS':'Windows'],['checkpoint',`${route.label} / ${liveProjection.scenario}`],['状态',liveProjection.state],['固定人工步骤',liveProjection.instruction],['最早可操作时间',liveProjection.earliestActionAt??'当前服务器未设置等待时间。']]);
+    if(!stale&&(liveProjection.state==='ready'||liveProjection.state==='failed'||liveProjection.state==='pending'||liveProjection.state==='human_needed')){
+      const button=node('button',liveProjection.state==='ready'||liveProjection.state==='failed'?`开始 ${route.label}检查`:`我已完成 ${route.label}检查`);button.type='button';button.className='primary-action';panel.append(button);
+      if(liveProjection.state==='pending'||liveProjection.state==='human_needed')for(const [acknowledgement,label]of [['failed','报告此检查失败'],['human_needed','此检查仍需要人工处理']] as const){const secondary=node('button',label);secondary.type='button';secondary.className='secondary-action live-result-action';secondary.addEventListener('click',()=>{void runLiveResult(acknowledgement);});panel.append(secondary);}
+    }
+    return;
+  }
+  const panel=section('登录与来源检查','login-action-panel');panel.append(node('p','只使用已批准的两个官方来源，仅进行认证与指定课程可见性检查；不会读取课程内容。'));const button=node('button',actionLabel(snapshot));button.type='button';button.className='primary-action';button.disabled=stale;panel.append(button);
+}
+function activePlatform(){return liveProjection?.platform??'macos';}
+function latestReceipt(source:SourceId,scenario:string) {return receipts.filter(receipt=>receipt.platform===activePlatform()&&receipt.source===source&&receipt.scenario===scenario&&receipt.evidence==='L').sort((a,b)=>b.checkedAt.localeCompare(a.checkedAt))[0]??null;}
 function renderCheckpointLedger(stale:boolean) {
-  const panel=section('macOS live 检查点','checkpoint-ledger');const list=node('ul');for(const [scenario,label]of scenarios)for(const source of sourceOrder){const receipt=latestReceipt(source,scenario);const item=node('li');rows(item,[['checkpoint / 场景',`${label} / ${scenario}`],['来源 / 平台 / 证据',`${source==='moodle'?'Moodle':'EdStem'} / macOS / L`],['状态',receipt?.status??'not_run / human_needed'],['时间',receipt?.checkedAt??unknown],['脱敏 code',receipt?.resultCode??'NOT_RUN'],['下一步',scenario==='d.24h_recheck'?(receipt?.earliestRecheckAt?`最早复查时间 ${receipt.earliestRecheckAt}；等待跨日复查`:'等待跨日复查'):receipt?.nextAction??'human_action_required']]);list.append(item);}panel.append(list);const copy=node('button','复制脱敏结果单');copy.type='button';copy.className='secondary-action';copy.disabled=stale;copy.addEventListener('click',()=>{void copyReceipts();});panel.append(copy);
+  const platform=activePlatform(),platformLabel=platform==='macos'?'macOS':'Windows';const panel=section(`${platformLabel} live 检查点`,'checkpoint-ledger');const list=node('ul');for(const [scenario,label]of scenarios)for(const source of sourceOrder){const receipt=latestReceipt(source,scenario);const item=node('li');rows(item,[['checkpoint / 场景',`${label} / ${scenario}`],['来源 / 平台 / 证据',`${source==='moodle'?'Moodle':'EdStem'} / ${platformLabel} / L`],['状态',receipt?.status??'not_run / human_needed'],['时间',receipt?.checkedAt??unknown],['脱敏 code',receipt?.resultCode??'NOT_RUN'],['下一步',scenario==='d.24h_recheck'?(receipt?.earliestRecheckAt?`最早复查时间 ${receipt.earliestRecheckAt}；等待跨日复查`:'等待跨日复查'):receipt?.nextAction??'human_action_required']]);list.append(item);}panel.append(list);const copy=node('button','复制脱敏结果单');copy.type='button';copy.className='secondary-action';copy.disabled=stale;copy.addEventListener('click',()=>{void copyReceipts();});panel.append(copy);
 }
 function renderPlatformGaps() {const panel=section('平台缺口','platform-gaps');const grid=node('div');grid.className='platform-grid';const mac=node('article');mac.append(node('h3','macOS'),node('p','当前仅显示逐格状态；未运行项保持 not_run / human_needed。'));const windows=node('article');windows.append(node('h3','Windows'),node('p','not_run / human_needed'),node('p','macOS 结果不能替代 Windows 验证；Phase 3 仍被阻塞。'));grid.append(mac,windows);panel.append(grid);}
 function renderExistingDiagnostics(snapshot:RuntimeSnapshot,stale:boolean) {
@@ -148,7 +172,7 @@ function renderExistingDiagnostics(snapshot:RuntimeSnapshot,stale:boolean) {
   const details=node('details');details.append(node('summary','诊断详情'));rows(details,[['OS / CPU',unknown],['固定依赖版本',unknown],['实际 SQLite 版本',unknown],['实际浏览器版本',unknown],['完整验证状态',unknown],['诊断说明','此接口未提供的字段保持未验证，不从浏览器环境或产品文案推测。']]);protectedView.append(details);
 }
 function render(stale=false) {if(!runtimeSnapshot)return;staleView=stale;const detailsOpen=protectedView.querySelector('details')?.open??false;protectedView.replaceChildren();pairing.hidden=true;renderOverallGate(authSnapshot,stale);renderPrivacyNotice(authSnapshot);renderSourceCards(authSnapshot);renderBindingPanel(authSnapshot);renderLoginActionPanel(authSnapshot,stale);renderCheckpointLedger(stale);renderPlatformGaps();renderExistingDiagnostics(runtimeSnapshot,stale);if(stale){for(const area of protectedView.querySelectorAll<HTMLElement>('section, .source-card, .binding-column, .checkpoint-ledger li, .platform-grid article')){const notice=node('p',`旧快照；读取时间：${readAt}`);notice.className='stale-notice';area.insertBefore(notice,area.children[1]??null);}for(const control of protectedView.querySelectorAll<HTMLButtonElement>('button'))control.disabled=true;}const details=protectedView.querySelector('details');if(details)details.open=detailsOpen;const primary=protectedView.querySelector<HTMLButtonElement>('.primary-action');if(primary&&!stale)primary.addEventListener('click',()=>{void runPrimary(primary);});if(pendingLogin&&!stale){const panel=protectedView.querySelector<HTMLElement>('.login-action-panel');if(panel){const stop=node('button',stopRequested?'已请求停止':'停止本次检查');stop.type='button';stop.className='secondary-action';stop.disabled=stopRequested;stop.addEventListener('click',()=>{stopRequested=true;announce('已请求停止；等待服务确认。');render();});panel.append(stop);}}if(safeAuthError){const panel=protectedView.querySelector<HTMLElement>('.login-action-panel');if(panel){const error=node('div');error.className='auth-error';rows(error,[['safe code',safeAuthError.code],['影响','当前认证动作未确认完成。'],['保留状态','上次成功资料保持不变。'],['下一步',safeAuthError.nextAction]]);panel.append(error);}}}
-function clearProtected() {runtimeSnapshot=null;authSnapshot=null;job=null;receipts=[];readAt='';csrf=null;pendingLogin=null;stopRequested=false;safeAuthError=null;clipboardSource=null;staleView=false;protectedView.replaceChildren();pairing.hidden=false;}
+function clearProtected() {runtimeSnapshot=null;authSnapshot=null;liveProjection=null;liveActions.clear();job=null;receipts=[];readAt='';csrf=null;pendingLogin=null;stopRequested=false;safeAuthError=null;clipboardSource=null;staleView=false;protectedView.replaceChildren();pairing.hidden=false;}
 async function request(path:string,body?:object) {return fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',...(body===undefined?{}:{headers:{'content-type':'application/json','x-autoed-csrf':csrf??pairingNonce??''},body:JSON.stringify(body)})});}
 async function beginPairing() {if(pairingNonce&&Date.now()-pendingAt<300000)return;pairingNonce=null;csrf=null;pairCode.textContent='';const response=await request('/api/pairing/nonce');if(!response.ok)throw new Error('PAIRING_UNAVAILABLE');const value=await response.json();if(!/^[A-Za-z0-9_-]{43}$/.test(value.nonce))throw new Error('INVALID_RESPONSE');pairingNonce=value.nonce;const pending=await request('/api/pairing/pending',{nonce:pairingNonce});if(!pending.ok){pairingNonce=null;throw new Error('PAIRING_UNAVAILABLE');}const value2=await pending.json();if(!/^[A-F0-9]{16}$/.test(value2.code))throw new Error('INVALID_RESPONSE');pairCode.textContent=value2.code;pendingAt=Date.now();}
 const safeCodes=new Set(['AUTHENTICATED','NOT_OBSERVED','AUTH_REQUIRED','REAUTH_REQUIRED','NETWORK_UNAVAILABLE','PARSER_CHANGED','CAPABILITY_DENIED','IDENTITY_MISMATCH','PROFILE_IN_USE','PROFILE_OWNERSHIP_UNCONFIRMED','CONFIGURATION_CONFIRMED','LOGIN_OPENED','PROBE_ACCEPTED','LOGOUT_RECORDED','BINDING_CONFIRMED','BINDING_REJECTED','INVALID_REQUEST','CONFIGURATION_MISMATCH','SCOPE_MISMATCH','FORBIDDEN','UNAUTHORIZED','PAIRING_DENIED','UNKNOWN_SOURCE_ERROR','INTERNAL_ERROR']);
@@ -161,9 +185,34 @@ async function authMutation(path:string,body:object) {
   if(!response.ok){safeAuthError=safeError(value);if(response.status>=500)render(true);else render();announce('认证动作未确认完成；请查看脱敏结果。');throw new Error('AUTH_ACTION_FAILED');}
   if(!accepted(value))throw new Error('INVALID_RESPONSE');return value;
 }
+function parseLiveProjection(value:unknown):LiveActionProjection {
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('INVALID_RESPONSE');const item=value as Record<string,unknown>;
+  if(Object.keys(item).sort().join(',')!=='actions,earliestActionAt,instruction,platform,scenario,state')throw new Error('INVALID_RESPONSE');
+  if(item.platform!=='macos'&&item.platform!=='windows'||typeof item.scenario!=='string'||!(item.scenario in liveScenarioRoutes)||
+      !['ready','waiting','blocked','pending','human_needed','failed','pass'].includes(String(item.state))||typeof item.instruction!=='string'||item.instruction.length<1||item.instruction.length>512||
+      item.earliestActionAt!==null&&(typeof item.earliestActionAt!=='string'||!Number.isFinite(Date.parse(item.earliestActionAt)))||!Array.isArray(item.actions)||item.actions.length>2)throw new Error('INVALID_RESPONSE');
+  const actions:Array<{source:SourceId;actionId:string}>=item.actions.map(value=>{if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('INVALID_RESPONSE');const action=value as Record<string,unknown>;if(Object.keys(action).sort().join(',')!=='actionId,source'||action.source!=='moodle'&&action.source!=='edstem'||typeof action.actionId!=='string'||!/^[0-9a-f-]{36}$/.test(action.actionId))throw new Error('INVALID_RESPONSE');const source:SourceId=action.source;return {source,actionId:action.actionId};});
+  if(new Set(actions.map(action=>action.source)).size!==actions.length)throw new Error('INVALID_RESPONSE');
+  return {platform:item.platform,scenario:item.scenario as keyof typeof liveScenarioRoutes,state:item.state as LiveActionState,instruction:item.instruction,earliestActionAt:item.earliestActionAt as string|null,actions};
+}
+function acceptLiveProjection(value:unknown,captureActions:boolean) {const projection=parseLiveProjection(value);liveProjection={...projection,actions:[]};if(captureActions){liveActions.clear();for(const action of projection.actions)liveActions.set(action.source,action.actionId);}return liveProjection;}
+async function liveProjectionRequest(path:string,body?:object,captureActions=false) {
+  const response=await request(path,body);if(response.status===401||response.status===403){clearProtected();announce('此页面尚未获得本地访问权限');await beginPairing();throw new Error('AUTH_REVOKED');}
+  if(!response.ok)throw new Error(response.status===503?'LIVE_UNAVAILABLE':'LIVE_ACTION_FAILED');const value:unknown=await response.json().catch(()=>null);return acceptLiveProjection(value,captureActions);
+}
+async function runLiveResult(acknowledgement:'completed'|'failed'|'human_needed') {
+  if(busy||staleView||!liveProjection)return;const route=liveScenarioRoutes[liveProjection.scenario];if(liveActions.size===0){safeAuthError={code:'INTERNAL_ERROR',stage:'auth_api',nextAction:'retry_or_check_local_service'};render(true);return;}
+  busy=true;announce('正在提交固定的脱敏检查结果；服务器将重新核验实际状态。');try{for(const source of sourceOrder){const actionId=liveActions.get(source);if(!actionId)continue;await liveProjectionRequest(`/api/auth/live-action/${route.slug}/result`,{actionId,acknowledgement});}liveActions.clear();busy=false;await refresh();focusResult();}catch(error){if(error instanceof Error&&error.message==='AUTH_REVOKED')return;safeAuthError={code:'INTERNAL_ERROR',stage:'auth_api',nextAction:'retry_or_check_local_service'};render(true);announce('live 检查尚未确认；服务器保留原状态。');}finally{busy=false;}
+}
+async function runLivePrimary() {
+  if(!liveProjection)return;const route=liveScenarioRoutes[liveProjection.scenario];
+  if(liveProjection.state==='ready'||liveProjection.state==='failed'){busy=true;announce('正在创建与当前版本和检查点绑定的人工操作。');try{await liveProjectionRequest(`/api/auth/live-action/${route.slug}/issue`,{},true);render();focusResult();}catch(error){if(!(error instanceof Error&&error.message==='AUTH_REVOKED')){safeAuthError={code:'INTERNAL_ERROR',stage:'auth_api',nextAction:'retry_or_check_local_service'};render(true);}}finally{busy=false;}return;}
+  if(liveProjection.state==='pending'||liveProjection.state==='human_needed')await runLiveResult('completed');
+}
 function focusResult(){protectedView.querySelector<HTMLElement>('.gate-result')?.focus();}
 async function runPrimary(button:HTMLButtonElement) {
   if(busy||staleView)return;busy=true;button.disabled=true;safeAuthError=null;
+  if(liveEligible(authSnapshot)&&liveProjection){busy=false;await runLivePrimary();return;}
   const original=button.textContent??'';button.textContent=original==='我已完成 Moodle 登录'?'正在提交登录完成状态…':original.includes('登录窗口')?'正在请求官方登录窗口…':original==='确认两个账户对应'?'正在确认账户对应关系…':'正在检查来源状态…';announce('正在执行认证检查；不会读取课程内容。');
   try{
     if(pendingLogin&&!stopRequested){const pending=pendingLogin;pendingLogin=null;stopRequested=false;await authMutation('/api/auth/probe',{source:pending.source,approvedConfigId:pending.approvedConfigId,approvedScopeId:pending.approvedScopeId,trigger:'user_login_completed',idempotencyKey:`ui-${crypto.randomUUID()}`,actionReceiptId:pending.actionReceiptId});busy=false;await refresh();focusResult();return;}
@@ -180,15 +229,17 @@ async function runPrimary(button:HTMLButtonElement) {
 }
 function forbiddenReceiptKey(value:unknown):boolean {if(Array.isArray(value))return value.some(forbiddenReceiptKey);if(value&&typeof value==='object')return Object.entries(value).some(([key,item])=>/(?:name|email|course|path|cookie|profile|origin|url|header|body)/i.test(key)||forbiddenReceiptKey(item));return false;}
 async function copyReceipts() {const payload=receipts.map(receipt=>({receiptId:receipt.receiptId,buildId:receipt.buildId,version:receipt.version,platform:receipt.platform,source:receipt.source,scenario:receipt.scenario,evidence:receipt.evidence,status:receipt.status,resultCode:receipt.resultCode,bindingConsistency:receipt.bindingConsistency,identityFingerprint:receipt.identityFingerprint,gaps:[...receipt.gaps],checkedAt:receipt.checkedAt,earliestRecheckAt:receipt.earliestRecheckAt,nextAction:receipt.nextAction}));if(forbiddenReceiptKey(payload)){announce('脱敏结果单未复制。');return;}clipboardSource=JSON.stringify(payload);try{await navigator.clipboard.writeText(clipboardSource);announce('脱敏结果单已复制。');}catch{clipboardSource=null;announce('脱敏结果单未复制。');}}
-async function readReceipts() {const results=await Promise.all(scenarios.flatMap(([scenario])=>sourceOrder.map(async source=>{const response=await request(`/api/auth/receipts?platform=macos&source=${source}&scenario=${scenario}&evidence=L`);if(response.status===401||response.status===403)throw new Error('AUTH_REVOKED');if(!response.ok)throw new Error('RECEIPTS_UNAVAILABLE');return await response.json() as Receipt[];})));return results.flat();}
+async function readReceipts(platform:'macos'|'windows') {const results=await Promise.all(scenarios.flatMap(([scenario])=>sourceOrder.map(async source=>{const response=await request(`/api/auth/receipts?platform=${platform}&source=${source}&scenario=${scenario}&evidence=L`);if(response.status===401||response.status===403)throw new Error('AUTH_REVOKED');if(!response.ok)throw new Error('RECEIPTS_UNAVAILABLE');return await response.json() as Receipt[];})));return results.flat();}
 async function refresh() {
   if(busy)return;const restoreRefreshFocus=document.activeElement===refreshButton;busy=true;refreshButton.disabled=true;announce('正在读取本地服务状态…');
   try{
     if(pairingNonce&&Date.now()-pendingAt<300000){const exchanged=await request('/api/pairing/exchange',{});if(exchanged.ok){const value=await exchanged.json();csrf=value.csrf;pairingNonce=null;pairCode.textContent='';}else if(exchanged.status!==403)throw new Error('PAIRING_UNAVAILABLE');}
     const statusResponse=await request('/api/status');if(statusResponse.status===401||statusResponse.status===403){clearProtected();announce('此页面尚未获得本地访问权限');await beginPairing();return;}if(!statusResponse.ok)throw new Error('STATUS_UNAVAILABLE');const nextRuntime:RuntimeSnapshot=await statusResponse.json();let nextJob:JobView|null=null;
     if(nextRuntime.selfcheck?.jobId){const result=await request('/api/jobs/'+encodeURIComponent(nextRuntime.selfcheck.jobId));if(result.status===401||result.status===403)throw new Error('AUTH_REVOKED');if(result.ok)nextJob=await result.json();}
-    const authResponse=await request('/api/auth/status');let nextAuth:AuthSnapshot|null=null;let nextReceipts:Receipt[]=[];if(authResponse.status===401||authResponse.status===403)throw new Error('AUTH_REVOKED');if(authResponse.ok){nextAuth=await authResponse.json();nextReceipts=await readReceipts();}else if(authSnapshot)throw new Error('AUTH_UNAVAILABLE');
-    runtimeSnapshot=nextRuntime;authSnapshot=nextAuth;receipts=nextReceipts;job=nextJob;readAt=new Date().toISOString();render();announce('本地状态已读取。');
+    const authResponse=await request('/api/auth/status');let nextAuth:AuthSnapshot|null=null;let nextReceipts:Receipt[]=[];if(authResponse.status===401||authResponse.status===403)throw new Error('AUTH_REVOKED');if(authResponse.ok){nextAuth=await authResponse.json();}else if(authSnapshot)throw new Error('AUTH_UNAVAILABLE');
+    let nextLive:LiveActionProjection|null=null;liveActions.clear();try{nextLive=await liveProjectionRequest('/api/auth/live-action/status');if(nextLive.state==='pending'){const route=liveScenarioRoutes[nextLive.scenario];nextLive=await liveProjectionRequest(`/api/auth/live-action/${route.slug}/resume`,{},true);}}catch(error){if(error instanceof Error&&error.message==='AUTH_REVOKED')throw error;if(!(error instanceof Error&&error.message==='LIVE_UNAVAILABLE'))throw error;liveProjection=null;liveActions.clear();}
+    if(nextAuth)nextReceipts=await readReceipts(nextLive?.platform??'macos');
+    runtimeSnapshot=nextRuntime;authSnapshot=nextAuth;liveProjection=nextLive;receipts=nextReceipts;job=nextJob;readAt=new Date().toISOString();render();announce('本地状态已读取。');
   }catch(error){if(error instanceof Error&&error.message==='AUTH_REVOKED'){clearProtected();announce('此页面尚未获得本地访问权限');await beginPairing();}else if(runtimeSnapshot){render(true);announce('以下为上次读取结果，当前状态尚未确认。读取时间：'+readAt);}else announce('无法连接本地 API。请在 Codex 中使用本安装的启动或诊断步骤。');}finally{busy=false;refreshButton.disabled=false;if(restoreRefreshFocus)refreshButton.focus();}
 }
 refreshButton.addEventListener('click',()=>{void refresh();});

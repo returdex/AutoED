@@ -77,13 +77,13 @@ test.describe('paired durable checkpoint UI', () => {
       await page.getByRole('button', { name: '开始 A 登录检查' }).click(); await expect(page.getByRole('button', { name: '我已完成 A 登录检查' })).toBeVisible();
       expect(requests[0]).toEqual({ path: '/api/auth/live-action/a1-login/issue', body: {} });
       await page.getByRole('button', { name: '我已完成 A 登录检查' }).click();
-      expect(requests.filter(item => item.path.endsWith('/result')).map(item => Object.keys(item.body as object).sort())).toEqual([['acknowledgement', 'actionId'], ['acknowledgement', 'actionId']]);
+      await expect.poll(() => requests.filter(item => item.path.endsWith('/result')).map(item => Object.keys(item.body as object).sort())).toEqual([['acknowledgement', 'actionId'], ['acknowledgement', 'actionId']]);
     } finally { await f.close(); }
   });
 
   test('checkpoint recovery resumes server-projected pending actions after reload', async ({ page }) => {
-    const pending = { ...ready(), state: 'pending' as const, actions: [{ source: 'moodle' as const, actionId: randomUUID() }, { source: 'edstem' as const, actionId: randomUUID() }] };
-    const f = await fixture(pending); try { await pair(page, f); await page.reload(); await expect(page.getByRole('button', { name: '我已完成 A 登录检查' })).toBeVisible(); expect(f.calls.some(call => call.kind === 'resume' && JSON.stringify(call.input) === '{}')).toBe(true); } finally { await f.close(); }
+    const pending = { ...ready(), state: 'pending' as const, actions: [{ source: 'edstem' as const, actionId: randomUUID() }] };
+    const f = await fixture(pending); try { await pair(page, f); const resumeCount = f.calls.filter(call => call.kind === 'resume').length; await page.reload(); await expect(page.getByRole('status')).toHaveText('此页面尚未获得本地访问权限'); await pair(page, f); await expect(page.getByRole('button', { name: '我已完成 A 登录检查' })).toBeVisible(); expect(f.calls.filter(call => call.kind === 'resume' && JSON.stringify(call.input) === '{}')).toHaveLength(resumeCount + 1); } finally { await f.close(); }
   });
 
   test('payload external authority keeps correlations out of DOM attributes storage URL clipboard and logs', async ({ page }) => {

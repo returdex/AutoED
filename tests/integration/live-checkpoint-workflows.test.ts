@@ -118,7 +118,8 @@ describe('paired live checkpoint scenario workflows', () => {
     expect(bundle).toMatchObject({ platform: 'macos', scenario: 'a.login', state: 'pending' });
     expect(bundle.actions.map(item => item.source).sort()).toEqual(['edstem', 'moodle']);
     const first = bundle.actions[0]!;
-    await f.service.resultA1Login({ actionId: first.actionId, acknowledgement: 'completed' });
+    const remaining = await f.service.resultA1Login({ actionId: first.actionId, acknowledgement: 'completed' });
+    expect(remaining).toMatchObject({ state: 'pending', actions: [{ source: bundle.actions[1]!.source, actionId: bundle.actions[1]!.actionId }] });
     const observed = f.calls.indexOf(`observe:a.login:${first.source}:completed`);
     const resolved = f.calls.indexOf(`resolve:a.login:${first.source}`);
     expect(observed).toBeGreaterThan(-1); expect(resolved).toBeGreaterThan(observed);
