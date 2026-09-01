@@ -56,6 +56,7 @@ function identity(source: SourceId): ProtectedSourceIdentity {
     classification: 'protected_local', source, stableSubjectId: `${source}-subject-private`, organizationId: 'private-organization',
     tenantId: 'private-tenant', displayName: source === 'moodle' ? 'PRIVATE MOODLE NAME' : 'PRIVATE ED NAME',
     schoolEmail: source === 'moodle' ? 'private-moodle@example.edu' : 'private-ed@example.edu',
+    selectedCourseName: source === 'moodle' ? 'PRIVATE MOODLE COURSE' : 'PRIVATE ED COURSE',
   };
 }
 
@@ -107,8 +108,8 @@ describe('auth destination presenters', () => {
     const input = presentation();
     const protectedResult = presentProtectedAuthStatus(input, { destination: 'local_ui', paired: true });
     expect(ProtectedAuthStatusProjectionSchema.parse(protectedResult).sources).toEqual(expect.arrayContaining([
-      expect.objectContaining({ officialOrigin: 'https://moodle.example.edu', identity: expect.objectContaining({ displayName: 'PRIVATE MOODLE NAME', schoolEmail: 'private-moodle@example.edu' }) }),
-      expect.objectContaining({ officialOrigin: 'https://edstem.org', identity: expect.objectContaining({ displayName: 'PRIVATE ED NAME', schoolEmail: 'private-ed@example.edu' }) }),
+      expect.objectContaining({ officialOrigin: 'https://moodle.example.edu', approvedScopeId: scopeId, courseAccess: 'blocked', identityFingerprint: expect.stringMatching(/^[A-Z2-7]{12}$/), identity: expect.objectContaining({ displayName: 'PRIVATE MOODLE NAME', schoolEmail: 'private-moodle@example.edu', selectedCourseName: 'PRIVATE MOODLE COURSE' }) }),
+      expect.objectContaining({ officialOrigin: 'https://edstem.org', approvedScopeId: scopeId, courseAccess: 'blocked', identityFingerprint: expect.stringMatching(/^[A-Z2-7]{12}$/), identity: expect.objectContaining({ displayName: 'PRIVATE ED NAME', schoolEmail: 'private-ed@example.edu', selectedCourseName: 'PRIVATE ED COURSE' }) }),
     ]));
     expect(() => presentProtectedAuthStatus(input, { destination: 'model' as 'local_ui', paired: true })).toThrow();
     expect(() => presentProtectedAuthStatus(input, { destination: 'local_ui', paired: false })).toThrow();
@@ -117,10 +118,20 @@ describe('auth destination presenters', () => {
       const redacted = presentRedactedAuthStatus(input, { destination });
       const json = JSON.stringify(redacted);
       expect(RedactedAuthStatusProjectionSchema.parse(redacted)).toEqual(redacted);
-      for (const sentinel of ['PRIVATE MOODLE NAME', 'PRIVATE ED NAME', '@example.edu', 'moodle.example.edu', 'private-organization', 'private-tenant']) expect(json).not.toContain(sentinel);
+      for (const sentinel of ['PRIVATE MOODLE NAME', 'PRIVATE ED NAME', 'PRIVATE MOODLE COURSE', 'PRIVATE ED COURSE', '@example.edu', 'moodle.example.edu', 'private-organization', 'private-tenant']) expect(json).not.toContain(sentinel);
       expect(Object.keys(redacted).sort()).toEqual(['bindingConsistency', 'overall', 'sources']);
       expect(Object.keys(redacted.sources[0]!).sort()).toEqual(['auth', 'capability', 'checkedAt', 'completeness', 'freshness', 'health', 'identityFingerprint', 'resultCode', 'source']);
     }
+  });
+
+  it('projects a complete fixed login command without client-derived scope authority', () => {
+    const input = presentation();
+    input.nextAction = {
+      kind: 'open_login', source: 'moodle', approvedConfigId: input.sources.moodle.config!.id,
+      approvedScopeId: input.sources.moodle.config!.approvedScopeId,
+    };
+    const protectedResult = presentProtectedAuthStatus(input, { destination: 'local_ui', paired: true });
+    expect(protectedResult.nextAction).toEqual(input.nextAction);
   });
 
   it('derives a stable twelve-character base32 display code only from a complete fingerprint', () => {
@@ -150,8 +161,17 @@ describe('auth destination presenters', () => {
     };
     const projected = presentEvidenceReceipts([receipt], binding())[0]!;
     expect(RedactedEvidenceReceiptSchema.parse(projected)).toEqual(projected);
-    expect(Object.keys(projected).sort()).toEqual(['bindingConsistency', 'buildId', 'checkedAt', 'evidence', 'gaps', 'identityFingerprint', 'nextAction', 'platform', 'receiptId', 'resultCode', 'scenario', 'source', 'status', 'version']);
+    expect(projected.earliestRecheckAt).toBeNull();
+    expect(Object.keys(projected).sort()).toEqual(['bindingConsistency', 'buildId', 'checkedAt', 'earliestRecheckAt', 'evidence', 'gaps', 'identityFingerprint', 'nextAction', 'platform', 'receiptId', 'resultCode', 'scenario', 'source', 'status', 'version']);
     expect(JSON.stringify(projected)).not.toMatch(/PRIVATE|screenshot|provenance|producerId|message/);
+  });
+
+  it('server-projects the fixed earliest cross-day recheck time', () => {
+    const receipt: EvidenceReceipt = {
+      receiptId: randomUUID(), buildId: 'a'.repeat(64), version: '0.1.0-beta.1', platform: 'macos', source: 'moodle', scenario: 'd.24h_recheck', evidence: 'L', status: 'human_needed', resultCode: 'WAITING_FOR_24H', bindingConsistency: 'consistent', gaps: ['WAITING_FOR_24H'], checkedAt,
+      provenance: { kind: 'human_action', actionReceiptId: randomUUID() },
+    };
+    expect(presentEvidenceReceipts([receipt], binding())[0]!.earliestRecheckAt).toBe('2026-09-02T00:00:00.000Z');
   });
 });
 

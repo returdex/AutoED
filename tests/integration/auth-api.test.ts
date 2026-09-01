@@ -25,7 +25,7 @@ function sourceObservation(source: SourceId): SourceObservation {
   return { source, auth: 'authenticated', capability: 'available', health: 'healthy', freshness: 'fresh', completeness: 'complete', outcome: 'present', checkedAt, resultCode: 'AUTHENTICATED', courseAccess: 'blocked', lastSuccess: { checkedAt, subjectFingerprint: fullFingerprint } };
 }
 function sourceIdentity(source: SourceId): ProtectedSourceIdentity {
-  return { classification: 'protected_local', source, stableSubjectId: `PRIVATE-${source}-SUBJECT`, organizationId: 'PRIVATE-ORG', tenantId: 'PRIVATE-TENANT', displayName: `PRIVATE ${source.toUpperCase()} NAME`, schoolEmail: `private-${source}@example.edu` };
+  return { classification: 'protected_local', source, stableSubjectId: `PRIVATE-${source}-SUBJECT`, organizationId: 'PRIVATE-ORG', tenantId: 'PRIVATE-TENANT', displayName: `PRIVATE ${source.toUpperCase()} NAME`, schoolEmail: `private-${source}@example.edu`, selectedCourseName: `PRIVATE ${source.toUpperCase()} COURSE` };
 }
 function candidateBinding(): AccountBinding {
   const identity = (source: SourceId) => ({ source, subjectFingerprint: fullFingerprint, organizationFingerprint: fullFingerprint, tenantFingerprint: fullFingerprint, approvedScopeId: scopeId, evidenceKind: 'stable_subject_organization_scope' as const });
@@ -75,7 +75,7 @@ async function fixture() {
     return { cookie: cookies(exchange), ...(await exchange.json() as { csrf: string; sessionId: string }) };
   }
   async function restart() { await api.close(); sessions = new SQLiteSessions(db, installationId); api = await startApi({ ...base, sessions }); }
-  return { request, pair, restart, calls, configs, secretsMap, failStatus(error: unknown) { statusError = error; } };
+  return { request, pair, restart, calls, configs, observations, secretsMap, failStatus(error: unknown) { statusError = error; } };
 }
 
 describe('paired fixed auth api', () => {
@@ -147,10 +147,11 @@ describe('paired fixed auth api', () => {
     const f = await fixture(); const paired = await f.pair();
     expect((await f.request('/api/auth/status')).status).toBe(401);
     const protectedResponse = await f.request('/api/auth/status', { cookie: paired.cookie }); const protectedJson = await protectedResponse.json();
+    expect(protectedJson.sources[0]).toMatchObject({ approvedScopeId: scopeId, courseAccess: 'blocked', identityFingerprint: expect.stringMatching(/^[A-Z2-7]{12}$/), identity: { selectedCourseName: 'PRIVATE MOODLE COURSE' } });
     expect(JSON.stringify(protectedJson)).toContain('PRIVATE MOODLE NAME'); expect(protectedResponse.headers.get('cache-control')).toBe('no-store');
     for (const bearer of ['cli', 'mcp'] as const) {
       const redacted = await f.request('/api/auth/status', { bearer }); const json = await redacted.json(); const text = JSON.stringify(json);
-      expect(redacted.status).toBe(200); expect(text).not.toMatch(/PRIVATE|example\.edu|officialOrigin|displayName|schoolEmail/);
+      expect(redacted.status).toBe(200); expect(text).not.toMatch(/PRIVATE|example\.edu|officialOrigin|displayName|schoolEmail|selectedCourseName|approvedScopeId|courseAccess/);
       const receipts = await f.request('/api/auth/receipts?platform=macos&source=moodle&scenario=a.login&evidence=S', { bearer });
       expect(receipts.status).toBe(200); expect(await receipts.json()).toEqual([]);
     }
@@ -162,5 +163,13 @@ describe('paired fixed auth api', () => {
     expect(failedText).not.toMatch(/PRIVATE|Profile|cookie|example\.edu|message|cause|stack/);
     const missing = await f.request('/api/auth/private/path?PRIVATE_SENTINEL=1', { bearer: 'cli' }); const body = await missing.text();
     expect(missing.status).toBe(404); expect(body).not.toMatch(/PRIVATE_SENTINEL|private\/path|message|cause|stack/);
+  });
+
+  it('server-projects the approved scope in the fixed login action', async () => {
+    const f = await fixture(); const paired = await f.pair();
+    f.observations.moodle = { ...f.observations.moodle, auth: 'unauthenticated', resultCode: 'AUTH_REQUIRED' };
+    const response = await f.request('/api/auth/status', { cookie: paired.cookie });
+    expect(response.status).toBe(200);
+    expect((await response.json()).nextAction).toEqual({ kind: 'open_login', source: 'moodle', approvedConfigId: f.configs.moodle.id, approvedScopeId: scopeId });
   });
 });
