@@ -15,7 +15,16 @@ article { overflow-wrap: anywhere; }
 .checkpoint-ledger li { border: 1px solid #CBD5E1; border-radius: 4px; padding: 16px; }
 .blocked { border-left: 4px solid #B91C1C; }
 .gate-result { font-size: 20px; line-height: 1.2; font-weight: 600; }
-button { font: inherit; font-weight: 600; min-height: 48px; padding: 8px 16px; border: 1px solid #1D4ED8; border-radius: 4px; color: #FFFFFF; background: #1D4ED8; cursor: pointer; }
+button { font: inherit; font-weight: 600; min-height: 48px; padding: 8px 16px; border: 1px solid #1D4ED8; border-radius: 4px; color: #1D4ED8; background: #FFFFFF; cursor: pointer; }
+.primary-action { color: #FFFFFF; background: #1D4ED8; }
+.secondary-action, #refresh { color: #1D4ED8; background: #FFFFFF; }
+.stale-notice { color: #92400E; font-weight: 600; }
+.auth-error { margin-top: 16px; border: 1px solid #B91C1C; border-radius: 4px; padding: 16px; }
+.status-badge { display: inline-block; border: 1px solid #CBD5E1; border-radius: 4px; padding: 4px 8px; }
+.status-success { color: #166534; border-color: #166534; }
+.status-warning { color: #92400E; border-color: #92400E; }
+.status-blocked { color: #B91C1C; border-color: #B91C1C; }
+.status-neutral { color: #475569; }
 button:disabled { cursor: wait; }
 :focus-visible { outline: 2px solid #1D4ED8; outline-offset: 4px; }
 summary { font-size: 20px; font-weight: 600; min-height: 48px; cursor: pointer; }
@@ -26,4 +35,5 @@ dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 #feedback { margin-top: 24px; overflow-wrap: anywhere; }
 #pair-code { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
 [hidden] { display: none !important; }
-@media (max-width: 600px) { main { margin: 24px auto; padding: 0 16px; } section, details { padding: 16px; } dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } dd { margin-bottom: 8px; } }
+@media (max-width: 759px) { .source-grid, .binding-grid, .platform-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 599px) { main { margin: 24px auto; padding: 0 16px; } section, details, .source-card, .binding-column { padding: 16px; } dl { grid-template-columns: minmax(0, 1fr); gap: 4px; } dd { margin-bottom: 8px; } button { width: 100%; } }

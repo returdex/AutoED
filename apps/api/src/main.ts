@@ -34,6 +34,7 @@ export interface ApiOptions {
   sessions: SQLiteSessions;
   processRecord?: () => ProcessRecord;
   runtimeGeneration?: number;
+  requestLimitNow?: () => number;
   assetsRoot?: string;
   selfcheckCredentials?:SelfcheckCredentials;
   auth?: Omit<AuthControlDependencies, 'installationId' | 'expectedGeneration' | 'outputPolicy'>;
@@ -51,7 +52,7 @@ export async function startApi(options: ApiOptions) {
   if (options.sessions.installationId !== options.installationId) throw new Error('INVALID_SESSION_SCOPE');
   const app = Fastify({ logger: false, trustProxy: false, bodyLimit: 16384, requestTimeout: 10000, connectionTimeout: 10000 });
   await app.register(cookie);
-  let origin = ''; let shutdownRequested = false; const principals = new WeakMap<FastifyRequest, Principal>(); const authLimit = new WindowLimit(30);
+  let origin = ''; let shutdownRequested = false; const principals = new WeakMap<FastifyRequest, Principal>(); const authLimit = new WindowLimit(30, options.requestLimitNow);
   const policy = new SyntheticOutputPolicy(options.installationId);
   const application = new ApiApplication(options.jobs, options.maintenance, options.projections, policy, async () => { shutdownRequested = true; },options.runtimeGeneration);
   const authApplication = options.auth ? new AuthControlApplication({

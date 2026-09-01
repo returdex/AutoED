@@ -86,7 +86,8 @@ async function authUiFixture() {
   };
   const build = { version: '0.1.0-beta.1', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1 as const, schemaMin: 1 as const, schemaMax: 1 as const, capabilities: ['echo' as const] };
   const sessions = new SQLiteSessions(db, installationId);
-  const api = await startApi({ host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), sessions, shutdown: async () => {}, assetsRoot: assets, auth });
+  let requestLimitTime = 0;
+  const api = await startApi({ host: '127.0.0.1', port: 0, installationId, build, secrets, credentials, jobs: new SQLiteJobStore(db), maintenance: new SQLiteMaintenanceStore(db), projections: new SQLiteStatusProjectionStore(db), sessions, shutdown: async () => {}, assetsRoot: assets, auth, requestLimitNow: () => requestLimitTime += 60_001 });
   async function approve(code: string) {
     return harness.fetch(`${api.origin}/api/pairing/${code}/approve`, { method: 'POST', headers: { authorization: `Bearer ${values.get('cli')}`, 'content-type': 'application/json' }, body: JSON.stringify({ confirmedCode: code }) });
   }
@@ -204,11 +205,39 @@ test.describe('paired Phase 2 auth status UI', () => {
     } finally { await fixture.close(); }
   });
 
+  test('auth actions confirm only the projected opaque binding candidate', async ({ page }) => {
+    const fixture=await authUiFixture();
+    try{
+      const requests:Array<{path:string;body:unknown;csrf:string|null}>=[];
+      page.on('request',request=>{if(request.url().includes('/api/auth/')&&request.method()==='POST')requests.push({path:new URL(request.url()).pathname,body:request.postDataJSON(),csrf:request.headers()['x-autoed-csrf']??null});});
+      await pair(page,fixture);const primary=page.locator('button.primary-action');await expect(primary).toHaveText('确认两个账户对应');
+      expect(await primary.evaluate(element=>getComputedStyle(element).backgroundColor)).toBe('rgb(29, 78, 216)');
+      await primary.dblclick();await expect.poll(()=>fixture.calls.binding.length).toBe(1);
+      const request=requests.find(item=>item.path==='/api/auth/binding/confirm');
+      expect(request).toMatchObject({path:'/api/auth/binding/confirm',body:{candidateBindingId:expect.stringMatching(/^[0-9a-f-]{36}$/),decision:'confirm'},csrf:expect.stringMatching(/^[A-Za-z0-9_-]{43}$/)});
+      expect(Object.keys(request!.body as object).sort()).toEqual(['candidateBindingId','decision']);
+      await expect(page.locator('.overall-gate .gate-result')).toBeFocused();
+      expect(await page.locator('.primary-action').count()).toBe(1);
+    }finally{await fixture.close();}
+  });
+
+  test('receipt copy uses an explicit redacted allowlist', async ({ page, context }) => {
+    const fixture=await authUiFixture();
+    try{
+      fixture.receipts.set(cellKey({platform:'macos',source:'moodle',scenario:'a.login',evidence:'L'}),[{receiptId:randomUUID(),buildId:fixture.build.buildId,version:fixture.build.version,platform:'macos',source:'moodle',scenario:'a.login',evidence:'L',status:'human_needed',resultCode:'NOT_RUN',bindingConsistency:'not_observed',gaps:['LIVE_NOT_RUN'],checkedAt:READ_AT,provenance:{kind:'human_action',actionReceiptId:randomUUID()},schoolEmail:PRIVATE.moodleEmail} as EvidenceReceipt]);
+      await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:fixture.api.origin});await pair(page,fixture);
+      await page.getByRole('button',{name:'复制脱敏结果单'}).click();const copied=await page.evaluate(()=>navigator.clipboard.readText());
+      expect(copied).toContain('"scenario":"a.login"');expect(copied).not.toContain(PRIVATE.moodleEmail);expect(copied).not.toContain('schoolEmail');expect(copied).not.toContain('actionReceiptId');
+      for(const sentinel of PRIVATE_SENTINELS)expect(copied).not.toContain(sentinel);
+    }finally{await fixture.close();}
+  });
+
   test('server issued intent is memory-only, one-time and cleared on reload', async ({ page }) => {
     const fixture = await authUiFixture();
     try {
       fixture.observations.moodle = { ...fixture.observations.moodle, auth: 'unauthenticated', resultCode: 'AUTH_REQUIRED' };
       await pair(page, fixture);await page.getByRole('button',{name:'打开 Moodle 官方登录窗口'}).click();
+      await expect.poll(()=>fixture.calls.login.length).toBe(1);
       const issued=(fixture.calls.login[0] as {actionReceiptId:string}).actionReceiptId;
       expect(issued).toMatch(/^[0-9a-f-]{36}$/);
       const beforeReload=await page.evaluate(value=>({body:document.body.innerText,attributes:[...document.querySelectorAll('*')].flatMap(element=>[...element.attributes].map(attribute=>attribute.value)).join('\n'),url:location.href}),issued);
@@ -243,7 +272,7 @@ test.describe('paired Phase 2 auth status UI', () => {
       await expect(page.locator('#protected')).toContainText(PRIVATE.moodleName);
       expect(await page.locator('#protected section .stale-notice').count()).toBeGreaterThanOrEqual(8);
       expect(await page.locator('#protected button:not(:disabled)').count()).toBe(0);
-      await context.setOffline(false);await page.getByRole('button',{name:'刷新状态'}).click();
+      await context.setOffline(false);await expect(page.getByRole('button',{name:'刷新状态'})).toBeEnabled();await page.getByRole('button',{name:'刷新状态'}).click();
       await expect(page.locator('.stale-notice')).toHaveCount(0);expect(readTime).not.toBe('');
     }finally{await fixture.close();}
   });
@@ -255,7 +284,8 @@ test.describe('paired Phase 2 auth status UI', () => {
       const desktop=await page.locator('.source-card').evaluateAll(cards=>cards.map(card=>card.getBoundingClientRect().width));expect(Math.abs(desktop[0]!-desktop[1]!)).toBeLessThan(1);
       for(const width of [759,599]){await page.setViewportSize({width,height:900});const columns=await page.locator('.source-grid').evaluate(element=>getComputedStyle(element).gridTemplateColumns.split(' ').length);expect(columns).toBe(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth)).toBe(true);}
       const controls=await page.locator('button,summary').evaluateAll(elements=>elements.map(element=>({height:element.getBoundingClientRect().height,outline:getComputedStyle(element).outlineWidth,offset:getComputedStyle(element).outlineOffset})));expect(controls.every(control=>control.height>=48)).toBe(true);
-      await page.getByRole('button',{name:'再次检查来源状态'}).focus();expect(await page.getByRole('button',{name:'再次检查来源状态'}).evaluate(element=>({outline:getComputedStyle(element).outlineWidth,offset:getComputedStyle(element).outlineOffset}))).toEqual({outline:'2px',offset:'4px'});
+      await page.evaluate(()=>{if(document.activeElement instanceof HTMLElement)document.activeElement.blur();});await page.keyboard.press('Tab');
+      expect(await page.locator(':focus').evaluate(element=>({outline:getComputedStyle(element).outlineWidth,offset:getComputedStyle(element).outlineOffset}))).toEqual({outline:'2px',offset:'4px'});
       expect(await page.locator('input,textarea,select,iframe,[type=file],[type=password]').count()).toBe(0);
     }finally{await fixture.close();}
   });
