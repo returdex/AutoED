@@ -40,10 +40,11 @@ export type MaliciousSourceScenario =
   | 'direct' | 'redirect-1' | 'redirect-2' | 'redirect-3'
   | 'cross-first' | 'cross-middle' | 'cross-final'
   | 'positive' | 'login-required' | 'missing-marker' | 'ambiguous-marker' | 'oversize-marker' | 'network-error'
-  | 'identity-missing' | 'identity-oversize'
-  | 'course-visible' | 'course-denied' | 'course-not-observed' | 'course-error'
+  | 'wrong-marker' | 'hidden-marker' | 'identity-missing' | 'identity-oversize'
+  | 'course-visible' | 'course-denied' | 'course-not-observed' | 'course-out-of-scope' | 'course-error'
   | 'popup' | 'interaction' | 'download' | 'form-post' | 'quiz-start' | 'upload' | 'api-fallback'
-  | 'fenced';
+  | 'aborted-navigate' | 'aborted-wait' | 'aborted-read' | 'aborted-close'
+  | 'fenced' | 'fenced-wait' | 'fenced-read' | 'fenced-close';
 
 export interface SourceFixtureAudit {
   openBackground: number;
@@ -62,6 +63,8 @@ export interface SourceFixtureAudit {
   downloadBytes: number;
   popupInteractions: number;
   sourceMutations: number;
+  requestGuardCalls: number;
+  wrongOwnerGuards: number;
 }
 
 const SYNTHETIC_ORIGINS = Object.freeze({
@@ -83,6 +86,7 @@ function initialAudit(): SourceFixtureAudit {
     openBackground: 0, openOfficialLogin: 0, navigate: 0, waits: 0, visibleReads: 0, attributeReads: 0,
     closes: 0, mappedRequests: 0, abortedRequests: 0, externalRequests: 0, realSchoolRequests: 0,
     apiFallbackRequests: 0, nonGetHeadSucceeded: 0, downloadBytes: 0, popupInteractions: 0, sourceMutations: 0,
+    requestGuardCalls: 0, wrongOwnerGuards: 0,
   };
 }
 
@@ -117,7 +121,8 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
 
   function assertGuard(guard: BrowserRequestGuard): void {
     if (guard.signal.aborted) throw safeFailure('BROWSER_ABORTED');
-    if (scenario === 'fenced' || guard.expectedGeneration !== owner.generation || !sameOwner(guard.owner, owner)) {
+    if (guard.expectedGeneration !== owner.generation || !sameOwner(guard.owner, owner)) {
+      audit.wrongOwnerGuards += 1;
       throw safeFailure('BROWSER_FENCED');
     }
   }
@@ -137,11 +142,14 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
 
   class SyntheticSession implements BrowserProbeSession {
     requestGuard(signal: AbortSignal, expectedGeneration: number): BrowserRequestGuard {
+      audit.requestGuardCalls += 1;
       return { signal, expectedGeneration, owner };
     }
 
     async navigate(target: URL, guard: BrowserRequestGuard): Promise<NavigationObservation> {
       audit.navigate += 1; assertGuard(guard);
+      if (scenario === 'aborted-navigate') throw safeFailure('BROWSER_ABORTED');
+      if (scenario === 'fenced') throw safeFailure('BROWSER_FENCED');
       const source = openInputs.at(-1)?.source;
       const approvedOrigin = source ? SYNTHETIC_ORIGINS[source] : '';
       if (!(target instanceof URL) || target.origin !== approvedOrigin) {
@@ -162,16 +170,22 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
     }
 
     async waitFor(_locator: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<'visible'> {
-      audit.waits += 1; assertGuard(guard); return 'visible';
+      audit.waits += 1; assertGuard(guard);
+      if (scenario === 'aborted-wait') throw safeFailure('BROWSER_ABORTED');
+      if (scenario === 'fenced-wait') throw safeFailure('BROWSER_FENCED');
+      return 'visible';
     }
 
     async readVisible(locator: BrowserLocatorSpec, guard: BrowserRequestGuard): Promise<string | null> {
       audit.visibleReads += 1; assertGuard(guard);
+      if (scenario === 'aborted-read') throw safeFailure('BROWSER_ABORTED');
+      if (scenario === 'fenced-read') throw safeFailure('BROWSER_FENCED');
       const key = locatorKey(locator);
       if (scenario === 'ambiguous-marker') throw safeFailure('BROWSER_OUTPUT_AMBIGUOUS');
       if (scenario === 'oversize-marker' && key.includes('authenticated')) throw safeFailure('BROWSER_OUTPUT_LIMIT');
       if (scenario === 'login-required' && key.includes('login')) return `${openInputs.at(-1)!.source}-login-required-v1`;
-      if (['missing-marker', 'login-required'].includes(scenario) && key.includes('authenticated')) return null;
+      if (['missing-marker', 'hidden-marker', 'login-required'].includes(scenario) && key.includes('authenticated')) return null;
+      if (scenario === 'wrong-marker' && key.includes('authenticated')) return 'other-source-authenticated-v1';
       if (key.includes('authenticated')) return `${openInputs.at(-1)!.source}-authenticated-v1`;
       if (key.includes('display-name')) return 'Synthetic Private Name';
       if (key.includes('school-email')) return 'synthetic@example.invalid';
@@ -188,12 +202,15 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
       if (key.includes('organization')) return 'stable-synthetic-organization';
       if (key.includes('tenant')) return `stable-${openInputs.at(-1)!.source}-tenant`;
       if (key.includes('course')) return scenario === 'course-denied' ? 'denied'
-        : scenario === 'course-not-observed' ? null : FIXTURE_SCOPE_ID;
+        : scenario === 'course-not-observed' ? null
+          : scenario === 'course-out-of-scope' ? '90000000-0000-4000-8000-000000000009' : FIXTURE_SCOPE_ID;
       return null;
     }
 
     async close(guard: BrowserRequestGuard): Promise<void> {
       audit.closes += 1; assertGuard(guard);
+      if (scenario === 'aborted-close') throw safeFailure('BROWSER_ABORTED');
+      if (scenario === 'fenced-close') throw safeFailure('BROWSER_FENCED');
     }
   }
 
@@ -232,6 +249,11 @@ export function createMaliciousSourceFixture(initialScenario: MaliciousSourceSce
     config(source: SourceId): ApprovedSourceConfig { return structuredClone(configs.get(source)!) as ApprovedSourceConfig; },
     audit(): Readonly<SourceFixtureAudit> { return Object.freeze({ ...audit }); },
     openInputs(): readonly BrowserOpenInput[] { return structuredClone(openInputs); },
+    sensitiveSentinels: Object.freeze({
+      body: 'SYNTHETIC_COURSE_BODY_MUST_NEVER_ESCAPE',
+      post: 'SYNTHETIC_PRIVATE_POST_MUST_NEVER_ESCAPE',
+      grade: 'SYNTHETIC_PRIVATE_GRADE_MUST_NEVER_ESCAPE',
+    }),
     evidence: Object.freeze({ kinds: ['S', 'I'] as const, native: false as const, live: false as const }),
   };
 }
