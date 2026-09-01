@@ -11,9 +11,9 @@ requires:
     plan: "12"
     provides: fixed protected Keychain Ed25519 trust root
 provides:
-  - active locally assembled and signed beta.29 archives for darwin-arm64 and win32-x64
-  - exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
-  - external install prompt binding the signed core to exact fresh per-target archive coordinates
+  - historical locally assembled, signed and subsequently published beta.29 archives for darwin-arm64 and win32-x64
+  - historical exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
+  - immutable evidence retained after beta.29 became availability-unproven and was removed from active local release surfaces
 affects: [02-13, 02-40, Phase 2 publication, Phase 2 live UAT]
 tech-stack:
   added: []
@@ -27,6 +27,7 @@ key-decisions:
   - "Beta.29 was rebuilt and signed from its selected source; no beta.25 or other historical payload byte, receipt or prompt was reused or relabelled."
   - "The signed install-prompt core remains target-stable; only the external prompt binds archive URL, exact bytes and outer SHA-256."
   - "AUTH/UAT requirements remain incomplete until required native and real-user gates run; local signing is not live evidence."
+  - "Downstream publication created immutable beta.29 release 380689537, but its first and only anonymous verifier attempt produced no availability receipt; beta.29 is permanently invalidated and must never be retried or overwritten."
 patterns-established:
   - "Self-reference-safe release prompt: signed stable instructions inside the archive, exact outer archive coordinates outside it."
   - "Release receipt creation follows source/build/consumed-set/selection/report, signer, closure, component inventory, license, gap and sensitive-data verification."
@@ -35,9 +36,13 @@ duration: 1h49min cumulative
 completed: 2026-09-02
 ---
 
-# Phase 2 Plan 39: Signed Dual-Target Beta.29 Assembly Summary
+# Phase 2 Plan 39: Historical Signed Dual-Target Beta.29 Assembly Summary
 
-**Fresh beta.29 macOS arm64 and Windows x64 archives are protected-Keychain Ed25519 signed, locally verified over a shared 16-member/27-capability closure, and bound by a self-reference-safe two-layer install prompt.**
+**Beta.29 macOS arm64 and Windows x64 archives were protected-Keychain Ed25519 signed and later published unchanged, but are now permanently historical because the first and only anonymous availability verifier attempt produced no receipt.**
+
+## Downstream Invalidation Amendment
+
+Plan 02-13 created immutable prerelease `v0.1.0-beta.29`, release `380689537`, macOS asset `539882525` and Windows asset `539882528`, then failed closed when its first and only anonymous availability attempt produced no `release/phase2-availability.json`. Plan 02-38 permanently invalidated beta.29 in commit `0f3be00`, removed its selection/report/artifact receipt/install prompt from active canonical local surfaces, and selected fully qualified beta.30. The public beta.29 tag, release and assets remain untouched historical data and must never be retried, reused, deleted, overwritten or relabelled.
 
 ## Performance
 
@@ -66,14 +71,14 @@ completed: 2026-09-02
 
 The protected Keychain signer self-check passed before assembly without an OS prompt. The private key was never read, exported, printed or accepted through an override, and no alternate or skip-sign path was used.
 
-## Active Artifacts
+## Historical Published Artifacts
 
 | Target | Archive | Exact bytes | SHA-256 |
 |---|---|---:|---|
 | macOS arm64 | `autoed-0.1.0-beta.29-darwin-arm64.tar.gz` | 227,412,899 | `61e1c2572ef7822f39e73b3785c7cc4b2826fea6220374f4211817159b44b8e4` |
 | Windows x64 | `autoed-0.1.0-beta.29-win32-x64.tar.gz` | 250,422,508 | `4729f5a372c844b5a8e510f2fe0b5d663b78c11f44483481855073864324a950` |
 
-Both ignored local archives are under `.runtime/releases/0.1.0-beta.29/`. Their tracked URLs are intended immutable GitHub release coordinates only; this plan did not create a tag, release or remote asset.
+The ignored local archives were assembled under `.runtime/releases/0.1.0-beta.29/` and later published at the exact tracked GitHub coordinates. This plan itself did not create a tag, release or remote asset; the later Plan 02-13 attempt did. They are no longer active update inputs.
 
 Shared signed values:
 
@@ -103,8 +108,8 @@ Historical contract corrections retained by this rerun:
 
 ## Files Created/Modified
 
-- `release/phase2-beta-artifacts.json` — active beta.29 local signed-artifact receipt with exact identity, target coordinates, signed digests and unresolved support gaps.
-- `release/phase2-install-prompt.md` — active beta.29 external prompt bound to the stable signed core and fresh outer archives.
+- `release/phase2-beta-artifacts.json` — historical beta.29 local signed-artifact receipt removed from the active canonical surface by invalidation commit `0f3be00`; exact bytes remain in Git history.
+- `release/phase2-install-prompt.md` — historical beta.29 external prompt likewise removed from the active canonical surface; exact bytes remain in Git history and its public asset descriptors remain immutable.
 
 ## Verification
 
@@ -177,13 +182,13 @@ None. The approved protected Keychain identity was available and self-check/sign
 
 ## Next Phase Readiness
 
-- The exact beta.29 local artifacts and prompt are ready for Plan 02-13's separately controlled no-overwrite publication and anonymous availability rerun, subject to another fresh immutable preflight.
-- Any source/tree/build/consumed-set/selection/report/core/archive or public-object drift must invalidate beta.29 and return to Plan 02-38; no artifact may be resigned in place under the same identity.
+- Beta.29 is permanently invalidated as published-but-availability-unproven; no beta.29 publication or verifier retry is permitted.
+- Plan 02-39 must rerun from beta.30 selection/report and create entirely fresh protected-key signatures and archives before Plan 02-13 can restart.
 - Windows native and real login/reopen/restart/Codex-exit/cross-day/reauth evidence remain `not_run/human_needed`; Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
-- Both tracked beta.29 outputs and both ignored fresh target archives exist with the recorded byte counts and SHA-256 values.
+- Historical beta.29 tracked outputs resolve in Git history and the public release/asset identities match the recorded byte counts and SHA-256 values; no beta.29 file remains an active canonical local release input.
 - Task commits `004b3b3` and `abaa45e` plus historical RED/GREEN commits resolve in Git; task commits deleted no tracked files.
 - The exact read-only preflight and complete 19-test release-gate file pass against beta.29.
 - The temporary assembly driver is absent, selected source diff is zero, and `git diff --check` passes.

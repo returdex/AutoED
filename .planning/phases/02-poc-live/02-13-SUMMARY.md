@@ -11,6 +11,7 @@ provides:
   - historical immutable public beta.25 release owned and authenticated only by returdex
   - historical anonymous full-byte availability proof for both signed native archives
   - sanitized proof that beta.25 public objects remain untouched but cannot satisfy the corrected update gate
+  - historical immutable public beta.29 release whose first and only anonymous verifier attempt produced no availability receipt
 affects: [02-14 through 02-34, 02-40, Phase 2 live UAT]
 tech-stack:
   added: []
@@ -26,20 +27,35 @@ key-decisions:
   - "A later source correction invalidated beta.25 as an active candidate without deleting or overwriting its immutable public tag, release or assets."
   - "Publication used the locked isolated returdex GitHub configuration even though the unrelated default gh account remains ywan1303."
   - "Publication and anonymous availability leave Windows native and live evidence not_run/human_needed and Phase 3 blocked."
+  - "Published beta.29 is permanently consumed as availability-unproven; release 380689537, its tag and both assets remain immutable and may never be retried or overwritten."
 requirements-completed: []
 duration: 20min active across initial attempt and beta.25 continuation
 completed: 2026-09-02
 ---
 
-# Phase 2 Plan 13: Immutable Beta Publication and Availability Summary
+# Phase 2 Plan 13: Immutable Beta Publication History Summary
 
-**AutoED 0.1.0-beta.25 remains immutably published under `returdex/AutoED`, but a later source correction permanently invalidated it as the active update candidate; its exact public objects are preserved as historical data.**
+**AutoED beta.25 remains fully availability-proven historical data, while beta.29 remains immutably published but permanently availability-unproven after its first and only anonymous verifier attempt created no receipt.**
 
 ## Upstream Invalidation Amendment
 
 Plan 02-14 failed closed with `UPDATE_GATE_FRESHNESS_MISMATCH`, exposing that beta.25's verifier compared volatile `checkedAt` as though it were immutable. RED/GREEN commits `348e9f4` and `ef52b6c` corrected the contract, and Plan 02-38 invalidated beta.25 without deleting or overwriting tag `v0.1.0-beta.25`, release `380618906` or either public asset. All publication/availability values below are historical evidence only; beta.25 must not be offered for the pending update gate.
 
-After consuming beta.26 through beta.28 on honest gate failures, Plan 02-38 selected and fully qualified beta.29. Plan 02-39 must assemble/sign beta.29 and this plan must then rerun its no-overwrite publication/anonymous availability flow before Plan 02-14 restarts.
+After consuming beta.26 through beta.28 on honest gate failures, Plan 02-38 selected and fully qualified beta.29 and Plan 02-39 assembled/signed it. This plan published beta.29 once, but its first and only anonymous verification attempt produced no availability receipt. Plan 02-38 therefore invalidated beta.29, selected fully qualified beta.30, and forbids retrying the same public identity. Plan 02-39 must now assemble/sign beta.30 before this plan can restart for beta.30.
+
+## Beta.29 Published but Availability Unproven
+
+| Field | Immutable historical value |
+|---|---|
+| Version / tag | `0.1.0-beta.29` / `v0.1.0-beta.29` |
+| Release | ID `380689537`; published `2026-09-01T17:17:54Z` |
+| Target commit | `867fd57fb026d91c1b1355ac6b27f2b219bdb058` |
+| macOS asset | ID `539882525`; 227,412,899 bytes; SHA-256 `61e1c2572ef7822f39e73b3785c7cc4b2826fea6220374f4211817159b44b8e4` |
+| Windows asset | ID `539882528`; 250,422,508 bytes; SHA-256 `4729f5a372c844b5a8e510f2fe0b5d663b78c11f44483481855073864324a950` |
+| Publication receipt | created locally at `2026-09-01T17:17:58.590Z`, then removed from the active canonical surface by invalidation |
+| Availability receipt | absent; never created |
+
+The release, tag and both assets remain untouched public history. The missing receipt is not inferred as success, and no same-version verifier retry, delete, overwrite, resign or relabel path exists. Public beta.25 release `380618906` and both beta.25 assets were rechecked read-only and remain unchanged.
 
 ## Performance
 
@@ -103,6 +119,9 @@ Publication does not establish installation, cleanup, API/Worker/UI post-update 
 2. **Publisher reconciliation RED/GREEN discovered during Task 2** — `c4cabf0` / `0e189bc`
 3. **Task 1: revalidate fresh beta.25 signed update handoff** — `90b1b45`
 4. **Task 2: publish once and prove anonymous beta.25 availability** — `be0cce2`
+5. **Beta.29 signed-handoff revalidation before publication** — `64fbe66`
+6. **Beta.29 one-time publication / failed anonymous verifier boundary** — remote release `380689537`; no completion commit because Task 2 failed closed before an availability receipt existed
+7. **Upstream immutable beta.29 invalidation** — `0f3be00`
 
 ## Deviations from Plan
 
@@ -142,10 +161,10 @@ None. The tag, release assets and public download URLs are the exact planned T2-
 
 ## External Mutation Boundary
 
-- Remote mutation was limited to fast-forwarding `returdex/AutoED` main to the exact selected source commit and creating immutable prerelease tag/assets for beta.25.
+- Remote mutation was limited to the original exact beta.25 publication and the later exact beta.29 one-time publication. This amendment performed no remote mutation.
 - No tag or asset was overwritten, forced, resigned, rebuilt or replaced.
 - No update, installation, login/MFA, Profile/browser, school/source, course, runtime-data or live-evidence operation occurred.
-- Invalidated beta.21 through beta.24 remain unpublished.
+- Invalidated beta.21 through beta.24 and beta.26 through beta.28 remain unpublished; invalidated beta.25 and beta.29 remain immutable public history.
 
 ## Decisions Made
 
@@ -155,14 +174,15 @@ None. The tag, release assets and public download URLs are the exact planned T2-
 
 ## Next Phase Readiness
 
-- Public beta.25 remains available only as immutable historical data and is not eligible for Plan 02-14.
-- Rerun Plan 02-39 for beta.29, then rerun this publication plan before the hard human update checkpoint can restart.
+- Public beta.25 and beta.29 remain available only as immutable historical data and are not eligible for Plan 02-14.
+- Rerun Plan 02-39 for beta.30, then rerun this publication plan once for beta.30 before the hard human update checkpoint can restart.
 - Plan 02-14 must stop for the user's actual update and feedback; this summary supplies no post-update or live pass.
 - Windows and all real login/reopen/restart/Codex-exit/cross-day/reauth gates remain mandatory, and Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
 - Historical publication and availability receipt bytes remain in Git history, while their active canonical files were removed by the beta.25 invalidation; the summary and public objects remain.
+- Beta.29 release `380689537`, tag and both assets were captured read-only; no availability receipt exists, and beta.29 active local receipts were removed by invalidation commit `0f3be00`.
 - Historical/corrective commits `e5933d4`, `c4cabf0`, `0e189bc` and final beta.25 Task commits `90b1b45`, `be0cce2` all resolve in Git.
 - Complete `phase2-release-gates.test.ts` passes 16/16 after publication, and `git diff --check` passes.
 - Remote main/tag/release target the exact selected commit; both public asset names and byte counts match the anonymous availability receipt.

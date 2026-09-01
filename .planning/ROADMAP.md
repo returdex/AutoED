@@ -220,7 +220,7 @@ updated: 2026-08-26
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.29 dual-target archives signed and locally verified; publication/update/live/Windows gates remain blocked | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.30 quality-bound; fresh assembly/publication plus update/live/Windows gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -228,7 +228,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份完成摘要；修正后的完整02-38质量门选择`0.1.0-beta.29`，02-39现已从该精确来源完成双目标受保护密钥签名和本地fail-closed核验。已发布`0.1.0-beta.25`的tag/release/assets保持不可变公开历史但已永久失效，beta.26至beta.28也已消耗且不可复用。下一依赖序必须重跑02-13不可覆盖发布与匿名复取；当前不存在beta.29 tag、release或remote asset，在新beta可获取前不得恢复02-14。尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份完成摘要；02-38已从未变更的修正后production source完整重跑并选择`0.1.0-beta.30`，五套测试、零禁用测试及四表面敏感扫描均通过。已发布`0.1.0-beta.25`和`0.1.0-beta.29`的tag/release/assets保持不可变公开历史但均已永久失效；beta.29的首次且唯一匿名验证尝试未生成availability receipt，禁止同版本重试、删除或覆盖。下一依赖序必须为beta.30重跑02-39完整组装签名，再重跑02-13不可覆盖发布与匿名复取；在新beta可获取前不得恢复02-14。尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
 
 ## Backlog
 
