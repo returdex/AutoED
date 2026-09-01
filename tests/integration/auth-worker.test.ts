@@ -6,11 +6,15 @@ import type { SourceProbePort } from '../../packages/application/src/ports.js';
 import {
   AuthJobRunner,
   AuthJobService,
+  type AuthJobStore,
   type AuthProbeCommand,
 } from '../../packages/application/src/auth-jobs.js';
 import { openDatabase } from '../../packages/persistence/src/database.js';
 import { SQLiteAuthJobStore, SQLiteSourceConfigStore } from '../../packages/persistence/src/auth.js';
+import { SQLiteJobStore } from '../../packages/persistence/src/claims.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
+import { startWorker } from '../../apps/worker/src/main.js';
+import type { BuildIdentity, JobRequest } from '../../packages/domain/src/model.js';
 
 const context = { expectedGeneration: 0 };
 const cleanups: (() => Promise<void>)[] = [];
@@ -195,5 +199,113 @@ describe('D-08/D-10/D-11 durable per-source auth jobs', () => {
       expect(JSON.parse(observation.current_contract).resultCode).toBe(code);
       expect(JSON.parse(observation.last_success_contract).checkedAt).toBe(iso(0));
     }
+  });
+});
+
+function intercepted(store: AuthJobStore, handlers: Partial<{
+  assertCurrent: AuthJobStore['assertCurrent'];
+  commitTransition: AuthJobStore['commitTransition'];
+}>): AuthJobStore {
+  return new Proxy(store, {
+    get(target, property) {
+      const replacement = handlers[property as keyof typeof handlers];
+      if (replacement) return replacement;
+      const value = Reflect.get(target, property);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+describe('T2-05 request and commit fencing', () => {
+  it('before-request cancellation prevents any SourceProbePort call', async () => {
+    const f = fixture(); const requested = await f.service.requestProbe(command('moodle'), context);
+    let checks = 0;
+    const store = intercepted(f.store, {
+      assertCurrent: async (...args) => {
+        if (++checks === 1) await f.store.requestCancel(requested.jobId, 'moodle', context);
+        return f.store.assertCurrent(...args);
+      },
+    });
+    const port = new QueueProbe([result('moodle', 'AUTHENTICATED', iso(0))]);
+    await expect(new AuthJobRunner(store, port, { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 }).runOnce('old', context))
+      .rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    expect(port.calls).toHaveLength(0);
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
+  });
+
+  it('in-flight heartbeat cancellation aborts the probe and publishes no result', async () => {
+    const f = fixture(); const requested = await f.service.requestProbe(command('edstem'), context);
+    let started!: () => void; const entered = new Promise<void>(resolve => { started = resolve; });
+    let observedAbort = false;
+    const port: SourceProbePort = {
+      probe: async (_request, signal) => {
+        started();
+        await new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => {
+          observedAbort = true; reject(Object.assign(new Error('ABORTED'), { code: 'ABORTED' }));
+        }, { once: true }));
+        throw new Error('unreachable');
+      },
+    };
+    const runner = new AuthJobRunner(f.store, port, { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 });
+    const running = runner.runOnce('worker', context);
+    await entered; await f.store.requestCancel(requested.jobId, 'edstem', context);
+    await expect(running).rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    expect(observedAbort).toBe(true);
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
+  });
+
+  it('before-commit authority loss discards the late result and writes no observation or follow-up', async () => {
+    const f = fixture(); const requested = await f.service.requestProbe(command('moodle', 'user_login_completed'), context);
+    let checks = 0;
+    const store = intercepted(f.store, {
+      assertCurrent: async (...args) => {
+        if (++checks === 2) await f.store.requestCancel(requested.jobId, 'moodle', context);
+        return f.store.assertCurrent(...args);
+      },
+    });
+    const runner = new AuthJobRunner(store, new QueueProbe([result('moodle', 'AUTHENTICATED', iso(0))]), { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 });
+    await expect(runner.runOnce('old', context)).rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_auth_jobs WHERE parent_job_id IS NOT NULL').get()).toEqual({ n: 0 });
+  });
+
+  it('commitTransition SQL predicate rolls back observation and follow-up after a post-check race', async () => {
+    const f = fixture(); const requested = await f.service.requestProbe(command('moodle', 'user_login_completed'), context);
+    const store = intercepted(f.store, {
+      commitTransition: async (...args) => {
+        await f.store.requestCancel(requested.jobId, 'moodle', context);
+        return f.store.commitTransition(...args);
+      },
+    });
+    const runner = new AuthJobRunner(store, new QueueProbe([result('moodle', 'AUTHENTICATED', iso(0))]), { clock: f.clock, leaseMs: 1_000, heartbeatMs: 5 });
+    await expect(runner.runOnce('old', context)).rejects.toMatchObject({ code: 'CANCEL_REQUESTED' });
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_observations').get()).toEqual({ n: 0 });
+    expect(f.db.prepare('SELECT count(*) AS n FROM source_auth_jobs WHERE parent_job_id IS NOT NULL').get()).toEqual({ n: 0 });
+  });
+
+  it('Worker gives one turn to synthetic and auth queues without source starvation', async () => {
+    const f = fixture(); const jobs = new SQLiteJobStore(f.db, { now: () => 0 });
+    const build: BuildIdentity = { version: '0.1.0', buildId: 'a'.repeat(64), commit: 'b'.repeat(40), tree: 'c'.repeat(40), dependencyHash: 'd'.repeat(64), protocol: 1, schemaMin: 1, schemaMax: 1, capabilities: ['echo'] };
+    const synthetic: JobRequest = { kind: 'echo', value: 'synthetic', idempotencyKey: randomUUID(), scope: { installationId: randomUUID(), source: 'synthetic', courseId: 'selftest' } };
+    const ordinary = await jobs.enqueue(synthetic, context);
+    const auth = await f.service.requestProbe(command('edstem'), context);
+    const worker = await startWorker({
+      databasePath: f.databasePath,
+      owner: 'combined',
+      build,
+      auth: { probes: new QueueProbe([result('edstem', 'AUTHENTICATED', iso(0))]), clock: f.clock },
+    });
+    cleanups.push(() => worker.stop());
+    const deadline = Date.now() + 5_000;
+    while ((await jobs.query(ordinary.id, synthetic.scope))?.state !== 'succeeded' || (await f.service.query(auth.jobId, 'edstem'))?.state !== 'succeeded') {
+      if (Date.now() > deadline) throw new Error('COMBINED_WORKER_TIMEOUT');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    await worker.stop();
+  });
+
+  it('documents automated results as S/I only while Windows and Phase 3 stay blocked', () => {
+    const evidence = { automated: 'S/I', windows: 'not_run', disposition: 'human_needed', phase3: 'blocked' };
+    expect(evidence).toEqual({ automated: 'S/I', windows: 'not_run', disposition: 'human_needed', phase3: 'blocked' });
   });
 });
