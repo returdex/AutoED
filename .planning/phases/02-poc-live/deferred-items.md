@@ -28,3 +28,7 @@
 ## Plan 02-12
 
 - **Pre-existing process-lifecycle fixture failure outside this plan:** The required combined regression passes all 20 `auth-worker` cases, while the existing `process-lifecycle` case stops during its own synthetic initialization with `HUMAN_ACTION_REQUIRED: initialization interrupted; root preserved`, including when run alone. Plan 02-12 changes only the native Profile test harness/test and does not alter Phase 1 provisioning or stop the healthy installed API. The new 12-case macOS native Profile suite, 8-case native process/platform regression and typecheck all pass.
+
+## Plan 02-35
+
+- **Out-of-scope repository-wide verification failures:** The managed Node 24.20.0 full unit run passes 127/131 tests; only the four previously recorded fixed-port `credential-redaction` cases cannot bind while the installed Phase 1 API owns `43187`. The full integration run passes 249/291 tests. Its failures are the same installed-service port-conflict cascades, the previously recorded `job-recovery` SQLite-busy timing case and `process-lifecycle` provisioning interruption, plus current shared-tree compiled release/client/upgrade fixtures rejected by the status-asset browser-import guard (`BROWSER_IMPORT_DENIED`). Plan 02-35 does not authorize stopping the installed service or changing those unrelated modules. Its exact contract suites pass 48/48 unit checks and its persistence suites pass 40/40 integration checks with typecheck green.
