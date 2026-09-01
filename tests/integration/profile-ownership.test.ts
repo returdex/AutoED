@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ProfileOwnershipSchema } from '../../packages/contracts/src/index.js';
 import type { SecretStore } from '../../packages/application/src/ports.js';
@@ -25,7 +25,11 @@ class SyntheticSecretStore implements SecretStore {
   async delete() { throw new Error('TEST_DELETE_FORBIDDEN'); }
 }
 
-function fixture(now = 1_000) {
+function fixture(now = 1_000, overrides: {
+  observe?: (pid: number) => Promise<{ osStartIdentity: string; executable: string } | null>;
+  control?: { request(challenge: ProfileControlChallenge): Promise<unknown> };
+  controlTimeoutMs?: number;
+} = {}) {
   const harness = createHarness(); harnesses.push(harness); const parent = realpathSync(harness.root); protectPath(parent);
   const selection: RootSelection = { root: join(parent, 'installation'), parent, excludedRoots: [] };
   const paths = createManagedRoot(selection);
@@ -37,8 +41,9 @@ function fixture(now = 1_000) {
     selection, installationId, browserBuildId: BUILD_ID, browserExecutable,
     clock: { now: () => current }, leaseMs: 60_000,
     secrets: new SyntheticSecretStore(),
-    observe: async () => { throw new Error('SYNTHETIC_OBSERVATION_NOT_CONFIGURED'); },
-    control: { request: async () => { throw new Error('SYNTHETIC_CONTROL_NOT_CONFIGURED'); } },
+    observe: overrides.observe ?? (async () => { throw new Error('SYNTHETIC_OBSERVATION_NOT_CONFIGURED'); }),
+    control: overrides.control ?? { request: async () => { throw new Error('SYNTHETIC_CONTROL_NOT_CONFIGURED'); } },
+    controlTimeoutMs: overrides.controlTimeoutMs,
   });
   return {
     harness, selection, paths, browserExecutable, installationId, coordinator,
@@ -161,3 +166,148 @@ export function syntheticProof(challenge: ProfileControlChallenge, owner: Profil
     proof: createHmac('sha256', CONTROL_SECRET).update(JSON.stringify(challenge)).digest('hex'),
   };
 }
+
+async function attached(value: ReturnType<typeof fixture>) {
+  const reserved = await value.coordinator.reserve(reserveInput(value));
+  return value.coordinator.attach(reserved.reservation!, processIdentity(value));
+}
+
+function exactDependencies() {
+  return {
+    observe: async (_pid: number) => ({ osStartIdentity: 'synthetic-start-identity', executable: '' }),
+    control: { request: async (challenge: ProfileControlChallenge) => syntheticProof(challenge, challenge.owner) },
+  };
+}
+
+describe('conservative OS and authenticated control proof', () => {
+  it('reports an exact running holder as in use only after OS and challenge-bound control proof both match', async () => {
+    let browserExecutable = '';
+    const value = fixture(1_000, {
+      observe: async pid => { expect(pid).toBe(4242); return { osStartIdentity: 'synthetic-start-identity', executable: browserExecutable }; },
+      control: { request: async challenge => syntheticProof(challenge, challenge.owner) },
+    });
+    browserExecutable = value.browserExecutable;
+    const owned = await attached(value); const original = readFileSync(value.ownershipRecord);
+    expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({
+      state: 'in_use', disposition: 'human_needed', resultCode: 'PROFILE_IN_USE', owner: owned.owner,
+    });
+    expect(readFileSync(value.ownershipRecord)).toEqual(original);
+  });
+
+  it('keeps the record for PID reuse, wrong executable, wrong caller identity, OS failure and invalid control proofs', async () => {
+    const cases: Array<{
+      name: string;
+      observation: 'reuse' | 'executable' | 'throw' | 'exact';
+      owner?: (owner: ProfileOwnerIdentity) => ProfileOwnerIdentity;
+      control?: 'valid' | 'throw' | 'invalid';
+    }> = [
+      { name: 'PID reuse', observation: 'reuse' },
+      { name: 'wrong executable', observation: 'executable' },
+      { name: 'wrong installation', observation: 'exact', owner: owner => ({ ...owner, installationId: randomUUID() }) },
+      { name: 'wrong nonce', observation: 'exact', owner: owner => ({ ...owner, nonce: randomUUID() }) },
+      { name: 'OS permission/query failure', observation: 'throw' },
+      { name: 'control failure', observation: 'exact', control: 'throw' },
+      { name: 'invalid control proof', observation: 'exact', control: 'invalid' },
+    ];
+    for (const item of cases) {
+      let executable = '';
+      const value = fixture(1_000, {
+        observe: async () => {
+          if (item.observation === 'throw') throw new Error('SYNTHETIC_OS_PERMISSION');
+          if (item.observation === 'reuse') return { osStartIdentity: 'reused-pid-start', executable };
+          if (item.observation === 'executable') return { osStartIdentity: 'synthetic-start-identity', executable: process.execPath };
+          return { osStartIdentity: 'synthetic-start-identity', executable };
+        },
+        control: { request: async challenge => {
+          if (item.control === 'throw') throw new Error('SYNTHETIC_CONTROL_TIMEOUT');
+          if (item.control === 'invalid') return { owner: challenge.owner, proof: '0'.repeat(64) };
+          return syntheticProof(challenge, challenge.owner);
+        } },
+      });
+      executable = value.browserExecutable;
+      const owned = await attached(value); const original = readFileSync(value.ownershipRecord);
+      const caller = item.owner ? item.owner(owned.owner!) : owned.owner!;
+      expect(await value.coordinator.inspect(caller), item.name).toMatchObject({
+        state: 'unconfirmed', disposition: 'human_needed', resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED',
+      });
+      expect(readFileSync(value.ownershipRecord), item.name).toEqual(original);
+    }
+  });
+
+  it('rejects replayed and non-responsive control proofs without changing ownership', async () => {
+    let executable = ''; let prior: ProfileControlChallenge | undefined;
+    const value = fixture(1_000, {
+      observe: async () => ({ osStartIdentity: 'synthetic-start-identity', executable }),
+      control: { request: async challenge => {
+        if (!prior) { prior = challenge; return syntheticProof(challenge, challenge.owner); }
+        return syntheticProof(prior, challenge.owner);
+      } },
+    });
+    executable = value.browserExecutable;
+    const owned = await attached(value); const original = readFileSync(value.ownershipRecord);
+    expect((await value.coordinator.inspect(owned.owner!)).resultCode).toBe('PROFILE_IN_USE');
+    expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({ resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED' });
+    expect(readFileSync(value.ownershipRecord)).toEqual(original);
+
+    let timeoutExecutable = '';
+    const timeout = fixture(1_000, {
+      observe: async () => ({ osStartIdentity: 'synthetic-start-identity', executable: timeoutExecutable }),
+      control: { request: async () => new Promise<never>(() => undefined) }, controlTimeoutMs: 5,
+    });
+    timeoutExecutable = timeout.browserExecutable;
+    const timeoutOwner = await attached(timeout); const timeoutOriginal = readFileSync(timeout.ownershipRecord);
+    expect(await timeout.coordinator.inspect(timeoutOwner.owner!)).toMatchObject({ resultCode: 'PROFILE_OWNERSHIP_UNCONFIRMED' });
+    expect(readFileSync(timeout.ownershipRecord)).toEqual(timeoutOriginal);
+  });
+
+  it('cleans only after exact OS absence is confirmed and then admits a higher fence', async () => {
+    const value = fixture(1_000, { observe: async () => null });
+    const owned = await attached(value);
+    expect(await value.coordinator.inspect(owned.owner!)).toMatchObject({
+      state: 'confirmed_exited', disposition: 'cleanup_allowed', resultCode: 'PROFILE_CONFIRMED_EXITED',
+    });
+    expect(existsSync(value.ownershipRecord)).toBe(true);
+    await value.coordinator.release(owned.owner!);
+    expect(existsSync(value.ownershipRecord)).toBe(false);
+    const next = await value.coordinator.reserve(reserveInput(value, 1, 1));
+    expect(next).toMatchObject({ state: 'reserved', resultCode: 'PROFILE_RESERVED', reservation: { generation: 1, fence: 1 } });
+    const nextBytes = readFileSync(value.ownershipRecord);
+    await expect(value.coordinator.release(owned.owner!)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+    expect(readFileSync(value.ownershipRecord)).toEqual(nextBytes);
+  });
+
+  it('refuses release for running, unknown or mismatched owners even after lease expiry', async () => {
+    const observations: Array<'running' | 'unknown' | 'mismatch'> = ['running', 'unknown', 'mismatch'];
+    for (const state of observations) {
+      let executable = '';
+      const valid = exactDependencies();
+      const value = fixture(1_000, {
+        observe: async () => {
+          if (state === 'unknown') throw new Error('SYNTHETIC_OS_UNKNOWN');
+          return { osStartIdentity: state === 'mismatch' ? 'reused' : 'synthetic-start-identity', executable };
+        }, control: valid.control,
+      });
+      executable = value.browserExecutable;
+      const owned = await attached(value); value.setNow(owned.leaseUntil! + 1);
+      const original = readFileSync(value.ownershipRecord);
+      await expect(value.coordinator.release(owned.owner!)).rejects.toThrow(state === 'running' ? 'PROFILE_IN_USE' : 'PROFILE_OWNERSHIP_UNCONFIRMED');
+      expect(readFileSync(value.ownershipRecord)).toEqual(original);
+    }
+  });
+
+  it('lets a fenced historical owner be inspected but never release, reattach or overwrite the current record', async () => {
+    let executable = '';
+    const value = fixture(1_000, {
+      observe: async () => ({ osStartIdentity: 'synthetic-start-identity', executable }),
+      control: { request: async challenge => syntheticProof(challenge, challenge.owner) },
+    });
+    executable = value.browserExecutable;
+    const owned = await attached(value);
+    expect((await value.coordinator.reserve(reserveInput(value, 2, 3))).resultCode).toBe('PROFILE_IN_USE');
+    const fenced = readFileSync(value.ownershipRecord);
+    expect((await value.coordinator.inspect(owned.owner!)).resultCode).toBe('PROFILE_IN_USE');
+    await expect(value.coordinator.release(owned.owner!)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+    await expect(value.coordinator.attach(owned.reservation!, processIdentity(value))).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+    expect(readFileSync(value.ownershipRecord)).toEqual(fenced);
+  });
+});
