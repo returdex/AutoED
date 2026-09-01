@@ -220,7 +220,7 @@ updated: 2026-08-26
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.31 dual-target archives signed and locally verified; publication/update/live/Windows gates remain blocked | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.31 published and anonymously availability-proven; update/live/Windows gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -228,7 +228,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份完成摘要；02-38已针对加入有界匿名readiness gate后的production source完整重跑并选择`0.1.0-beta.31`，typecheck及unit `143/143`、integration `352/352`、UI `34/34`、macOS native `24/24`、零禁用测试及四表面敏感扫描均通过；02-39已完成全新双目标组装、受保护Keychain签名、22项发布门禁与只读预检，未创建beta.31 tag、release或远程asset。已发布`0.1.0-beta.25`、`0.1.0-beta.29`和`0.1.0-beta.30`的tag/release/assets保持不可变公开历史但均已永久失效；beta.29和beta.30的首次且唯一匿名验证尝试均未生成availability receipt，禁止同版本重试、删除或覆盖。下一依赖序必须为beta.31重跑02-13不可覆盖发布和readiness后单次匿名复取；在新beta可获取前不得恢复02-14。尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份完成摘要；02-38已针对有界匿名readiness gate后的production source完整重跑并选择`0.1.0-beta.31`，typecheck及unit `143/143`、integration `352/352`、UI `34/34`、macOS native `24/24`、零禁用测试及四表面敏感扫描均通过；02-39完成全新双目标组装和受保护Keychain签名；02-13随后通过22项发布门禁与只读预检，只用隔离returdex身份创建release `380751233`及两个精确asset，并在有界metadata/HEAD readiness之后以首次且唯一完整匿名下载验证hash、签名、fingerprint、license、prompt及16-member/27-capability闭包。`0.1.0-beta.25`、`0.1.0-beta.29`和`0.1.0-beta.30`保持不可变公开历史且均已永久失效，未重试、删除或覆盖。下一步02-14必须硬停止并等待用户实际更新反馈；尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
 
 ## Backlog
 

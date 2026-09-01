@@ -2,122 +2,94 @@
 phase: 02-poc-live
 plan: "13"
 subsystem: release-publication
-tags: [github-release, immutable-publication, anonymous-availability, signed-beta, update-gate]
+tags: [github-release, immutable-publication, anonymous-availability, signed-beta, update-gate, cdn-readiness]
 requires:
   - phase: 02-poc-live
     plans: ["38", "39"]
-    provides: historical beta.25 identity and signed dual-target archives, subsequently invalidated by the update-freshness correction
+    provides: beta.31 source-bound quality evidence and signed dual-target archives with bounded anonymous readiness
 provides:
-  - historical immutable public beta.25 release owned and authenticated only by returdex
-  - historical anonymous full-byte availability proof for both signed native archives
-  - sanitized proof that beta.25 public objects remain untouched but cannot satisfy the corrected update gate
-  - historical immutable public beta.29 release whose first and only anonymous verifier attempt produced no availability receipt
-  - historical immutable public beta.30 release whose first and only anonymous verifier attempt produced no availability receipt
+  - immutable public beta.31 release owned and authenticated only by returdex
+  - strict anonymous full-byte availability proof for both signed native archives
+  - bounded metadata/HEAD readiness before the one permitted full verifier attempt
+  - immutable historical preservation of published beta.25, beta.29 and beta.30
 affects: [02-14 through 02-34, 02-40, Phase 2 live UAT]
 tech-stack:
   added: []
-  patterns: [isolated publication identity, no-overwrite release transaction, anonymous cryptographic refetch]
+  patterns: [isolated publication identity, no-overwrite release transaction, bounded CDN readiness, anonymous cryptographic refetch]
 key-files:
   created:
     - release/phase2-publication.json
     - release/phase2-availability.json
+  modified:
     - .planning/phases/02-poc-live/02-13-SUMMARY.md
-  modified: []
+    - .planning/STATE.md
+    - .planning/ROADMAP.md
 key-decisions:
-  - "Only fresh beta.25 was published; invalidated beta.21 through beta.24 remain consumed but unpublished and cannot be relabelled."
-  - "A later source correction invalidated beta.25 as an active candidate without deleting or overwriting its immutable public tag, release or assets."
-  - "Publication used the locked isolated returdex GitHub configuration even though the unrelated default gh account remains ywan1303."
-  - "Publication and anonymous availability leave Windows native and live evidence not_run/human_needed and Phase 3 blocked."
-  - "Published beta.29 is permanently consumed as availability-unproven; release 380689537, its tag and both assets remain immutable and may never be retried or overwritten."
-  - "Published beta.30 is permanently consumed as availability-unproven; release 380716930, its tag and both assets remain immutable and may never be retried or overwritten."
-  - "A bounded anonymous metadata/HEAD readiness gate now precedes—but never substitutes for—the one permitted full verifier attempt."
+  - "beta.31 is the sole active published update candidate; beta.25, beta.29 and beta.30 remain immutable invalidated public history."
+  - "The bounded anonymous metadata/HEAD readiness gate makes no availability claim and precedes exactly one full-byte verifier attempt."
+  - "Publication and availability leave Windows native and live evidence not_run/human_needed and Phase 3 blocked."
 requirements-completed: []
-duration: 20min active across initial attempt and beta.25 continuation
+duration: 10min beta.31 completion
 completed: 2026-09-02
 ---
 
-# Phase 2 Plan 13: Immutable Beta Publication History Summary
+# Phase 2 Plan 13: Immutable Beta.31 Publication and Availability Summary
 
-**AutoED beta.25 remains fully availability-proven historical data, while beta.29 and beta.30 remain immutably published but permanently availability-unproven after their first and only anonymous verifier attempts created no receipt.**
-
-## Upstream Invalidation Amendment
-
-Plan 02-14 failed closed with `UPDATE_GATE_FRESHNESS_MISMATCH`, exposing that beta.25's verifier compared volatile `checkedAt` as though it were immutable. RED/GREEN commits `348e9f4` and `ef52b6c` corrected the contract, and Plan 02-38 invalidated beta.25 without deleting or overwriting tag `v0.1.0-beta.25`, release `380618906` or either public asset. All publication/availability values below are historical evidence only; beta.25 must not be offered for the pending update gate.
-
-After consuming beta.26 through beta.28 on honest gate failures, Plan 02-38 selected and fully qualified beta.29 and Plan 02-39 assembled/signed it. This plan published beta.29 once, but its first and only anonymous verification attempt produced no availability receipt. The same pre-verifier CDN readiness race recurred after fresh qualification, assembly and one-time publication of beta.30. Plan 02-38 therefore invalidated both public identities, added a bounded anonymous readiness gate before the one permitted full verifier, and selected fully qualified beta.31. Corrective Plan 02-39 must now assemble/sign beta.31 before this plan can restart for beta.31.
-
-## Beta.29 Published but Availability Unproven
-
-| Field | Immutable historical value |
-|---|---|
-| Version / tag | `0.1.0-beta.29` / `v0.1.0-beta.29` |
-| Release | ID `380689537`; published `2026-09-01T17:17:54Z` |
-| Target commit | `867fd57fb026d91c1b1355ac6b27f2b219bdb058` |
-| macOS asset | ID `539882525`; 227,412,899 bytes; SHA-256 `61e1c2572ef7822f39e73b3785c7cc4b2826fea6220374f4211817159b44b8e4` |
-| Windows asset | ID `539882528`; 250,422,508 bytes; SHA-256 `4729f5a372c844b5a8e510f2fe0b5d663b78c11f44483481855073864324a950` |
-| Publication receipt | created locally at `2026-09-01T17:17:58.590Z`, then removed from the active canonical surface by invalidation |
-| Availability receipt | absent; never created |
-
-The release, tag and both assets remain untouched public history. The missing receipt is not inferred as success, and no same-version verifier retry, delete, overwrite, resign or relabel path exists. Public beta.25 release `380618906` and both beta.25 assets were rechecked read-only and remain unchanged.
-
-## Beta.30 Published but Availability Unproven
-
-| Field | Immutable historical value |
-|---|---|
-| Version / tag | `0.1.0-beta.30` / `v0.1.0-beta.30` |
-| Release | ID `380716930`; created `2026-09-01T17:22:53Z`; published `2026-09-01T18:04:19Z` |
-| Target commit | `0f3be001fa259890041273eee01119b1ba8edc1e` |
-| macOS asset | ID `539932724`; 227,412,187 bytes; SHA-256 `b0841a2378710c40f6514622e5a0df9bcd1297760975f4a45bcdde3b9c3f77ea` |
-| Windows asset | ID `539932725`; 250,424,350 bytes; SHA-256 `a9429810b68d59970a68219fed994d89216042f4b6647c88ecebe67ab0f11396` |
-| Publication receipt | captured locally, then removed from the active canonical surface by invalidation |
-| Availability receipt | absent; never created |
-
-The beta.30 release, tag and assets remain untouched public history. RED `c43797d` and GREEN `666d3a8` correct the systemic race with a fixed 120-second, seven-attempt anonymous readiness gate that checks only exact release metadata plus safe asset HEAD/redirect/content-length state. It makes no byte, signature, closure, receipt or pass claim; timeout/mismatch fails closed, and the full verifier is still invoked exactly once only after readiness.
+**AutoED 0.1.0-beta.31 is immutably published under `returdex/AutoED` and independently availability-proven by one clean anonymous full-byte verification after bounded CDN readiness.**
 
 ## Performance
 
-- **Active execution:** approximately 20 min across the original fail-closed attempt and beta.25 continuation
-- **Beta.25 continuation:** 6 min (`2026-09-01T15:20:58Z` to `2026-09-01T15:27:36Z`)
+- **Beta.31 active execution:** approximately 10 min
 - **Tasks:** 2
 - **Tracked output files:** 3, including this summary
-- **Remote release:** `https://github.com/returdex/AutoED/releases/tag/v0.1.0-beta.25`
+- **Remote release:** `https://github.com/returdex/AutoED/releases/tag/v0.1.0-beta.31`
 
 ## Published Identity
 
 | Field | Value |
 |---|---|
-| Version | `0.1.0-beta.25` |
-| Tag | `v0.1.0-beta.25` |
-| Source commit | `f80ae3b6f7bb5f600e0a0a60b55c61c1a043f804` |
-| Source tree | `8e702d1311e26dd26bd4b191a9157a5f29db4772` |
-| Build ID | `6c44e404b42e72c8dfb3f1dfef3bb9aa1f5cb95f17de32280019cc23c89c20e5` |
-| Manifest SHA-256 | `c2c1100f338a078fe8682bb05927c2e552973de4acb8977257307179604204a8` |
+| Version / tag | `0.1.0-beta.31` / `v0.1.0-beta.31` |
+| Release ID | `380751233` |
+| Source commit | `7e3044fbfc66ef14431f419e56c833951e24e4f9` |
+| Source tree | `786707f3e0f3e011ecf8fb39901e2e1578b6959a` |
+| Build ID | `003e0aa9ee74b77123741b9dbbc4f723acfd1783bee6b59054f49c46caff0a7f` |
+| Manifest SHA-256 | `567484ea34e35af4a5cf4250e654e059546a47ff4a8050ab623f10313fa836c3` |
 | Trust fingerprint | `fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557` |
 | License | `PolyForm-Noncommercial-1.0.0` |
 | Repository ID | `1350421724` |
 
-The repository-local Git author and committer are `returdex <73513006+returdex@users.noreply.github.com>`. The publisher used only its protected isolated GitHub configuration, whose active account is `returdex` ID `73513006`; the default `gh` account `ywan1303` was never used or changed.
+Repository-local author and committer were separately verified as `returdex <73513006+returdex@users.noreply.github.com>`. Publication used only the protected isolated GitHub configuration authenticated as `returdex` ID `73513006`; repository identity and `origin` were exact, beta.31 was absent before mutation, and remote main was a safe ancestor of the selected commit.
 
 ## Public Assets and Anonymous Availability
 
 | Target | Asset ID | Exact bytes | SHA-256 | Anonymous verification |
 |---|---:|---:|---|---|
-| macOS arm64 | `539741564` | 227,413,903 | `56f141ff2e3d8e054c5cb299bcc7e715e1bd638ac88aa8ce2b867ca4e995d338` | pass |
-| Windows x64 | `539741557` | 250,419,021 | `579fbdea67e103734842ffe8157f5f5c97e66d8c1bbfec24a2ed006cdc1728ec` | pass |
+| macOS arm64 | `539997596` | 227,416,297 | `ef69ead91073aec94e1a7312ae69bb4a4f81f64a484b1ad4919e2b7369b715f1` | pass |
+| Windows x64 | `539997598` | 250,425,315 | `aa12bcdf2e068dc6be2ffa15ee3f5d5e2fa272e4527d0343ca3a0bd21c41cf8a` | pass |
 
-- Publication confirmation completed at `2026-09-01T15:25:21.945Z`.
-- Anonymous clean-directory refetch completed at `2026-09-01T15:26:30.516Z`.
-- Both refetched archives matched their exact URL, byte count and SHA-256.
-- Both archives independently passed manifest, Ed25519 signature, fixed fingerprint, signed install-prompt core, license, member hash and capability-closure verification.
-- The release is a non-draft prerelease targeting the exact selected commit. No existing tag, asset or receipt was overwritten.
+- Publication confirmation completed at `2026-09-01T19:02:03.608Z`.
+- Bounded anonymous readiness confirmed exact release metadata, target commit, asset IDs, safe redirects and exact content lengths without downloading bytes or claiming availability.
+- The first and only full verifier attempt completed at `2026-09-01T19:03:10.623Z` from a clean protected temporary directory.
+- Both complete downloads matched exact URL, byte count and SHA-256, then independently passed Ed25519 signature, fixed fingerprint, manifest, license, signed install-prompt core, all 16 signed member hashes and all 27 declared capabilities.
+- Publication receipt SHA-256: `7f192f81a79508564fbde1519c167c30a842bb35b4589a674a384d4d45053b14`.
+- Availability receipt SHA-256: `fe29eecf6997c4bace6d4415e55d29b07fbce454e4954ddaa228b4ec384473a0`.
 
 ## Signed Update Handoff
 
-- Source verifier SHA-256: `ab2da7c08053d729f47449eac57cc511e4131f6b87f96a70d22183909104a9eb`.
-- Both beta.25 archives contain that exact verifier hash in their signed capability manifests and carry byte-identical verifier source.
-- Each target contains the same exact 16 signed release members and all 27 declared Phase 2 workflow, live-gate, update and native-evidence capabilities.
-- macOS and Windows pre/post fixtures passed, including platform spoof, WSL substitution, identity/hash drift, stale/future receipt, unavailable asset, incomplete cleanup and mutation-authority negatives.
-- The real macOS pre-update command consumed the current publication and fresh availability receipts and returned `MACOS_UPDATE_READY`; it performed no runtime mutation.
+- Source and both signed archives contain the same update-verifier SHA-256 `e570749b058c926525e26f6fd5b4123ea880a5380ac1188f47f425c12114f72c`.
+- Both native archives bind the exact beta.31 commit/tree/build/source identity and the same 16-member/27-capability closure.
+- Focused update/readiness tests passed 4/4, the live-gate update fixtures passed 3/3, and the complete release-gate file passed 22/22.
+- Exact signed read-only preflight passed across selection, test report, source history, prompt, manifests, signatures and both outer archive bytes.
+
+## Immutable Historical Releases
+
+| Version | Release | Target | Asset IDs | Disposition |
+|---|---:|---|---|---|
+| beta.25 | `380618906` | `f80ae3b6…` | `539741564`, `539741557` | availability-proven historical, invalidated by later update correction |
+| beta.29 | `380689537` | `867fd57f…` | `539882525`, `539882528` | availability-unproven historical; never retry or overwrite |
+| beta.30 | `380716930` | `0f3be001…` | `539932724`, `539932725` | availability-unproven historical; never retry or overwrite |
+
+All three releases, tags, targets, asset IDs, names and byte sizes were rechecked immediately after beta.31 publication and remained unchanged. No historical release was retried, deleted, overwritten, forced, resigned or relabelled.
 
 ## Hard Gaps Preserved
 
@@ -132,88 +104,72 @@ Publication does not establish installation, cleanup, API/Worker/UI post-update 
 
 ## Task Commits
 
-1. **Historical beta.24 read-only handoff evidence** — `e5933d4`
-2. **Publisher reconciliation RED/GREEN discovered during Task 2** — `c4cabf0` / `0e189bc`
-3. **Task 1: revalidate fresh beta.25 signed update handoff** — `90b1b45`
-4. **Task 2: publish once and prove anonymous beta.25 availability** — `be0cce2`
-5. **Beta.29 signed-handoff revalidation before publication** — `64fbe66`
-6. **Beta.29 one-time publication / failed anonymous verifier boundary** — remote release `380689537`; no completion commit because Task 2 failed closed before an availability receipt existed
-7. **Upstream immutable beta.29 invalidation** — `0f3be00`
-8. **Beta.30 one-time publication / failed anonymous verifier boundary** — release `380716930`; no availability receipt exists
-9. **Readiness RED/GREEN** — `c43797d` / `666d3a8`
-10. **Upstream immutable beta.30 invalidation** — `7e3044f`
+1. **Task 1: revalidate beta.31 signed update handoff and readiness contract** — `d924314`
+2. **Task 2: publish once and prove anonymous beta.31 availability** — `012a2df`
+
+Relevant historical evidence remains in Git: beta.25 Task commits `90b1b45` / `be0cce2`; beta.29 and beta.30 read-only revalidations `64fbe66` / `1d739ba`; readiness RED/GREEN `c43797d` / `666d3a8`.
 
 ## Deviations from Plan
 
 ### Auto-fixed Issues
 
-**1. [Rule 1 - Publisher Reconciliation] Corrected exact absent-tag and public-versus-consumed handling before publication**
+**1. [Rule 1 - Publisher Reconciliation] Corrected exact absent-tag and public-versus-consumed handling**
 
-- **Found during:** Task 2's original beta.24 immutable publication preflight
-- **Issue:** GitHub returned an exact HTTP 422 for the intentionally absent tag, and the publisher conflated the remote public release set with locally consumed unpublished beta identities.
-- **Fix:** Upstream RED/GREEN commits `c4cabf0` / `0e189bc` added exact absent-tag classification and separate fail-closed public/consumed reconciliation. Because publisher source changed, beta.24 was permanently invalidated and Plans 02-38/02-39 fully requalified and signed fresh beta.25 before this continuation.
-- **Files modified upstream:** `scripts/release/publish.mjs`, `tests/integration/phase2-release-gates.test.ts`
-- **Verification:** complete fresh five-suite beta.25 quality gate, 16/16 release-gate tests, exact signed preflight, no beta.24 remote mutation, and successful beta.25 publication/anonymous verification
-- **Commits:** `c4cabf0`, `0e189bc`
+- **Found during:** historical beta.24 publication preflight.
+- **Fix:** RED/GREEN `c4cabf0` / `0e189bc` added exact absent-tag classification and separate public/consumed reconciliation.
+- **Impact:** Prevented a false absence/public-history claim; no identity or overwrite authority widened.
 
-**2. [Rule 1 - Planning Metadata] Corrected the generic state handler's dependency-order misparse**
+**2. [Rule 1 - Planning Metadata] Preserved dependency-ordered Phase 2 state**
 
-- **Found during:** Plan completion metadata update
-- **Issue:** The generic numeric plan counter parsed the existing dependency-ordered `02-39` position as `3-39`, set `Ready to execute`, and could not record this plan's custom metrics or decisions.
-- **Fix:** Restored the exact project state directly, advanced Phase 2 from 18/41 to 19/41, recorded beta.25 publication/availability without completing requirements, and updated the roadmap current stop to the Plan 02-14 hard human gate.
-- **Files modified:** `.planning/STATE.md`, `.planning/ROADMAP.md`
-- **Verification:** STATE and ROADMAP agree on 19/41, beta.25 publication, remaining native/live gaps and Phase 3 blocking; `git diff --check` passes.
-- **Commit:** final Plan 02-13 metadata commit
+- **Found during:** historical Plan 02-13 metadata completion.
+- **Fix:** Kept the project-specific 19/41 position and hard-gate language instead of using the generic numeric handler that misparsed dependency-ordered `02-39`.
+- **Impact:** Requirements remain incomplete and Phase 3 remains blocked.
 
-**3. [Rule 1 - Anonymous CDN Readiness] Added a bounded readiness gate before the one full verifier attempt**
+**3. [Rule 1 - Anonymous CDN Readiness] Added bounded readiness before the one full verifier attempt**
 
-- **Found during:** identical beta.29 and beta.30 post-publication races
-- **Issue:** Publication metadata existed, but the first full anonymous verifier reached the CDN before both immutable assets were ready. The one-attempt/no-retry rule correctly left both releases unavailable for update.
-- **Fix:** Upstream RED/GREEN `c43797d` / `666d3a8` added strict anonymous release/asset identity checks and safe HEAD readiness polling before the full verifier, preserving exact-one verifier invocation and every no-overwrite/no-retry rule.
-- **Verification:** focused readiness 3/3, complete release gates 22/22, typecheck/syntax pass, followed by the complete fresh beta.31 quality gate.
+- **Found during:** beta.29 and beta.30 post-publication races.
+- **Fix:** Upstream RED/GREEN `c43797d` / `666d3a8` added strict anonymous metadata/HEAD readiness with a fixed 120-second bound, safe redirect/content-length checks, no availability claim, and exactly one later full verifier invocation.
+- **Verification:** readiness tests 3/3, complete release gates 22/22, and the beta.31 first full verifier passed.
 
-**Total deviations:** 3 Rule 1 correctness repairs. **Impact:** The publisher and readiness repairs preserve exact public history while preventing premature verifier consumption; the metadata repair preserved dependency order and hard gates. None widened scope, identity, overwrite or live authority.
+**Total deviations:** 3 historical Rule 1 correctness repairs. **Impact:** All repairs are fail-closed and preserve immutable history, exact identity and the one-verifier contract.
 
 ## Authentication Gates
 
-None. The approved isolated `returdex` publication identity was already authenticated and required no login, MFA or OS approval. The unrelated default GitHub account was neither used nor switched.
+None. The approved isolated `returdex` publication identity was already authenticated and required no login, MFA or OS approval.
 
 ## Known Stubs
 
-None. The native/live/Phase 3 states are deliberate hard gates, not placeholders.
+None. Native/live/Phase 3 states are deliberate hard gates, not placeholders.
 
 ## Threat Flags
 
-None. The tag, release assets and public download URLs are the exact planned T2-13 trust surfaces. No endpoint, auth path, schema or source-access boundary was added.
+None. Release metadata, public assets and anonymous downloads are the planned T2-13 trust surfaces; no endpoint, auth path, schema or source-access boundary was added.
 
 ## External Mutation Boundary
 
-- Remote mutation was limited to the original exact beta.25 publication and the later exact beta.29 and beta.30 one-time publications. This amendment performed no remote mutation.
-- No tag or asset was overwritten, forced, resigned, rebuilt or replaced.
+- Remote mutation was limited to fast-forwarding `returdex/AutoED` main from the beta.30 selected source to exact beta.31 commit `7e3044f…`, then creating release `380751233` and its two exact assets.
+- No tag, release, asset or receipt was overwritten, forced, rebuilt, resigned or replaced.
 - No update, installation, login/MFA, Profile/browser, school/source, course, runtime-data or live-evidence operation occurred.
-- Invalidated beta.21 through beta.24 and beta.26 through beta.28 remain unpublished; invalidated beta.25, beta.29 and beta.30 remain immutable public history.
 
 ## Decisions Made
 
-- Published beta.25 only after repeating signed-manifest, update-gate, identity, repository and absence checks against its fresh bytes.
-- Kept public release history distinct from the monotonic locally consumed identity prefix.
-- Kept all AUTH/UAT requirements pending until their required user-run native/live evidence exists.
+- Beta.31 is the sole active published candidate because it alone combines the current source, protected-key signed archives, bounded readiness and a successful first full anonymous verifier.
+- Public release history remains separate from the monotonic consumed identity set.
+- All AUTH/UAT requirements remain pending until their required user-run native/live evidence exists.
 
 ## Next Phase Readiness
 
-- Public beta.25, beta.29 and beta.30 remain available only as immutable historical data and are not eligible for Plan 02-14.
-- Rerun Plan 02-39 for beta.31, then rerun this publication plan once for beta.31 through the readiness-before-verification flow before the hard human update checkpoint can restart.
-- Plan 02-14 must stop for the user's actual update and feedback; this summary supplies no post-update or live pass.
+- Plan 02-14 may now reach its hard human update checkpoint using the exact beta.31 publication and availability receipts.
+- The user must perform the actual update and report results; this plan supplies no post-update or live pass.
 - Windows and all real login/reopen/restart/Codex-exit/cross-day/reauth gates remain mandatory, and Phase 3 remains blocked.
 
 ## Self-Check: PASSED
 
-- Historical publication and availability receipt bytes remain in Git history, while their active canonical files were removed by the beta.25 invalidation; the summary and public objects remain.
-- Beta.29 release `380689537`, tag and both assets were captured read-only; no availability receipt exists, and beta.29 active local receipts were removed by invalidation commit `0f3be00`.
-- Beta.30 release `380716930`, tag and both assets were captured read-only; no availability receipt exists, and beta.30 active local receipts were removed by invalidation commit `7e3044f`.
-- Historical/corrective commits `e5933d4`, `c4cabf0`, `0e189bc` and final beta.25 Task commits `90b1b45`, `be0cce2` all resolve in Git.
-- Complete `phase2-release-gates.test.ts` passes 16/16 after publication, and `git diff --check` passes.
-- Remote main/tag/release target the exact selected commit; both public asset names and byte counts match the anonymous availability receipt.
+- Canonical beta.31 publication and availability receipts exist and retain SHA-256 values `7f192f81…` and `fe29eecf…`.
+- Task commits `d924314` and `012a2df`, plus readiness RED/GREEN `c43797d` / `666d3a8`, resolve in Git and delete no tracked files.
+- Complete release gates pass 22/22; exact signed preflight passes across 984 selected-history blobs with three reviewed fixture exceptions; `git diff --check` passes.
+- Remote beta.31 release, tag, target, asset IDs and byte sizes remain exact; beta.25, beta.29 and beta.30 remote identities and assets remain unchanged.
+- STATE and ROADMAP retain Phase 2 at 19/41, place the next stop at the 02-14 hard human update gate, and preserve Windows/live/Phase 3 blocking.
 
 ---
 *Phase: 02-poc-live*

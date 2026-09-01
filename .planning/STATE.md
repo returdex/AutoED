@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed corrective 02-39 beta.31 local assembly/signing; corrective 02-13 publication rerun remains
-last_updated: "2026-09-01T18:52:49.000Z"
+stopped_at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
+last_updated: "2026-09-01T19:05:47.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Rerun Plan 02-13 no-overwrite publication and readiness-before-single-verifier availability for locally signed beta.31; public beta.25, beta.29 and beta.30 are immutable invalidated history.
+**Current focus:** Stop at Plan 02-14's hard human update checkpoint using availability-proven beta.31; public beta.25, beta.29 and beta.30 remain immutable invalidated history.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-39 revalidated and locally signed beta.31; 19 of 41 have completion summaries; corrective 02-13 publication rerun remains
-Status: beta.31 dual-target archives are signed and locally verified; no beta.31 tag, release or remote asset exists
+Plan: 02-13 revalidated, published and anonymously verified beta.31; 19 of 41 have completion summaries; 02-14 hard human action is next
+Status: beta.31 release 380751233 and both exact assets are public and availability-proven; no update, install or live action has run
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (02-38 and 02-39 are current for beta.31; 02-13 requires a corrective rerun before publication evidence is current)
+- Total plan summaries on disk: 32 (02-38, 02-39 and 02-13 are current for availability-proven beta.31)
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.31 signed and locally verified, publication rerun required; update/live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.31 published and anonymously availability-proven; update/live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active corrective position is 02-39 beta.31 completion
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is the 02-14 hard human update gate
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -62,7 +62,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
 | Phase 02 P39 | 2h01min cumulative | 2 tasks | 2 files |
-| Phase 02 P13 | 20min active | 2 tasks | 3 files |
+| Phase 02 P13 | 10min beta.31 completion | 2 tasks | 3 files |
 | Phase 02 P38 corrective reruns | 2h25min cumulative | 2 tasks | 13 tracked files |
 
 ## Accumulated Context
@@ -97,7 +97,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Full source identity and canonical origin exist only in the paired local-UI protected projection; bearer/model/receipt outputs are rebuilt from redacted allowlists. — Prevents protected identity from reaching CLI, MCP, logs, diagnostics or receipts.
 - [Phase 02]: Ordinary login action IDs are restart-revoked, single-use and bound to the authenticated browser session, source, approved config and runtime generation; they grant no evidence authority. — Prevents forged, cross-session or replayed login completion from authorizing probes or live receipts.
 - [Phase 02]: Auth mutations require paired cookie principal, exact same-origin and CSRF together; CLI and MCP remain auth status/receipt read-only. — Preserves one local control plane without bearer mutation authority.
-- [Phase 02]: beta.21 through beta.30 are permanently consumed and invalidated; beta.31 is the sole active source-bound selection/report. — beta.25, beta.29 and beta.30 remain immutable published history, while unpublished invalidated identities cannot be reused.
+- [Phase 02]: beta.21 through beta.30 are permanently consumed and invalidated; beta.31 is the sole active published and availability-proven update candidate. — beta.25, beta.29 and beta.30 remain immutable published history, while unpublished invalidated identities cannot be reused.
 - [Phase 02]: Historical signed beta.24/beta.25/beta.29/beta.30 used one stable signed install-prompt core plus an external exact-target binding, but those bytes cannot be reused after invalidation. — A fresh beta.31 assembly must preserve the same self-reference-safe contract.
 - [Phase 02]: Historical Plan 02-39 beta.30 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; beta.31 requires an entirely fresh assembly/signing rerun. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
 - [Phase 02]: Published beta.25 remains immutable public history but is not an active update candidate. — The update-freshness correction changed selected source; no tag, release or asset was overwritten or deleted.
@@ -107,6 +107,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Published beta.30 is permanently availability-unproven because its first and only anonymous verifier attempt produced no receipt. — Release 380716930, its tag and both assets remain untouched historical data; same-version retry, reuse or overwrite is forbidden.
 - [Phase 02]: A bounded anonymous metadata/HEAD readiness gate precedes the one full byte/hash/signature/closure verifier attempt. — Readiness makes no availability claim, fails closed on mismatch/timeout and never authorizes retrying a consumed public identity.
 - [Phase 02]: Fresh beta.31 archives replace invalidated beta.30 as the sole active Plan 02-39 output; historical public bytes remain untouched and unusable for update. — The new identity was completely rebuilt and protected-key signed rather than relabelled.
+- [Phase 02]: beta.31 release 380751233 passed bounded anonymous readiness and its first full-byte verifier, binding asset IDs 539997596/539997598 to exact hashes, signatures, fingerprint, license, prompt and 16-member/27-capability closure. — Publication is distribution evidence only; update, Windows native and live gates remain pending.
 
 ### Pending Todos
 
@@ -125,7 +126,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；实际CLI/MCP已验证，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
-- 默认gh活动账号仍为ywan1303且未切换；Plan 02-13仅使用受保护隔离配置中的returdex账号发布beta.25，并核对repo-local author/committer、repository ID与同名远程。后续远程操作仍须重复这些隔离身份检查，绝不能回退到默认账号。
+- 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
 
@@ -144,6 +145,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T18:52:49.000Z
-Stopped at: Completed corrective 02-39 beta.31 local assembly/signing; corrective 02-13 publication rerun remains
+Last session: 2026-09-01T19:05:47.000Z
+Stopped at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
 Resume file: None
