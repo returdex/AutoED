@@ -313,7 +313,7 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
     const url = new URL(route.request().url());
     const loopback = url.origin === api.origin;
     uiRequests.push({ context: 'ui', source: null, action: 'ui', method: route.request().method(), origin: url.origin, classification: loopback ? 'loopback' : 'blocked', at: Date.now() });
-    if (!loopback) await route.abort('blockedbyclient'); else await route.continue();
+    if (!loopback) await route.abort('blockedbyclient'); else await route.fallback();
   });
   const uiPage = await uiContext.newPage();
   const consoleMessages: string[] = [];
