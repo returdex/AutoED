@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Plan 02-39 decision checkpoint; approve a non-cyclic install-prompt contract before signing
+stopped_at: User approved the two-layer install-prompt contract; resuming Plan 02-39
 last_updated: "2026-09-01T05:48:36.961Z"
 last_activity: 2026-09-01
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Resolve the Plan 02-39 install-prompt hash-cycle decision before any Keychain access, signing, assembly, or publication.
+**Current focus:** Apply the approved two-layer install-prompt contract, then assemble, sign and locally verify beta.22 without publication.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-39 checkpoint; 17 of 41 completed
-Status: Waiting for explicit user decision on the release prompt contract
+Plan: 02-39 resumed; 17 of 41 completed
+Status: Executing the explicitly approved two-layer prompt correction
 Last activity: 2026-09-01
 
 Plan progress: Phase 2 execution 17/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
