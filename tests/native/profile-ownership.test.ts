@@ -43,4 +43,34 @@ describe('native macOS managed Profile ownership and lifecycle', () => {
     const value = await harness();
     expect(await value.verifyCaptureBoundary()).toMatchObject({ externalRequests: 0, sensitiveCaptures: 0 });
   });
+
+  it('worker crash keeps browser ownership separate until confirmed exit', async () => {
+    const value = await harness();
+    expect(await value.verifyWorkerCrash()).toMatchObject({ workerExited: true, browserSeparated: true, lateCommits: 0 });
+  });
+
+  it('cancel aborts in-flight work with no late request or commit', async () => {
+    const value = await harness();
+    expect(await value.verifyCancel()).toMatchObject({ aborted: true, lateRequests: 0, lateCommits: 0 });
+  });
+
+  it('lease loss and generation fence stop work before request and commit', async () => {
+    const value = await harness();
+    expect(await value.verifyAuthorityLoss()).toMatchObject({ blockedStages: 3, productSignals: 0 });
+  });
+
+  it('Codex boundary keeps detached installation processes alive after launcher exit', async () => {
+    const value = await harness();
+    expect(await value.verifyCodexBoundary()).toMatchObject({ scenario: 'native_process_boundary', evidence: 'N', launcherExited: true, servicesAlive: true });
+  });
+
+  it('owned reclaim rejects every incomplete or unregistered proof', async () => {
+    const value = await harness();
+    expect(await value.verifyOwnedReclaim()).toMatchObject({ exactReclaimed: 1, rejected: 6, unrelatedAlive: true });
+  });
+
+  it('N evidence cannot write live, Windows or another scenario cell', async () => {
+    const value = await harness();
+    expect(await value.verifyNativeEvidence()).toMatchObject({ macosN: 2, rejected: 3, windows: 'not_run', live: 'human_needed', phase3: 'blocked' });
+  });
 });
