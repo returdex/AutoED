@@ -1,7 +1,8 @@
 import type {
-  Authorization, BuildIdentity, ComponentObservation, InstallProjection, Job, JobRequest, Lease,
-  MaintenanceGate, OutputDestination, OutputOperation, ProcessIdentity, ProcessLaunch,
-  Scope, SelfcheckProjection, Status, WriteContext,
+  AccountBinding, ApprovedSourceConfig, Authorization, BuildIdentity, ComponentObservation, EvidenceCellKey,
+  EvidenceReceipt, InstallProjection, Job, JobRequest, Lease, MaintenanceGate, NativePlatform, OutputDestination,
+  OutputOperation, ProcessIdentity, ProcessLaunch, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation, Scope,
+  SelfcheckProjection, SourceId, SourceObservation, SourceProbeRequest, SourceProbeResult, Status, WriteContext,
 } from '../../domain/src/model.js';
 
 export interface Clock { now(): number }
@@ -49,4 +50,60 @@ export interface StatusProjectionStore {
   writeComponent(observation: ComponentObservation, context: ProjectionWriteContext): Promise<void>;
   writeInstall(projection: InstallProjection, context: ProjectionWriteContext): Promise<void>;
   writeSelfcheck(projection: SelfcheckProjection, context: ProjectionWriteContext): Promise<void>;
+}
+
+/** A sealed source adapter accepts only a request that already passed the strict runtime contract. */
+export interface SourceProbePort {
+  probe(request: SourceProbeRequest, signal: AbortSignal): Promise<SourceProbeResult>;
+}
+
+/** Only the dedicated confirmation flow writes approved source configuration. */
+export interface SourceConfigStore {
+  read(source: SourceId): Promise<ApprovedSourceConfig | null>;
+  confirm(config: ApprovedSourceConfig, context: WriteContext): Promise<void>;
+}
+
+/** Each source owns an independent observation and last-success record. */
+export interface SourceObservationStore {
+  read(source: SourceId): Promise<SourceObservation | null>;
+  write(observation: SourceObservation, context: WriteContext): Promise<void>;
+}
+
+export interface AccountBindingStore {
+  read(): Promise<AccountBinding>;
+  write(binding: AccountBinding, context: WriteContext): Promise<void>;
+}
+
+export interface ProfileOwnershipStore {
+  read(): Promise<ProfileOwnership>;
+  acquire(reservation: ProfileReservation, context: WriteContext): Promise<ProfileOwnership>;
+  renew(owner: ProfileOwnerIdentity, leaseUntil: number, context: WriteContext): Promise<ProfileOwnership>;
+  markConfirmedExited(owner: ProfileOwnerIdentity, context: WriteContext): Promise<ProfileOwnership>;
+  release(owner: ProfileOwnerIdentity, context: WriteContext): Promise<void>;
+}
+
+export type EvidenceWriterAuthority =
+  | { kind: 'automated'; evidence: 'S' | 'I' | 'N'; platform: NativePlatform; producerId: string }
+  | { kind: 'human_action'; evidence: 'L'; platform: NativePlatform; actionReceiptId: string };
+
+/** Implementations must match authority evidence and platform to the complete receipt key before append. */
+export interface EvidenceLedger {
+  append(receipt: EvidenceReceipt, authority: EvidenceWriterAuthority, context: WriteContext): Promise<void>;
+  list(key: EvidenceCellKey): Promise<EvidenceReceipt[]>;
+}
+
+/**
+ * Reservation checks the current holder first. A running holder returns PROFILE_IN_USE/human_needed;
+ * unknown or mismatched ownership returns PROFILE_OWNERSHIP_UNCONFIRMED/human_needed. Fencing or lease
+ * expiry never proves exit. Release requires the same installation, nonce, OS start identity and exact
+ * executable; stale state is cleanable only after inspect returns confirmed_exited.
+ */
+export interface ProfileOwnershipCoordinator {
+  reserve(input: { installationId: string; browserBuildId: string; generation: number; fence: number }): Promise<ProfileOwnership>;
+  attach(
+    reservation: ProfileReservation,
+    process: { pid: number; osStartIdentity: string; executable: string; startedAt: string },
+  ): Promise<ProfileOwnership>;
+  inspect(owner: ProfileOwnerIdentity): Promise<ProfileOwnership>;
+  release(owner: ProfileOwnerIdentity): Promise<void>;
 }
