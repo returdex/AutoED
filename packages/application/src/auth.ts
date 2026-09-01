@@ -5,8 +5,9 @@ import type {
   SourceObservation,
   SourceProbeResult,
   SourceResultCode,
+  WriteContext,
 } from '../../domain/src/model.js';
-import type { SourceProbePort } from './ports.js';
+import type { AccountBindingStore, SourceProbePort } from './ports.js';
 
 export const AUTH_RECOVERY_DELAYS_MS = [0, 5_000, 30_000] as const;
 
@@ -275,6 +276,25 @@ export function decideAccountBinding(input: BindingDecisionInput): BindingDecisi
       checkedAt,
     },
   };
+}
+
+/** Persists only evidence-derived candidate or drift decisions; human confirmation remains an API-only action. */
+export class IdentityBindingCoordinator {
+  constructor(private readonly store: AccountBindingStore, private readonly now: () => string = () => new Date().toISOString()) {}
+
+  async reconcile(moodle: IdentityEvidence | null, edstem: IdentityEvidence | null, context: WriteContext): Promise<BindingDecision> {
+    const current = await this.store.read();
+    const decision = decideAccountBinding({
+      moodle,
+      edstem,
+      confirmed: current.status === 'confirmed' ? current : null,
+      checkedAt: this.now(),
+    });
+    if (decision.binding.status === 'candidate' || decision.binding.status === 'identity_mismatch') {
+      await this.store.write(decision.binding, context);
+    }
+    return decision;
+  }
 }
 
 function authProbe(source: SourceId): AuthEffect {

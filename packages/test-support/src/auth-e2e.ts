@@ -1,12 +1,12 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page, type Route } from 'playwright';
 import type { SecretStore, SourceProbePort } from '../../application/src/ports.js';
-import { decideAccountBinding } from '../../application/src/auth.js';
+import { IdentityBindingCoordinator } from '../../application/src/auth.js';
 import { AuthJobRunner, AuthJobService, type AuthJob } from '../../application/src/auth-jobs.js';
 import type {
-  AccountBinding, ApprovedSourceConfig, EvidenceReceipt, IdentityEvidence, ProfileOwnerIdentity, ProtectedSourceIdentity,
+  AccountBinding, ApprovedSourceConfig, EvidenceReceipt, ProfileOwnerIdentity, ProtectedSourceIdentity,
   SourceId, SourceProbeRequest, SourceProbeResult, UatScenario,
 } from '../../domain/src/model.js';
 import { startApi } from '../../../apps/api/src/main.js';
@@ -104,7 +104,7 @@ class SyntheticSourceChromium {
 
   constructor(options: SyntheticAuthE2EOptions, installationId: string, barrier: BarrierControl) {
     this.#scenario = { moodle: options.moodleScenario ?? 'direct', edstem: options.edstemScenario ?? 'direct' };
-    this.#subject = { moodle: 'stable-synthetic-subject', edstem: options.edstemSubject ?? 'stable-synthetic-subject' };
+    this.#subject = { moodle: 'stable-synthetic-subject', edstem: 'stable-synthetic-subject' };
     this.#barrier = barrier;
     this.#owner = {
       installationId, browserBuildId: BUILD_ID, nonce: randomUUID(), generation: 0, fence: 1,
@@ -116,6 +116,8 @@ class SyntheticSourceChromium {
   async start(): Promise<void> {
     this.#browser = await chromium.launch({ headless: true, args: ['--no-proxy-server'] });
   }
+
+  setSubject(source: SourceId, value: string): void { this.#subject[source] = value; }
 
   async openBackground(input: BrowserOpenInput, guard: BrowserOpenGuard): Promise<BrowserProbeSession> {
     if (guard.signal.aborted || guard.expectedGeneration !== 0 || input.readOrigins.length !== 1 || input.readOrigins[0] !== ORIGINS[input.source]) {
@@ -236,15 +238,6 @@ function protectedIdentity(source: SourceId, subject: string): ProtectedSourceId
   };
 }
 
-function identityEvidence(source: SourceId, subject: string): IdentityEvidence {
-  const digest = (kind: 'subject' | 'organization' | 'tenant', value: string) => createHash('sha256')
-    .update(`autoed-source-evidence-v1\0${kind}\0${value}`, 'utf8').digest('base64url');
-  return {
-    source, subjectFingerprint: digest('subject', subject), organizationFingerprint: digest('organization', 'stable-synthetic-organization'),
-    tenantFingerprint: digest('tenant', 'stable-synthetic-tenant'), approvedScopeId: SCOPE_ID, evidenceKind: 'stable_subject_organization_scope',
-  };
-}
-
 export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = {}) {
   const harness = createHarness();
   const barrier = new BarrierControl(options.barrier);
@@ -261,15 +254,7 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
   await configs.confirm(config('edstem', clock.nowIso()), context);
   const observations = new SQLiteSourceObservationStore(db, { now: clock.nowMs });
   const bindings = new SQLiteAccountBindingStore(db, { now: clock.nowMs });
-  if (options.edstemSubject && options.edstemSubject !== 'stable-synthetic-subject') {
-    const baselineDecision = decideAccountBinding({
-      moodle: identityEvidence('moodle', 'stable-synthetic-subject'), edstem: identityEvidence('edstem', 'stable-synthetic-subject'),
-      confirmed: null, checkedAt: clock.nowIso(),
-    });
-    if (baselineDecision.binding.status !== 'candidate') throw new Error('SYNTHETIC_BASELINE_BINDING_INVALID');
-    await bindings.write(baselineDecision.binding, context);
-    await bindings.write({ ...baselineDecision.binding, status: 'confirmed', basis: 'human_confirmed', confirmedByActionReceiptId: randomUUID(), courseAccess: 'allowed' }, context);
-  }
+  const bindingCoordinator = new IdentityBindingCoordinator(bindings, clock.nowIso);
   const evidence = new SQLiteEvidenceLedger(db, { now: clock.nowMs });
   const authJobStore = new SQLiteAuthJobStore(db, { now: clock.nowIso });
   const authJobService = new AuthJobService(authJobStore);
@@ -362,9 +347,7 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
     const moodle = results.get('moodle')?.identity ?? null;
     const edstem = results.get('edstem')?.identity ?? null;
     if (!moodle || !edstem) return;
-    const current = await bindings.read();
-    const decision = decideAccountBinding({ moodle, edstem, confirmed: current.status === 'confirmed' ? current : null, checkedAt: clock.nowIso() });
-    if (decision.binding.status !== 'unbound') await bindings.write(decision.binding, context);
+    await bindingCoordinator.reconcile(moodle, edstem, context);
   }
   async function pump(): Promise<AuthJob | null> {
     const job = await runner.runOnce('synthetic-auth-e2e-worker', context);
@@ -386,9 +369,22 @@ export async function createSyntheticAuthE2E(options: SyntheticAuthE2EOptions = 
     if ((await bindings.read()).status !== expected) throw new Error('BINDING_STATUS_TIMEOUT');
   }
   async function completeDualProbe() {
-    await enqueueLoginCompleted('moodle');
-    await pump();
-    await pump();
+    const runDual = async () => {
+      await enqueueLoginCompleted('moodle');
+      await pump();
+      await pump();
+    };
+    if (options.edstemSubject && options.edstemSubject !== 'stable-synthetic-subject') {
+      await runDual();
+      if (uiPage.url() === 'about:blank') await pair();
+      const confirmation = uiPage.waitForResponse(response => response.url().endsWith('/api/auth/binding/confirm'));
+      await uiPage.getByRole('button', { name: '确认两个账户对应' }).click();
+      if ((await confirmation).status() !== 200) throw new Error('SYNTHETIC_BASELINE_CONFIRMATION_FAILED');
+      await waitForBindingStatus('confirmed');
+      sourceChromium.setSubject('edstem', options.edstemSubject);
+      results.clear();
+    }
+    await runDual();
     if (uiPage.url() === 'about:blank') await pair();
   }
   async function requestCancel(source: SourceId) {
