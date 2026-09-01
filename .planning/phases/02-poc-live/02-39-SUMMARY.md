@@ -2,18 +2,18 @@
 phase: 02-poc-live
 plan: "39"
 subsystem: release-assembly
-tags: [ed25519, keychain, signed-archive, install-prompt, capability-closure]
+tags: [ed25519, keychain, signed-archive, install-prompt, capability-closure, invalidated]
 requires:
   - phase: 02-poc-live
     plans: ["38", "41"]
-    provides: beta.24 immutable quality identity and two-layer Phase 2 release contracts
+    provides: historical beta.24 immutable quality identity and two-layer Phase 2 release contracts (subsequently invalidated)
   - phase: 01-beta
     plan: "12"
     provides: fixed protected Keychain Ed25519 trust root
 provides:
-  - locally assembled and signed beta.24 archives for darwin-arm64 and win32-x64
-  - exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
-  - external install prompt binding the signed core to exact per-target archive coordinates
+  - historical invalidated beta.24 signed-archive evidence for darwin-arm64 and win32-x64
+  - historical exact 16-member signed closure containing 15 production evidence members plus the stable install-prompt core
+  - sanitized proof that the unpublished beta.24 outputs cannot be reused after publisher correction
 affects: [02-40, Phase 2 publication, Phase 2 live UAT]
 tech-stack:
   added: []
@@ -37,7 +37,11 @@ completed: 2026-09-02
 
 # Phase 2 Plan 39: Signed Dual-Target Beta Assembly Summary
 
-**Protected-Keychain Ed25519 signing produced exact beta.24 macOS arm64 and Windows x64 archives with a shared 16-member/27-capability closure and a self-reference-safe two-layer install prompt.**
+**Historical beta.24 signing produced exact dual-target archives, but the later publisher correction permanently invalidated that unpublished identity; its receipts are no longer active and its local bytes cannot be reused.**
+
+## Subsequent Invalidation
+
+Plan 02-13 stopped before remote mutation when the publisher could not distinguish an exact absent-tag GitHub 422 from other errors and compared remote public versions with the separate local consumed-version history. RED/GREEN commits `c4cabf0` and `0e189bc` corrected those semantics, changing selected source. Commit `f80ae3b` therefore permanently invalidated beta.24 and removed `release/phase2-beta-artifacts.json` plus `release/phase2-install-prompt.md` from active canonical state. The ignored beta.24 archives remain local historical bytes only; they were never tagged or published and must not be reused, overwritten or relabelled. Plan 02-39 must run again for the active beta.25 selection.
 
 ## Performance
 
@@ -169,16 +173,16 @@ None. The already-approved protected Keychain signing identity was available and
 
 ## Next Phase Readiness
 
-- The exact beta.24 local artifacts and prompt are ready for the separately approved publication plan, subject to that plan's fresh immutable preflight.
-- Any source/tree/build/selection/report/core/archive drift must invalidate these outputs and return to Plan 02-38; they must never be resigned in place under the same identity.
+- Beta.24 is not ready for publication. Its tracked receipt/prompt are removed from active state and its ignored archives are historical only.
+- Plan 02-38 selected beta.25 after complete fresh gates. Plan 02-39 must assemble and sign new beta.25 targets before Plan 02-13 may resume.
 - Windows native and real login/reopen/restart/Codex-exit/cross-day/reauth evidence remain `not_run/human_needed`; Phase 3 remains blocked.
 
-## Self-Check: PASSED
+## Self-Check: PASSED (Historical and Invalidation State)
 
-- Both tracked output files and both ignored local target archives exist with the recorded exact byte counts and SHA-256 values.
-- All six listed RED/GREEN/output commits exist in history, and neither task commit deleted tracked files.
-- The final exact read-only preflight and complete 14-test release-gate file pass against beta.24.
-- The temporary local assembly driver was removed, no source path differs from the selected beta.24 commit, and `git diff --check` passes.
+- Original assembly commits `5c3a7b4` and `3f11232` preserve both tracked output files and their exact signed values in Git history.
+- `02-38-BETA-24-INVALIDATION.md` records the selection/report/artifact/prompt/archive hashes and confirms no tag, release, asset or publication receipt consumed beta.24.
+- Active canonical beta.24 artifact/prompt files are absent, while the ignored local archives remain untouched historical bytes.
+- The active beta.25 selection/report supersede beta.24; no current preflight may accept the old artifacts.
 
 ---
 *Phase: 02-poc-live*

@@ -220,7 +220,7 @@ updated: 2026-08-26
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 18/41 | In progress — beta.24 dual-target archives signed and locally verified; not published; Windows/live gates remain blocked | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 18/41 | In progress — beta.21-beta.24 invalidated; publisher-corrected beta.25 selected but not signed/published; Windows/live gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -228,7 +228,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2的02-01至02-12、02-35至02-39及02-41已完成；两层提示词纠正使`0.1.0-beta.22`永久失效，确定性组装路径纠正又使`0.1.0-beta.23`永久失效，`0.1.0-beta.24`已在完整新鲜绿色质量门后完成双目标本地签名与验证，下一依赖序计划为02-13发布及匿名可获取性核验。尚未创建tag/release/remote asset，44个真实L cell仍缺失；这不授权自动登录、live UAT或推进Phase3。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2的02-01至02-12、02-35至02-39及02-41已有历史完成记录；发布预检在任何远程变更前暴露了精确缺失tag及公开版本/本地已消耗版本对账缺口，使未发布的`0.1.0-beta.24`永久失效。`0.1.0-beta.25`已通过完整新鲜质量门但尚未签名，下一步必须重跑02-39，不能直接恢复02-13。尚未创建beta.24/beta.25 tag、release或remote asset，44个真实L cell仍缺失；这不授权自动登录、live UAT或推进Phase3。
 
 ## Backlog
 

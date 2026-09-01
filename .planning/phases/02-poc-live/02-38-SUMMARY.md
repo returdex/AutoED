@@ -8,13 +8,13 @@ requires:
     plans: ["10", "11", "12", "36", "37", "41"]
     provides: production auth workflow, complete release contracts and fixed quality schemas
 provides:
-  - immutable unused Phase 2 identity 0.1.0-beta.24
+  - immutable unused Phase 2 identity 0.1.0-beta.25
   - exact build-bound five-suite automated test report
-  - explicit sanitized permanent invalidation of beta.21, beta.22 and beta.23
+  - explicit sanitized permanent invalidation of beta.21 through beta.24
 affects: [02-39, 02-13, 02-14 through 02-34, Phase 2 release]
 tech-stack:
   added: []
-  patterns: [explicit synthetic-port injection, fail-closed client evidence, deterministic recovery faults, semantic dependency-path privacy classification, source-bound quality receipts]
+  patterns: [explicit synthetic-port injection, fail-closed client evidence, deterministic recovery faults, semantic dependency-path privacy classification, exact absent-tag classification, separate public and consumed version histories, source-bound quality receipts]
 key-files:
   created:
     - release/phase2-build-selection.json
@@ -22,8 +22,10 @@ key-files:
     - .planning/phases/02-poc-live/02-38-BETA-21-INVALIDATION.md
     - .planning/phases/02-poc-live/02-38-BETA-22-INVALIDATION.md
     - .planning/phases/02-poc-live/02-38-BETA-23-INVALIDATION.md
+    - .planning/phases/02-poc-live/02-38-BETA-24-INVALIDATION.md
   modified:
     - scripts/build/assemble.mjs
+    - scripts/release/publish.mjs
     - tests/integration/phase2-release-gates.test.ts
     - vitest.config.ts
     - packages/platform/src/installation.ts
@@ -33,17 +35,17 @@ key-files:
     - tests/integration/client-wiring.test.ts
     - tests/integration/two-build-upgrade.test.ts
 key-decisions:
-  - "0.1.0-beta.21, drifted 0.1.0-beta.22 and drifted 0.1.0-beta.23 are permanently invalidated; 0.1.0-beta.24 is the next monotonically increasing consumed identity."
+  - "0.1.0-beta.21 through 0.1.0-beta.24 are permanently invalidated; 0.1.0-beta.25 is the next monotonically increasing consumed identity."
   - "Production installation remains fixed to loopback port 43187; only explicitly marked synthetic tests receive one run-scoped ephemeral port."
   - "The report binds only public identity, command/source hashes, bounded counts, zero findings and explicit gaps; it contains no raw output or live evidence."
 requirements-completed: []
-duration: 2h58min cumulative
+duration: 3h30min cumulative
 completed: 2026-09-02
 ---
 
 # Phase 2 Plan 38: Immutable Beta Quality Binding Summary
 
-**Unused beta.24 is bound to the corrected deterministic-assembly source and five freshly green automated suites; beta.21, beta.22 and beta.23 remain permanently invalidated, while every Windows/live/Phase 3 gate remains blocking.**
+**Unused beta.25 is bound to the publisher-corrected source and five freshly green automated suites; beta.21 through beta.24 remain permanently invalidated, while every Windows/live/Phase 3 gate remains blocking.**
 
 ## Performance
 
@@ -71,23 +73,32 @@ completed: 2026-09-02
 - **RED/GREEN commits:** 2
 - **Invalidation/selection/report commits:** 3
 
+### Publisher correction rerun
+
+- **Duration:** 32 min
+- **Started:** 2026-09-01T14:32:24Z
+- **Completed:** 2026-09-01T15:04:08Z
+- **Tasks:** 2
+- **RED/GREEN commits:** 2
+- **Invalidation/selection/report commits:** 3
+
 ## Selected Identity
 
 | Field | Value |
 |---|---|
-| Version | `0.1.0-beta.24` |
-| Tag | `v0.1.0-beta.24` |
-| Source commit | `435c983e06a71559bc764ce34f5099966d94d29e` |
-| Source tree | `c82c26962fe0654c6f78f4d5bb7e0dccb71ff2d4` |
-| Build ID | `0334678a9e462b2aea6ee32ccf6b00320bad13273baf89f8dca673eecb17c8eb` |
-| Source SHA-256 | `e7e9d13a2494639d5ae52dadeb334f2d1c2c011267383b0d7119c2f844d4b7a4` |
-| Version-set SHA-256 | `68ee95e20fa885872827dcad86a1ac87503d5817d0e98ee8a5d0e4b0d42b9203` |
-| Selection SHA-256 | `c29631d87d131fd78ba5e970aa907e7c595c8be2037895786eec5ffd03d4e995` |
-| Test-report SHA-256 | `b91a2458927a5607bc95ad4a0c551661fd414629b3728bc9425b29ebb476c43c` |
+| Version | `0.1.0-beta.25` |
+| Tag | `v0.1.0-beta.25` |
+| Source commit | `f80ae3b6f7bb5f600e0a0a60b55c61c1a043f804` |
+| Source tree | `8e702d1311e26dd26bd4b191a9157a5f29db4772` |
+| Build ID | `6c44e404b42e72c8dfb3f1dfef3bb9aa1f5cb95f17de32280019cc23c89c20e5` |
+| Source SHA-256 | `24478d9e7d392e538b0037cb4b804c629f0f864b427d585dc2d871f49bec221c` |
+| Version-set SHA-256 | `d99d2c596d648d9c7a9dbab9e347f3294623a5e92216ffdc135fab4fce70ad62` |
+| Selection SHA-256 | `4a2c250708d02ee19b2e44bd0de215850a08620ad3eac4ff0991702eeec94bae` |
+| Test-report SHA-256 | `005c62b326bd13aa0ec62e583858b6377d0405454ca7f846011b9f789e18d51a` |
 | Trust fingerprint | `fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557` |
 | License | `PolyForm-Noncommercial-1.0.0` |
 
-Immediately before beta.24 selection, unauthenticated read-only observations agreed that public, local and direct-remote tags/releases ended at beta.20. Neither beta.23 nor beta.24 existed as a tag, release or asset, and no Phase 2 artifact/prompt/publication/availability receipt existed. Beta.23 was consumed only by its immutable local selection/report history, then permanently invalidated because corrective commits `ab833b2` and `2958d61` changed the source required for deterministic assembly. No tag, release, asset or remote object was created or changed.
+Immediately before beta.25 selection, unauthenticated read-only observations agreed that public, local and direct-remote tags/releases ended at beta.20. Neither beta.24 nor beta.25 existed as a tag, release or remote asset, and no Phase 2 publication/availability receipt existed. Beta.24 was consumed by immutable selection/report and local signed-artifact history, then permanently invalidated because corrective commits `c4cabf0` and `0e189bc` changed the publisher source before any remote mutation. Its ignored signed archives remain preserved historical bytes and cannot be published or relabelled.
 
 ## Automated Evidence
 
@@ -95,14 +106,14 @@ Immediately before beta.24 selection, unauthenticated read-only observations agr
 |---|---:|---:|---:|---|
 | Typecheck | 1 command | 0 | 0 | `c8cdec81b63a83f09579ad0f57459db7cda7610a31a3a4d482fc74384df5b02d` |
 | Unit | 143 | 0 | 0 | `b98c3b0584afe9dfa05fc96c87f247733c92ebd894229fb80b5e46c6035d8f50` |
-| Integration | 344 | 0 | 0 | `b596a73c156f87c41f683dc1f4767070d87cf9eb22ebcb0503bff0ecbf90e0ea` |
+| Integration | 346 | 0 | 0 | `b596a73c156f87c41f683dc1f4767070d87cf9eb22ebcb0503bff0ecbf90e0ea` |
 | UI | 34 | 0 | 0 | `84d510b7e28d16445e7d3212cabe49a7cd8dd0280e5c5528b395f7527c9a7ca9` |
 | macOS native | 24 | 0 | 0 | `50ca1a215155bb52b4fd8ced7a16c49135b26fc0fe3b6e1e6c2cc3882e599c66` |
 
-- Task 1 exact verification filter: **3/3 intended tests passed**; 11 unrelated tests were excluded by the approved focused filter.
+- Task 1 exact verification filter: **3/3 intended tests passed**; 13 unrelated tests were excluded by the approved focused filter.
 - No `describe/it/test.skip`, `.todo` or `.only` invocation exists in the test tree.
-- Sensitive scan: **0 findings** over `tracked`, `history`, `working_tree` and `captured_output`; digest `3c6fe36e8ba1b7768069dda6e0dd61ddb14f3e5566e61c301a6f83e0a717bb6e`.
-- Reachable history: 911 blobs checked; three reviewed detector/negative fixtures were accepted by the existing exact exception allowlist. The tracked surface covered 296 files / 3,942,603 bytes; captured output covered five fresh logs / 15,379 bytes.
+- Sensitive scan: **0 findings** over `tracked`, `history`, `working_tree` and `captured_output`; digest `cf08741c8b4f287a7b1b0e5b1d656f70e93968954c170f92a3ad6b9653f440eb`.
+- Reachable history: 926 blobs checked; three reviewed detector/negative fixtures were accepted by the existing exact exception allowlist. The tracked surface covered 298 files / 3,967,456 bytes; captured output covered five fresh logs / 15,485 bytes.
 
 ## Hard Gaps
 
@@ -116,7 +127,15 @@ macOS automation/native evidence does not create L authority, satisfy Windows ev
 
 ## Task Commits
 
-Current deterministic-assembly correction rerun:
+Current publisher correction rerun:
+
+1. **RED: require exact absent-tag classification and public/consumed reconciliation** — `c4cabf0`
+2. **GREEN: reconcile absent tags and consumed beta identities fail-closed** — `0e189bc`
+3. **Invalidate unpublished signed beta.24 and remove its active release metadata** — `f80ae3b`
+4. **Task 1: lock publisher-corrected beta.25 identity** — `c8dc1d9`
+5. **Task 2: bind complete fresh beta.25 quality evidence** — `000dc35`
+
+Historical deterministic-assembly correction rerun:
 
 1. **RED: prove declared cookie dependencies differ from runtime credential artifacts** — `ab833b2`
 2. **GREEN: classify only package-name cookie segments under `node_modules` as dependencies** — `2958d61`
@@ -212,13 +231,27 @@ Supporting repair/invalidation commits:
 - **Fix:** Rebuilt variant B at selected commit `435c983` in an isolated local clone, verified commit/tree/build equality, copied only ignored generated output back, and required byte-identical generated directories before report creation.
 - **Committed in:** no source change; generated ignored output only
 
-Beta.21 was not repaired in place. Its failed counts and public identity are preserved in `02-38-BETA-21-INVALIDATION.md`. Beta.22 and beta.23 were also not rewritten: their invalidation records preserve exact identities, original receipt/report commits, correction bases and proof that no local/remote/public release object consumed them. Beta.24 alone is the active canonical selection/report.
+**10. [Rule 1 - Publisher Reconciliation] Separated exact absent tags, public releases and local consumption**
 
-**Total deviations:** 9 auto-fixed across the original and corrective reruns (5 Rule 1 correctness fixes, 4 Rule 3 blocking/generated-output fixes). **Impact:** All fixes preserve the exact production, privacy and evidence boundaries; no release, identity, live or platform scope expanded.
+- **Found during:** Plan 02-13 immutable publication preflight before remote mutation
+- **Issue:** GitHub reports an absent intended commit ref as a specific HTTP 422, while the publisher also compared the public release-set digest with the distinct local monotonic consumed-version digest. The former stopped a legitimate absence check and the latter could not represent unpublished invalidations honestly.
+- **Fix:** Accepted only the exact queried-tag `No commit found for SHA` HTTP 422, retained fail-closed handling for every misleading/other 422, validated remote public versions against their own digest, validated the candidate against the complete local consumed prefix, and required exact active artifact/preflight identity before remote observation or mutation.
+- **Committed in:** RED `c4cabf0`, GREEN `0e189bc`
+
+**11. [Rule 3 - Generated Build Output] Restored beta.25 output after the complete rerun**
+
+- **Found during:** final beta.25 source/build binding check
+- **Issue:** The complete integration fixtures rebuilt ignored `dist/build` using their default current-HEAD identity, so generated output no longer matched selected beta.25 even though tracked source and build-input hashes remained exact.
+- **Fix:** Rebuilt variant B at selected commit `f80ae3b` in an isolated local clone, verified commit/tree/build equality, copied only ignored generated output back, and required byte-identical generated directories before report creation.
+- **Committed in:** no source change; generated ignored output only
+
+Beta.21 was not repaired in place. Its failed counts and public identity are preserved in `02-38-BETA-21-INVALIDATION.md`. Beta.22 through beta.24 were also not rewritten: their invalidation records preserve exact identities, original receipts, correction bases and proof that no local/remote/public release object consumed them. Beta.24's signed archives remain ignored historical bytes and are not active publication inputs. Beta.25 alone is the active canonical selection/report.
+
+**Total deviations:** 11 auto-fixed across the original and corrective reruns (6 Rule 1 correctness fixes, 5 Rule 3 blocking/generated-output fixes). **Impact:** All fixes preserve the exact production, privacy, version and evidence boundaries; no release, identity, live or platform scope expanded.
 
 ## TDD Gate Compliance
 
-Task 1 consumes the already-implemented strict contract from Plan 02-41. The approved two-layer correction has RED commit `3771e77` followed by GREEN commit `eb2843d`. The deterministic-assembly correction has RED commit `ab833b2` followed by GREEN commit `2958d61`; its full 14-test release-gate file and typecheck passed before selection. The Plan 02-38 focused selection filter then passed its exact three intended tests before beta.24 selection; no artificial failing test was introduced for a generated receipt.
+Task 1 consumes the already-implemented strict contract from Plan 02-41. The approved two-layer correction has RED/GREEN `3771e77` → `eb2843d`; deterministic assembly has `ab833b2` → `2958d61`; publisher reconciliation has `c4cabf0` → `0e189bc`. The complete 16-test release-gate file and typecheck passed before beta.25 selection. The Plan 02-38 focused selection filter then passed its exact three intended tests; no artificial failing test was introduced for a generated receipt.
 
 ## Known Stubs
 
@@ -244,23 +277,25 @@ None encountered or invoked. Repository/version checks used unauthenticated read
 - Permanently consumed beta.21 rather than rewriting its failed immutable selection.
 - Permanently consumed beta.22 after the approved source correction rather than reusing its old green report.
 - Permanently consumed beta.23 after the assembly-path correction rather than reusing its old green report.
-- Selected beta.24 from the converged public/local/direct-remote version surfaces and all three prior invalidation histories.
+- Permanently consumed beta.24 after the publisher correction rather than publishing its stale signed bytes.
+- Selected beta.25 from the converged public/local/direct-remote version surfaces and all four prior invalidation histories.
 - Allowed `cookie`/`cookies` only as declared package-name segments under `node_modules`; runtime Profile/Cookie/Cookies paths remain rejected.
+- Kept remote public beta history separate from the monotonic local consumed prefix; only an exact intended-tag GitHub 422 is treated as absence.
 - Kept the product port fixed while making test isolation explicit and non-production.
 - Bound only safe hashes/counts/gaps into the release report; raw captured output remains ignored local test material.
 
 ## Next Phase Readiness
 
-- Plan 02-39 may consume beta.24 selection/report for local assembly and signing only if its own source/version preflight still matches.
-- Any later source, tree, build, version-set or public-object race invalidates beta.24 and requires a new monotonically increasing candidate plus a full Plan 02-38 rerun.
+- Plan 02-39 must assemble and sign fresh beta.25 artifacts from this selection/report; beta.24 signed bytes and prompt are historical and cannot be reused.
+- Any later source, tree, build, version-set or public-object race invalidates beta.25 and requires a new monotonically increasing candidate plus a full Plan 02-38 rerun.
 - Windows native and all real live/UAT gates remain mandatory and blocking.
 
 ## Self-Check: PASSED
 
 - Selection and test-report schemas validate read-only with the recorded selection/report digests.
 - Version, source commit, tree, build ID and build-input hash exactly match the selected generated identity.
-- All listed repair, invalidation, correction, selection and evidence commits exist; all three invalidation records and both active receipts exist.
-- No beta.23 or beta.24 tag exists locally, no test skip/todo/only invocation exists, and `git diff --check` passes.
+- All listed repair, invalidation, correction, selection and evidence commits exist; all four invalidation records and both active receipts exist.
+- No beta.24 or beta.25 tag exists locally, no test skip/todo/only invocation exists, and `git diff --check` passes.
 
 ---
 *Phase: 02-poc-live*
