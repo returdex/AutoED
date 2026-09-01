@@ -8,6 +8,7 @@ import {
   PHASE2_CAPABILITIES,
   PHASE2_RELEASE_MEMBERS,
   canonicalSha256,
+  phase2VersionSetSha256,
   renderPhase2InstallPromptCore,
   validateBuildSelection,
   validatePhase2TestReport,
@@ -24,7 +25,7 @@ import {
   validatePhase2InstallPrompt,
   validatePhase2InstallPromptCore,
 } from '../../scripts/release/preflight.mjs';
-import {publishPhase2Release} from '../../scripts/release/publish.mjs';
+import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {verifyPhase2Availability} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 
@@ -35,11 +36,12 @@ const hash=(character:string)=>character.repeat(64);
 const commit=(character:string)=>character.repeat(40);
 const now='2026-09-01T10:00:00.000Z';
 
-function selection(){
+const betaVersions=(last:number)=>Array.from({length:last},(_,index)=>`0.1.0-beta.${index+1}`);
+function selection(betaNumber=21){
   return {
     schema:1,status:'selected',owner:'returdex',repository:'returdex/AutoED',repositoryId:1350421724,
-    version:'0.1.0-beta.21',tag:'v0.1.0-beta.21',commit:commit('a'),tree:commit('b'),buildId:hash('c'),
-    sourceSha256:hash('d'),versionSetSha256:hash('e'),trustFingerprint:'fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557',
+    version:`0.1.0-beta.${betaNumber}`,tag:`v0.1.0-beta.${betaNumber}`,commit:commit('a'),tree:commit('b'),buildId:hash('c'),
+    sourceSha256:hash('d'),versionSetSha256:phase2VersionSetSha256(betaVersions(betaNumber-1)),trustFingerprint:'fe7168c33489a34aaac2cefba36bc62bca76f9406a4b7293927a6b7e22201557',
     license:'PolyForm-Noncommercial-1.0.0',immutable:true,selectedAt:now,
     gaps:{windowsNative:'not_run/human_needed',live:'not_run/human_needed',phase3:'blocked'},
   } as const;
@@ -64,6 +66,9 @@ function artifactReceipt(selected=selection(),tested=report(selected),bodies={ma
   const target=(platform:'macos'|'windows')=>{const token=platform==='macos'?'darwin-arm64':'win32-x64',body=bodies[platform],name=`autoed-${selected.version}-${token}.tar.gz`;return{name,localPath:`.runtime/releases/${selected.version}/${name}`,url:`https://github.com/returdex/AutoED/releases/download/${selected.tag}/${name}`,bytes:body.length,sha256:sha(body),manifestSha256:hash(platform==='macos'?'7':'8'),signatureSha256:hash(platform==='macos'?'9':'a'),capabilityClosureSha256:hash('4')};};
   const installPromptCore=renderPhase2InstallPromptCore(selected,tested),draft={schema:1,status:'built_signed_verified_local',owner:'returdex',repository:'returdex/AutoED',repositoryId:1350421724,version:selected.version,tag:selected.tag,commit:selected.commit,tree:selected.tree,buildId:selected.buildId,selectionSha256:canonicalSha256(selected),testReportSha256:canonicalSha256(tested),sourceSha256:selected.sourceSha256,versionSetSha256:selected.versionSetSha256,manifestSha256:hash('5'),fingerprint:selected.trustFingerprint,license:selected.license,immutable:true,installPromptCoreSha256:sha(installPromptCore),externalPromptSha256:hash('6'),capabilitiesSha256:canonicalSha256(PHASE2_CAPABILITIES),targets:{macos:target('macos'),windows:target('windows')},gaps:selected.gaps},externalPrompt=renderPhase2ExternalInstallPrompt(draft)!;
   return {...draft,externalPromptSha256:sha(externalPrompt)};
+}
+function publicationPreflight(release=artifactReceipt()){
+  return {status:'pass',version:release.version,tag:release.tag,buildId:release.buildId,selectionSha256:release.selectionSha256,testReportSha256:release.testReportSha256,manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256,targets:['macos','windows']};
 }
 
 it('quality gate binds exact selection and test-report schema to one source identity',()=>{
@@ -169,8 +174,8 @@ it('artifact preflight rejects alternate trust, license/support drift and privat
 });
 
 it('immutable publication writes one no-overwrite receipt only after exact remote confirmation',async()=>{
-  const release=artifactReceipt(),directory=makeRoot(),receiptPath=join(directory,'publication.json'),assets=Object.fromEntries(Object.entries(release.targets).map(([platform,target],index)=>[platform,{id:100+index,name:target.name,bytes:target.bytes,sha256:target.sha256,url:target.url}])),before={schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.19','0.1.0-beta.20'],versionSetSha256:selection().versionSetSha256,tag:null,release:null,assets:[]},after={...before,versions:[...before.versions,release.version],tag:{name:release.tag,commit:release.commit,immutable:true},release:{version:release.version,tag:release.tag,buildId:release.buildId,immutable:true},assets,metadata:{manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256}};let observations=0,publishes=0;
-  const deps={receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>({status:'pass'}),observeRemote:async()=>++observations===1?before:after,publish:async()=>{publishes++;return after;}};
+  const release=artifactReceipt(),directory=makeRoot(),receiptPath=join(directory,'publication.json'),assets=Object.fromEntries(Object.entries(release.targets).map(([platform,target],index)=>[platform,{id:100+index,name:target.name,bytes:target.bytes,sha256:target.sha256,url:target.url}])),beforeVersions=['0.1.0-beta.19','0.1.0-beta.20'],before={schema:1,owner:'returdex',repositoryId:1350421724,versions:beforeVersions,versionSetSha256:phase2VersionSetSha256(beforeVersions),tag:null,release:null,assets:[]},afterVersions=[...before.versions,release.version],after={...before,versions:afterVersions,versionSetSha256:phase2VersionSetSha256(afterVersions),tag:{name:release.tag,commit:release.commit,immutable:true},release:{version:release.version,tag:release.tag,buildId:release.buildId,immutable:true},assets,metadata:{manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256}};let observations=0,publishes=0;
+  const deps={receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>publicationPreflight(release),observeRemote:async()=>++observations===1?before:after,publish:async()=>{publishes++;return after;}};
   await expect(publishPhase2Release({release,receiptPath,deps})).resolves.toMatchObject({schema:1,status:'pass',owner:'returdex',repositoryId:1350421724,version:release.version,tag:release.tag,immutable:true,assets});
   expect(publishes).toBe(1);expect(JSON.parse(readFileSync(receiptPath,'utf8'))).toMatchObject({status:'pass',assets});
   await expect(publishPhase2Release({release,receiptPath,deps})).rejects.toThrow('PHASE2_PUBLICATION_RECEIPT_EXISTS');expect(publishes).toBe(1);
@@ -178,10 +183,31 @@ it('immutable publication writes one no-overwrite receipt only after exact remot
 
 it('immutable publication rejects version races, higher partial beta and conflicting remote assets without mutation',async()=>{
   const release=artifactReceipt(),directory=makeRoot();for(const remote of [
-    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.22'],versionSetSha256:selection().versionSetSha256,tag:null,release:null,assets:[]},
-    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.19','0.1.0-beta.20'],versionSetSha256:selection().versionSetSha256,tag:{name:release.tag,commit:commit('f'),immutable:true},release:null,assets:[]},
-    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.19','0.1.0-beta.20'],versionSetSha256:selection().versionSetSha256,tag:null,release:null,assets:[{id:7,name:release.targets.macos.name,bytes:1,sha256:hash('f'),url:release.targets.macos.url}]},
-  ]){let publishes=0;await expect(publishPhase2Release({release,receiptPath:join(directory,`${publishes}-${Math.random()}.json`),deps:{receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>({status:'pass'}),observeRemote:async()=>remote,publish:async()=>{publishes++;return remote;}}})).rejects.toThrow(/^PHASE2_PUBLICATION_/);expect(publishes).toBe(0);}
+    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.22'],versionSetSha256:phase2VersionSetSha256(['0.1.0-beta.22']),tag:null,release:null,assets:[]},
+    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.19','0.1.0-beta.20'],versionSetSha256:phase2VersionSetSha256(['0.1.0-beta.19','0.1.0-beta.20']),tag:{name:release.tag,commit:commit('f'),immutable:true},release:null,assets:[]},
+    {schema:1,owner:'returdex',repositoryId:1350421724,versions:['0.1.0-beta.19','0.1.0-beta.20'],versionSetSha256:phase2VersionSetSha256(['0.1.0-beta.19','0.1.0-beta.20']),tag:null,release:null,assets:[{id:7,name:release.targets.macos.name,bytes:1,sha256:hash('f'),url:release.targets.macos.url}]},
+  ]){let publishes=0;await expect(publishPhase2Release({release,receiptPath:join(directory,`${publishes}-${Math.random()}.json`),deps:{receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>publicationPreflight(release),observeRemote:async()=>remote,publish:async()=>{publishes++;return remote;}}})).rejects.toThrow(/^PHASE2_PUBLICATION_/);expect(publishes).toBe(0);}
+});
+
+it('commit lookup treats only the exact intended-tag GitHub 422 as absent',()=>{
+  const tag='v0.1.0-beta.25';
+  expect(isAbsentPhase2CommitLookup({stderr:Buffer.from(`gh: No commit found for SHA: ${tag} (HTTP 422)\n`)},tag)).toBe(true);
+  for(const stderr of [
+    'gh: No commit found for SHA: v0.1.0-beta.24 (HTTP 422)',
+    `gh: No commit found for SHA: ${tag} or another ref (HTTP 422)`,
+    'gh: Validation Failed (HTTP 422)',
+    `gh: No commit found for SHA: ${tag} (HTTP 500)`,
+  ])expect(isAbsentPhase2CommitLookup({stderr},tag)).toBe(false);
+});
+
+it('publication reconciles public beta1-20 with locally consumed beta1-24 without reuse or overwrite',async()=>{
+  const selected=selection(25),tested=report(selected),release=artifactReceipt(selected,tested),directory=makeRoot(),receiptPath=join(directory,'beta25-publication.json'),publicVersions=betaVersions(20),afterVersions=[...publicVersions,release.version],assets=Object.fromEntries(Object.entries(release.targets).map(([platform,target],index)=>[platform,{id:500+index,name:target.name,bytes:target.bytes,sha256:target.sha256,url:target.url}])),before={schema:1,owner:'returdex',repositoryId:1350421724,versions:publicVersions,versionSetSha256:phase2VersionSetSha256(publicVersions),tag:null,release:null,assets:[]},after={...before,versions:afterVersions,versionSetSha256:phase2VersionSetSha256(afterVersions),tag:{name:release.tag,commit:release.commit,immutable:true},release:{version:release.version,tag:release.tag,buildId:release.buildId,immutable:true},assets,metadata:{manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256}};let observations=0,publishes=0;
+  await expect(publishPhase2Release({release,receiptPath,deps:{receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>publicationPreflight(release),observeRemote:async()=>++observations===1?before:after,publish:async plan=>{publishes++;expect(plan.version).toBe('0.1.0-beta.25');expect(plan.before.versions).toEqual(publicVersions);expect(plan.before.versions).not.toContain('0.1.0-beta.24');return after;}}})).resolves.toMatchObject({status:'pass',version:'0.1.0-beta.25'});
+  expect(publishes).toBe(1);
+
+  const staleSelected=selection(24),staleRelease=artifactReceipt(staleSelected,report(staleSelected));publishes=0;
+  await expect(publishPhase2Release({release:staleRelease,receiptPath:join(directory,'stale-beta24.json'),deps:{receiptRoot:directory,now:()=>Date.parse(now),preflight:async()=>publicationPreflight(release),observeRemote:async()=>before,publish:async()=>{publishes++;}}})).rejects.toThrow('PHASE2_PUBLICATION_PREFLIGHT_FAILED');
+  expect(publishes).toBe(0);
 });
 
 it('anonymous availability refetches full bytes and binds hashes, signatures, prompt and capability closure',async()=>{
