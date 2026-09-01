@@ -121,11 +121,62 @@ const MIGRATION_V2 = `
   PRAGMA user_version = 2;
 `;
 
-function assertMigrationMetadata(db: Database.Database, version: 1 | 2): void {
+const MIGRATION_V3 = `
+  CREATE TABLE source_auth_controls(
+    source TEXT PRIMARY KEY CHECK(source IN ('moodle','edstem')),
+    logout_intent INTEGER NOT NULL DEFAULT 0 CHECK(logout_intent IN (0,1)),
+    generation INTEGER NOT NULL CHECK(generation>=0),
+    updated_at INTEGER NOT NULL CHECK(updated_at>=0));
+  INSERT INTO source_auth_controls(source,logout_intent,generation,updated_at)
+    VALUES('moodle',0,0,unixepoch()*1000),('edstem',0,0,unixepoch()*1000);
+
+  CREATE TABLE source_auth_jobs(
+    id TEXT PRIMARY KEY CHECK(length(id)=36),
+    source TEXT NOT NULL CHECK(source IN ('moodle','edstem')),
+    action TEXT NOT NULL CHECK(action IN ('moodle.auth_probe','edstem.auth_probe')),
+    trigger TEXT NOT NULL CHECK(trigger IN ('background','user_login_completed','manual_retry','recovery','moodle_reauth_follow_up')),
+    idempotency_key TEXT NOT NULL CHECK(length(idempotency_key) BETWEEN 1 AND 128),
+    command_hash TEXT NOT NULL CHECK(length(command_hash)=64),
+    approved_config_id TEXT NOT NULL CHECK(length(approved_config_id)=36),
+    approved_scope_id TEXT NOT NULL CHECK(length(approved_scope_id)=36),
+    state TEXT NOT NULL CHECK(state IN ('queued','running','retry_wait','succeeded','failed','cancelled','human_needed')),
+    attempt INTEGER NOT NULL DEFAULT 0 CHECK(attempt BETWEEN 0 AND 3),
+    recovery_started_at INTEGER CHECK(recovery_started_at IS NULL OR recovery_started_at>=0),
+    next_run_at INTEGER CHECK(next_run_at IS NULL OR next_run_at>=0),
+    cancel_requested INTEGER NOT NULL DEFAULT 0 CHECK(cancel_requested IN (0,1)),
+    lease_owner TEXT CHECK(lease_owner IS NULL OR length(lease_owner) BETWEEN 1 AND 128),
+    lease_until INTEGER CHECK(lease_until IS NULL OR lease_until>=0),
+    lease_ms INTEGER CHECK(lease_ms IS NULL OR lease_ms BETWEEN 1 AND 30000),
+    fence INTEGER NOT NULL DEFAULT 0 CHECK(fence>=0),
+    generation INTEGER NOT NULL CHECK(generation>=0),
+    safe_result_code TEXT CHECK(safe_result_code IS NULL OR safe_result_code IN
+      ('authenticated','network_unavailable','parser_changed','permission_denied','authentication_required','reauth_required',
+       'interaction_required','mfa_required','identity_mismatch','not_observed','cancelled','lease_expired')),
+    last_success_checked_at INTEGER CHECK(last_success_checked_at IS NULL OR last_success_checked_at>=0),
+    last_success_fingerprint TEXT CHECK(last_success_fingerprint IS NULL OR length(last_success_fingerprint) BETWEEN 8 AND 128),
+    parent_job_id TEXT REFERENCES source_auth_jobs(id),
+    effect_kind TEXT CHECK(effect_kind IS NULL OR effect_kind='moodle_reauth_follow_up'),
+    created_at INTEGER NOT NULL CHECK(created_at>=0),
+    updated_at INTEGER NOT NULL CHECK(updated_at>=0),
+    CHECK((source='moodle' AND action='moodle.auth_probe') OR (source='edstem' AND action='edstem.auth_probe')),
+    CHECK((lease_owner IS NULL AND lease_until IS NULL AND lease_ms IS NULL) OR
+          (lease_owner IS NOT NULL AND lease_until IS NOT NULL AND lease_ms IS NOT NULL)),
+    UNIQUE(source,idempotency_key),
+    UNIQUE(parent_job_id,effect_kind));
+  CREATE INDEX source_auth_jobs_ready ON source_auth_jobs(state,next_run_at,created_at,id);
+  CREATE INDEX source_auth_jobs_source ON source_auth_jobs(source,state,updated_at);
+
+  INSERT INTO schema_migrations VALUES(3,3,3,unixepoch()*1000);
+  PRAGMA user_version = 3;
+`;
+
+function assertMigrationMetadata(db: Database.Database, version: 1 | 2 | 3): void {
   const rows = db.prepare('SELECT version,schema_min,schema_max FROM schema_migrations ORDER BY version').all() as { version: number; schema_min: number; schema_max: number }[];
-  const expected = version === 1
-    ? [{ version: 1, schema_min: 1, schema_max: 1 }]
-    : [{ version: 1, schema_min: 1, schema_max: 1 }, { version: 2, schema_min: 2, schema_max: 2 }];
+  const expected = [
+    { version: 1, schema_min: 1, schema_max: 1 },
+    { version: 2, schema_min: 2, schema_max: 2 },
+    { version: 3, schema_min: 3, schema_max: 3 },
+  ].slice(0, version);
   if (JSON.stringify(rows) !== JSON.stringify(expected)) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
 }
 
@@ -139,13 +190,17 @@ export function openDatabase(path: string): Database.Database {
     db.pragma('synchronous = FULL'); db.pragma('busy_timeout = 2000');
     db.transaction(() => {
       const version = db.pragma('user_version', { simple: true });
-      if (version !== 0 && version !== 1 && version !== 2) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
+      if (version !== 0 && version !== 1 && version !== 2 && version !== 3) throw new StorageError('SCHEMA_INCOMPATIBLE', 503);
       if (version === 0) db.exec(MIGRATION_V1);
-      if (version !== 2) {
+      if (version < 2) {
         assertMigrationMetadata(db, 1);
         db.exec(MIGRATION_V2);
       }
-      assertMigrationMetadata(db, 2);
+      if (version < 3) {
+        assertMigrationMetadata(db, 2);
+        db.exec(MIGRATION_V3);
+      }
+      assertMigrationMetadata(db, 3);
     }).immediate();
     return db;
   } catch (error) { db.close(); throw error; }

@@ -1,12 +1,16 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type Database from 'better-sqlite3';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import type {
   AccountBindingStore, Clock, EvidenceLedger, EvidenceWriterAuthority, ProfileOwnershipStore, SourceConfigStore, SourceObservationStore,
 } from '../../application/src/ports.js';
 import type {
+  AuthJob, AuthJobLease, AuthJobResultCode, AuthJobStore, AuthProbeCommand,
+} from '../../application/src/auth-jobs.js';
+import { AUTH_RECOVERY_DELAYS_MS, type AuthTransition } from '../../application/src/auth.js';
+import type {
   AccountBinding, ApprovedSourceConfig, EvidenceCellKey, EvidenceReceipt, ProfileOwnerIdentity, ProfileOwnership, ProfileReservation,
-  SourceId, SourceObservation, WriteContext,
+  SourceId, SourceLastSuccess, SourceObservation, WriteContext,
 } from '../../domain/src/model.js';
 import {
   AccountBindingSchema, ApprovedSourceConfigSchema, EvidenceCellKeySchema, EvidenceReceiptSchema, ProfileOwnerIdentitySchema,
@@ -313,5 +317,339 @@ export class SQLiteEvidenceLedger implements EvidenceLedger {
     if (receipt.provenance.kind !== 'human_action' || receipt.provenance.actionReceiptId !== authority.actionReceiptId) {
       throw new StorageError('EVIDENCE_AUTHORITY_MISMATCH');
     }
+  }
+}
+
+const authCommandSchema: z.ZodType<AuthProbeCommand> = z.strictObject({
+  source: z.enum(['moodle', 'edstem']),
+  approvedConfigId: z.uuid(),
+  approvedScopeId: z.uuid(),
+  trigger: z.enum(['background', 'user_login_completed', 'manual_retry']),
+  idempotencyKey: z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/),
+});
+const authLeaseSchema: z.ZodType<AuthJobLease> = z.strictObject({
+  owner: z.string().min(1).max(128),
+  fence: z.number().int().nonnegative(),
+  generation: z.number().int().nonnegative(),
+  leaseUntil: z.iso.datetime(),
+});
+const sourceLastSuccessSchema: z.ZodType<SourceLastSuccess> = z.strictObject({
+  checkedAt: z.iso.datetime(),
+  subjectFingerprint: z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/),
+});
+
+interface AuthClock { now(): string }
+interface AuthJobRow {
+  id: string;
+  source: SourceId;
+  action: AuthJob['action'];
+  trigger: AuthJob['trigger'];
+  idempotency_key: string;
+  command_hash: string;
+  approved_config_id: string;
+  approved_scope_id: string;
+  state: AuthJob['state'];
+  attempt: number;
+  recovery_started_at: number | null;
+  next_run_at: number | null;
+  cancel_requested: number;
+  lease_owner: string | null;
+  lease_until: number | null;
+  lease_ms: number | null;
+  fence: number;
+  generation: number;
+  safe_result_code: AuthJobResultCode | null;
+  last_success_checked_at: number | null;
+  last_success_fingerprint: string | null;
+  parent_job_id: string | null;
+  effect_kind: 'moodle_reauth_follow_up' | null;
+  created_at: number;
+  updated_at: number;
+}
+
+function authTime(value: string): number {
+  const parsed = Date.parse(z.iso.datetime().parse(value));
+  if (!Number.isSafeInteger(parsed) || parsed < 0) throw new StorageError('INVALID_CLOCK');
+  return parsed;
+}
+
+function jobAction(value: SourceId): AuthJob['action'] {
+  return value === 'moodle' ? 'moodle.auth_probe' : 'edstem.auth_probe';
+}
+
+function transitionCode(sourceId: SourceId, transition: AuthTransition, interactionCode: AuthJobResultCode | null): AuthJobResultCode {
+  if (interactionCode) return interactionCode;
+  const code = transition.state.sources[sourceId].currentResultCode;
+  switch (code) {
+    case 'AUTHENTICATED': return 'authenticated';
+    case 'NETWORK_UNAVAILABLE': return 'network_unavailable';
+    case 'PARSER_CHANGED': case 'ORIGIN_MISMATCH': case 'UNKNOWN_RESULT': return 'parser_changed';
+    case 'CAPABILITY_DENIED': return 'permission_denied';
+    case 'AUTH_REQUIRED': return 'authentication_required';
+    case 'REAUTH_REQUIRED': return 'reauth_required';
+    case 'INTERACTION_REQUIRED': return 'interaction_required';
+    case 'IDENTITY_MISMATCH': return 'identity_mismatch';
+    case 'NOT_OBSERVED': return 'not_observed';
+  }
+}
+
+/** Durable source-local auth queue. Every authority-sensitive operation is a short BEGIN IMMEDIATE transaction. */
+export class SQLiteAuthJobStore implements AuthJobStore {
+  constructor(private readonly db: Database.Database, private readonly clock: AuthClock = { now: () => new Date().toISOString() }) {}
+
+  async enqueue(input: AuthProbeCommand, context: WriteContext): Promise<AuthJob> {
+    const command = authCommandSchema.parse(input);
+    const now = authTime(this.clock.now());
+    const commandHash = digest(JSON.stringify([command.source, command.approvedConfigId, command.approvedScopeId, command.trigger]));
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context);
+      const control = this.control(command.source);
+      const prior = this.db.prepare('SELECT * FROM source_auth_jobs WHERE source=? AND idempotency_key=?')
+        .get(command.source, command.idempotencyKey) as AuthJobRow | undefined;
+      if (prior) {
+        if (!sameDigest(prior.command_hash, commandHash)) throw new StorageError('IDEMPOTENCY_CONFLICT');
+        return this.toJob(prior);
+      }
+      if (control.logout_intent === 1 && command.trigger !== 'user_login_completed') throw new StorageError('EXPLICIT_LOGOUT_ACTIVE');
+      if (command.trigger === 'user_login_completed' && control.logout_intent === 1) {
+        this.db.prepare('UPDATE source_auth_controls SET logout_intent=0,generation=?,updated_at=? WHERE source=?')
+          .run(context.expectedGeneration, now, command.source);
+      }
+      const id = randomUUID();
+      const observation = this.db.prepare('SELECT last_success_contract FROM source_observations WHERE source=?')
+        .get(command.source) as { last_success_contract: string | null } | undefined;
+      const lastSuccess = observation?.last_success_contract ? sourceLastSuccessSchema.parse(JSON.parse(observation.last_success_contract)) : null;
+      this.db.prepare(`INSERT INTO source_auth_jobs(
+        id,source,action,trigger,idempotency_key,command_hash,approved_config_id,approved_scope_id,state,attempt,
+        recovery_started_at,next_run_at,cancel_requested,fence,generation,last_success_checked_at,last_success_fingerprint,created_at,updated_at)
+        VALUES(?,?,?,?,?,?,?,?,'queued',0,?,?,0,0,?,?,?,?,?)`).run(
+        id, command.source, jobAction(command.source), command.trigger, command.idempotencyKey, commandHash,
+        command.approvedConfigId, command.approvedScopeId, now, now, context.expectedGeneration,
+        lastSuccess ? Date.parse(lastSuccess.checkedAt) : null, lastSuccess?.subjectFingerprint ?? null, now, now,
+      );
+      recordWrite(this.db, context);
+      return this.getRequired(id);
+    }).immediate());
+  }
+
+  async claim(input: { owner: string; now: string; leaseMs: number }, context: WriteContext): Promise<AuthJob | null> {
+    const now = authTime(input.now);
+    if (!input.owner || input.owner.length > 128 || !Number.isSafeInteger(input.leaseMs) || input.leaseMs < 1 || input.leaseMs > 30_000 || !Number.isSafeInteger(now + input.leaseMs)) {
+      throw new StorageError('INVALID_LEASE');
+    }
+    return safeStorage(() => this.db.transaction(() => {
+      const gate = requireWrite(this.db, context);
+      const row = this.db.prepare(`SELECT j.* FROM source_auth_jobs j
+        JOIN source_auth_controls c ON c.source=j.source
+        WHERE j.state IN ('queued','retry_wait') AND j.cancel_requested=0 AND j.attempt<3
+          AND j.next_run_at<=? AND c.logout_intent=0
+        ORDER BY j.next_run_at,j.created_at,j.id LIMIT 1`).get(now) as AuthJobRow | undefined;
+      if (!row) return null;
+      if (now < row.updated_at) throw new StorageError('CLOCK_REGRESSION');
+      const result = this.db.prepare(`UPDATE source_auth_jobs SET state='running',attempt=attempt+1,fence=fence+1,
+        lease_owner=?,lease_until=?,lease_ms=?,generation=?,next_run_at=NULL,updated_at=?
+        WHERE id=? AND state IN ('queued','retry_wait') AND cancel_requested=0 AND attempt<3`).run(
+        input.owner, now + input.leaseMs, input.leaseMs, gate.generation, now, row.id,
+      );
+      if (result.changes !== 1) throw new StorageError('LEASE_LOST');
+      recordWrite(this.db, context);
+      return this.getRequired(row.id);
+    }).immediate());
+  }
+
+  async assertCurrent(jobId: string, input: AuthJobLease, nowValue: string, context: WriteContext): Promise<AuthJob> {
+    const lease = authLeaseSchema.parse(input); const now = authTime(nowValue);
+    return safeStorage(() => this.db.transaction(() => this.current(jobId, lease, now, context, false)).immediate());
+  }
+
+  async heartbeat(jobId: string, input: AuthJobLease, nowValue: string, leaseMs: number, context: WriteContext): Promise<AuthJobLease> {
+    const lease = authLeaseSchema.parse(input); const now = authTime(nowValue);
+    if (!Number.isSafeInteger(leaseMs) || leaseMs < 1 || leaseMs > 30_000 || !Number.isSafeInteger(now + leaseMs)) throw new StorageError('INVALID_LEASE');
+    return safeStorage(() => this.db.transaction(() => {
+      this.current(jobId, lease, now, context, false);
+      const until = now + leaseMs;
+      const updated = this.db.prepare(`UPDATE source_auth_jobs SET lease_until=?,lease_ms=?,updated_at=?
+        WHERE id=? AND state='running' AND cancel_requested=0 AND lease_owner=? AND fence=? AND generation=? AND lease_until>?`).run(
+        until, leaseMs, now, jobId, lease.owner, lease.fence, lease.generation, now,
+      );
+      if (updated.changes !== 1) throw new StorageError('LEASE_LOST');
+      recordWrite(this.db, context);
+      return { ...lease, leaseUntil: new Date(until).toISOString() };
+    }).immediate());
+  }
+
+  async commitTransition(jobId: string, input: AuthJobLease, transition: AuthTransition, nowValue: string, context: WriteContext): Promise<AuthJob> {
+    const lease = authLeaseSchema.parse(input); const now = authTime(nowValue);
+    return safeStorage(() => this.db.transaction(() => {
+      const job = this.current(jobId, lease, now, context, false);
+      const row = this.getRow(jobId);
+      const slot = transition.state.sources[row.source];
+      const interactionCode = (transition as AuthTransition & { safeResultCode?: 'interaction_required' | 'mfa_required' }).safeResultCode ?? null;
+      let code = transitionCode(row.source, transition, interactionCode);
+      const schedule = transition.effects.find(effect => effect.kind === 'schedule_recovery_probe');
+      const human = transition.effects.find(effect => effect.kind === 'require_user_action');
+      const successful = code === 'authenticated';
+      let state: AuthJob['state'] = successful ? 'succeeded' : schedule && row.attempt < 3 ? 'retry_wait' : human ? 'human_needed' : 'failed';
+      let nextRunAt: number | null = null;
+      if (state === 'retry_wait' && schedule) {
+        nextRunAt = (row.recovery_started_at ?? row.created_at) + schedule.delayMs;
+      }
+      if (!successful && row.attempt >= 3 && (code === 'network_unavailable' || code === 'reauth_required')) {
+        state = 'human_needed'; code = 'reauth_required'; nextRunAt = null;
+      }
+      const successValue = successful ? slot.observation.lastSuccess : job.lastSuccess;
+      const updated = this.db.prepare(`UPDATE source_auth_jobs SET state=?,next_run_at=?,cancel_requested=0,
+        lease_owner=NULL,lease_until=NULL,lease_ms=NULL,safe_result_code=?,last_success_checked_at=?,last_success_fingerprint=?,updated_at=?
+        WHERE id=? AND state='running' AND cancel_requested=0 AND lease_owner=? AND fence=? AND generation=? AND lease_until>?`).run(
+        state, nextRunAt, code, successValue ? Date.parse(successValue.checkedAt) : null, successValue?.subjectFingerprint ?? null, now,
+        jobId, lease.owner, lease.fence, lease.generation, now,
+      );
+      if (updated.changes !== 1) throw new StorageError('LEASE_LOST');
+
+      this.persistObservation(row.source, slot.observation, successValue, context.expectedGeneration);
+      if (successful && row.source === 'moodle' && row.trigger === 'user_login_completed') this.enqueueEdstemFollowUp(row, now, context.expectedGeneration);
+      recordWrite(this.db, context);
+      return this.getRequired(jobId);
+    }).immediate());
+  }
+
+  async requestCancel(jobId: string, sourceValue: SourceId, context: WriteContext): Promise<AuthJob> {
+    const sourceId = source(sourceValue); const now = authTime(this.clock.now());
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context, true);
+      const row = this.db.prepare('SELECT * FROM source_auth_jobs WHERE id=? AND source=?').get(jobId, sourceId) as AuthJobRow | undefined;
+      if (!row) throw new StorageError('AUTH_JOB_NOT_FOUND', 404);
+      if (['queued', 'retry_wait', 'running'].includes(row.state)) {
+        this.db.prepare(`UPDATE source_auth_jobs SET cancel_requested=1,
+          state=CASE WHEN state='running' THEN state ELSE 'cancelled' END,
+          next_run_at=NULL,safe_result_code=CASE WHEN state='running' THEN safe_result_code ELSE 'cancelled' END,updated_at=? WHERE id=?`).run(now, jobId);
+        recordWrite(this.db, context);
+      }
+      return this.getRequired(jobId);
+    }).immediate());
+  }
+
+  async cancelSourceForLogout(sourceValue: SourceId, context: WriteContext): Promise<void> {
+    const sourceId = source(sourceValue); const now = authTime(this.clock.now());
+    safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context, true);
+      this.db.prepare('UPDATE source_auth_controls SET logout_intent=1,generation=?,updated_at=? WHERE source=?')
+        .run(context.expectedGeneration, now, sourceId);
+      this.db.prepare(`UPDATE source_auth_jobs SET cancel_requested=1,
+        state=CASE WHEN state='running' THEN state ELSE 'cancelled' END,
+        next_run_at=NULL,safe_result_code=CASE WHEN state='running' THEN safe_result_code ELSE 'cancelled' END,updated_at=?
+        WHERE source=? AND state IN ('queued','retry_wait','running')`).run(now, sourceId);
+      recordWrite(this.db, context);
+    }).immediate());
+  }
+
+  async acknowledgeCancel(jobId: string, input: AuthJobLease, context: WriteContext): Promise<AuthJob> {
+    const lease = authLeaseSchema.parse(input); const now = authTime(this.clock.now());
+    return safeStorage(() => this.db.transaction(() => {
+      this.current(jobId, lease, now, context, true);
+      const updated = this.db.prepare(`UPDATE source_auth_jobs SET state='cancelled',safe_result_code='cancelled',
+        lease_owner=NULL,lease_until=NULL,lease_ms=NULL,next_run_at=NULL,updated_at=?
+        WHERE id=? AND state='running' AND cancel_requested=1 AND lease_owner=? AND fence=? AND generation=? AND lease_until>?`).run(
+        now, jobId, lease.owner, lease.fence, lease.generation, now,
+      );
+      if (updated.changes !== 1) throw new StorageError('LEASE_LOST');
+      recordWrite(this.db, context);
+      return this.getRequired(jobId);
+    }).immediate());
+  }
+
+  async recoverExpired(nowValue: string, context: WriteContext): Promise<number> {
+    const now = authTime(nowValue);
+    return safeStorage(() => this.db.transaction(() => {
+      requireWrite(this.db, context, true);
+      const rows = this.db.prepare("SELECT * FROM source_auth_jobs WHERE state='running' AND lease_until<=?").all(now) as AuthJobRow[];
+      for (const row of rows) {
+        const cancelled = row.cancel_requested === 1;
+        const exhausted = row.attempt >= 3;
+        const state: AuthJob['state'] = cancelled ? 'cancelled' : exhausted ? 'human_needed' : 'retry_wait';
+        const nextRunAt = state === 'retry_wait'
+          ? (row.recovery_started_at ?? row.created_at) + AUTH_RECOVERY_DELAYS_MS[row.attempt]!
+          : null;
+        this.db.prepare(`UPDATE source_auth_jobs SET state=?,fence=fence+1,lease_owner=NULL,lease_until=NULL,lease_ms=NULL,
+          next_run_at=?,safe_result_code=?,updated_at=? WHERE id=? AND state='running' AND lease_until<=?`).run(
+          state, nextRunAt, cancelled ? 'cancelled' : exhausted ? 'reauth_required' : 'lease_expired', now, row.id, now,
+        );
+      }
+      if (rows.length) recordWrite(this.db, context);
+      return rows.length;
+    }).immediate());
+  }
+
+  async get(jobId: string, sourceValue: SourceId): Promise<AuthJob | null> {
+    const row = this.db.prepare('SELECT * FROM source_auth_jobs WHERE id=? AND source=?').get(jobId, source(sourceValue)) as AuthJobRow | undefined;
+    return row ? this.toJob(row) : null;
+  }
+
+  private control(sourceId: SourceId): { logout_intent: number } {
+    const row = this.db.prepare('SELECT logout_intent FROM source_auth_controls WHERE source=?').get(sourceId) as { logout_intent: number } | undefined;
+    if (!row) throw new StorageError('STORAGE_FAILURE', 503);
+    return row;
+  }
+
+  private current(jobId: string, lease: AuthJobLease, now: number, context: WriteContext, allowCancelled: boolean): AuthJob {
+    requireWrite(this.db, context);
+    const row = this.getRow(jobId);
+    if (row.generation !== context.expectedGeneration || row.generation !== lease.generation) throw new StorageError('GENERATION_MISMATCH');
+    if (row.state !== 'running' || row.lease_owner !== lease.owner || row.fence !== lease.fence || row.lease_until === null || row.lease_until <= now || row.lease_until !== authTime(lease.leaseUntil)) {
+      throw new StorageError('LEASE_LOST');
+    }
+    if (!allowCancelled && row.cancel_requested === 1) throw new StorageError('CANCEL_REQUESTED');
+    if (now < row.updated_at) throw new StorageError('CLOCK_REGRESSION');
+    return this.toJob(row);
+  }
+
+  private persistObservation(sourceId: SourceId, observation: SourceObservation, success: SourceLastSuccess | null, generation: number): void {
+    const checkedAt = observation.checkedAt === null ? null : Date.parse(observation.checkedAt);
+    const prior = this.db.prepare('SELECT last_success_contract FROM source_observations WHERE source=?').get(sourceId) as { last_success_contract: string | null } | undefined;
+    const lastSuccess = success ?? (prior?.last_success_contract ? JSON.parse(prior.last_success_contract) as SourceLastSuccess : null);
+    const current = SourceObservationSchema.parse({ ...observation, lastSuccess });
+    this.db.prepare(`INSERT INTO source_observations(source,current_contract,last_success_contract,checked_at,generation) VALUES(?,?,?,?,?)
+      ON CONFLICT(source) DO UPDATE SET current_contract=excluded.current_contract,last_success_contract=excluded.last_success_contract,
+      checked_at=excluded.checked_at,generation=excluded.generation`).run(
+      sourceId, JSON.stringify(current), lastSuccess ? JSON.stringify(lastSuccess) : null, checkedAt, generation,
+    );
+  }
+
+  private enqueueEdstemFollowUp(parent: AuthJobRow, now: number, generation: number): void {
+    const config = this.db.prepare("SELECT id,approved_scope_id FROM source_configs WHERE source='edstem' ORDER BY config_version DESC LIMIT 1")
+      .get() as { id: string; approved_scope_id: string } | undefined;
+    if (!config) return;
+    const idempotencyKey = `${parent.id}:edstem`;
+    const commandHash = digest(JSON.stringify(['edstem', config.id, config.approved_scope_id, 'moodle_reauth_follow_up']));
+    this.db.prepare(`INSERT OR IGNORE INTO source_auth_jobs(
+      id,source,action,trigger,idempotency_key,command_hash,approved_config_id,approved_scope_id,state,attempt,
+      recovery_started_at,next_run_at,cancel_requested,fence,generation,parent_job_id,effect_kind,created_at,updated_at)
+      VALUES(?,'edstem','edstem.auth_probe','moodle_reauth_follow_up',?,?,?,?,'queued',0,?,?,0,0,?,?,'moodle_reauth_follow_up',?,?)`).run(
+      randomUUID(), idempotencyKey, commandHash, config.id, config.approved_scope_id, now, now, generation, parent.id, now, now,
+    );
+  }
+
+  private getRow(id: string): AuthJobRow {
+    const row = this.db.prepare('SELECT * FROM source_auth_jobs WHERE id=?').get(id) as AuthJobRow | undefined;
+    if (!row) throw new StorageError('AUTH_JOB_NOT_FOUND', 404);
+    return row;
+  }
+  private getRequired(id: string): AuthJob { return this.toJob(this.getRow(id)); }
+  private toJob(row: AuthJobRow): AuthJob {
+    const lease = row.lease_owner === null || row.lease_until === null ? null : {
+      owner: row.lease_owner, fence: row.fence, generation: row.generation, leaseUntil: new Date(row.lease_until).toISOString(),
+    };
+    return {
+      id: row.id, source: row.source, action: row.action, approvedConfigId: row.approved_config_id,
+      approvedScopeId: row.approved_scope_id, trigger: row.trigger, idempotencyKey: row.idempotency_key,
+      state: row.state, attempt: row.attempt,
+      recoveryStartedAt: row.recovery_started_at === null ? null : new Date(row.recovery_started_at).toISOString(),
+      nextRunAt: row.next_run_at === null ? null : new Date(row.next_run_at).toISOString(),
+      cancelRequested: row.cancel_requested === 1, lease, generation: row.generation, resultCode: row.safe_result_code,
+      lastSuccess: row.last_success_checked_at === null || row.last_success_fingerprint === null ? null : {
+        checkedAt: new Date(row.last_success_checked_at).toISOString(), subjectFingerprint: row.last_success_fingerprint,
+      },
+      parentJobId: row.parent_job_id, createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString(),
+    };
   }
 }
