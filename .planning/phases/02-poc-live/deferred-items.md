@@ -40,3 +40,7 @@
 ## Plan 02-41
 
 - **Out-of-scope verification environment conflict:** The managed Node 24.20.0 focused release, live/update and trust regression passes 38/41 integration tests. The three existing `install-preview` cases stop at `PORT_CONFLICT_REPREVIEW` because the healthy installed Phase 1 API (PID observed as an installed `AutoED-Rebuild-M1` service, not a repository test process) owns fixed loopback port `43187`. Plan 02-41 does not authorize stopping the installed service or changing the installation contract. Excluding that known fixed-port fixture, all 38 executed release/toolchain tests pass; the Phase 2 release/live suites pass 26/26, and typecheck/syntax gates pass.
+
+## Plan 02-38 Resolution
+
+- **Resolved without touching the installed service:** The historical Phase 2 fixed-port cascades, SQLite-busy timing case, process-initialization wait and browser-route conflict were repaired in test support under the approved Rule 1/3 scope. Synthetic lifecycle fixtures now use an explicit run-scoped ephemeral port while separate contract coverage proves production remains fixed to loopback port `43187`. The complete managed-Node suite is green: unit `143/143`, integration `341/341`, UI `34/34` and macOS native `24/24`, with zero skip/todo. Earlier entries remain as historical execution evidence, not current blockers.
