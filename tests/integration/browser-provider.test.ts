@@ -41,7 +41,7 @@ function fixture(options: {
   candidates?: 'one' | 'zero' | 'many' | 'wrong-build' | 'wrong-executable';
   reserveState?: 'reserved' | 'in_use' | 'unconfirmed';
   attachFailure?: boolean;
-  inspect?: ProfileOwnership[];
+  inspect?: Array<'in_use' | 'unconfirmed' | 'confirmed_exited'>;
   authorizer?: 'valid' | 'reject' | 'missing';
 } = {}) {
   const harness = createHarness(); harnesses.push(harness);
@@ -75,7 +75,8 @@ function fixture(options: {
     }),
     inspect: vi.fn(async () => {
       events.push('inspect');
-      return inspections.shift() ?? ownership('in_use', reservation, owner);
+      const state = inspections.shift() ?? 'in_use';
+      return ownership(state, reservation, state === 'unconfirmed' ? null : owner);
     }),
     release,
   };
@@ -206,10 +207,7 @@ describe('managed persistent context', () => {
   });
 
   it('closes only its context and releases only after a post-attach confirmed exit', async () => {
-    const value = fixture({ inspect: [
-      ownership('unconfirmed', {} as ProfileReservation, null),
-      ownership('confirmed_exited', {} as ProfileReservation, value.owner),
-    ] });
+    const value = fixture({ inspect: ['unconfirmed', 'confirmed_exited'] });
     await expect(value.provider.openBackground(value.input, value.guard)).rejects.toThrow('BROWSER_FENCED');
     expect(value.context.close).toHaveBeenCalledOnce();
     expect(value.release).toHaveBeenCalledOnce();
