@@ -38,7 +38,7 @@ function ownership(
 }
 
 function fixture(options: {
-  candidates?: 'one' | 'zero' | 'many' | 'wrong-build' | 'wrong-executable';
+  candidates?: 'one' | 'zero' | 'many' | 'wrong-build' | 'wrong-executable' | 'wrong-start' | 'unowned';
   reserveState?: 'reserved' | 'in_use' | 'unconfirmed';
   attachFailure?: boolean;
   inspect?: Array<'in_use' | 'unconfirmed' | 'confirmed_exited'>;
@@ -115,6 +115,8 @@ function fixture(options: {
       if (options.candidates === 'many') return [candidate, { ...candidate, pid: 4343, osStartIdentity: 'other-start' }];
       if (options.candidates === 'wrong-build') return [{ ...candidate, browserBuildId: '6'.repeat(64) }];
       if (options.candidates === 'wrong-executable') return [{ ...candidate, executable: process.execPath }];
+      if (options.candidates === 'wrong-start') return [{ ...candidate, osStartIdentity: '' }];
+      if (options.candidates === 'unowned') return [{ ...candidate, ownedByWorker: false }];
       return [candidate];
     }),
   };
@@ -185,7 +187,7 @@ describe('managed persistent context', () => {
     },
   );
 
-  it.each(['zero', 'many', 'wrong-build', 'wrong-executable'] as const)(
+  it.each(['zero', 'many', 'wrong-build', 'wrong-executable', 'wrong-start', 'unowned'] as const)(
     'fails closed when ownership launch discovery is %s',
     async candidates => {
       const value = fixture({ candidates });
@@ -195,6 +197,13 @@ describe('managed persistent context', () => {
       expect(value.release).not.toHaveBeenCalled();
     },
   );
+
+  it('closes its context and preserves the reservation when attach fails', async () => {
+    const value = fixture({ attachFailure: true });
+    await expect(value.provider.openBackground(value.input, value.guard)).rejects.toThrow('PROFILE_OWNERSHIP_UNCONFIRMED');
+    expect(value.context.close).toHaveBeenCalledOnce();
+    expect(value.release).not.toHaveBeenCalled();
+  });
 
   it('does not launch when reservation is held or ownership is unknown', async () => {
     for (const reserveState of ['in_use', 'unconfirmed'] as const) {
@@ -245,6 +254,18 @@ describe('human-action headed gate', () => {
     await expect(value.provider.openOfficialLogin({ ...value.input, approvedConfigId: 'other-config', actionReceiptId: randomUUID() }, value.guard))
       .rejects.toThrow('BROWSER_HUMAN_ACTION_REQUIRED');
     expect(value.browserType.launchPersistentContext).not.toHaveBeenCalled();
+  });
+
+  it('strictly rejects headed-mode path, channel and handle overrides before consuming a receipt', async () => {
+    for (const key of ['executablePath', 'profilePath', 'userDataDir', 'channel', 'browser']) {
+      const value = fixture({ authorizer: 'valid' });
+      await expect(value.provider.openOfficialLogin({
+        ...value.input, actionReceiptId: randomUUID(), [key]: '/untrusted',
+      } as never, value.guard)).rejects.toThrow('BROWSER_INPUT_INVALID');
+      expect(value.browserType.launchPersistentContext).not.toHaveBeenCalled();
+      expect(value.coordinator.reserve).not.toHaveBeenCalled();
+      expect(value.events).not.toContain('authorize');
+    }
   });
 });
 
