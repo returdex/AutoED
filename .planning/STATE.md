@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed corrective 02-39 beta.25 local assembly/signing; remains unpublished
-last_updated: "2026-09-01T15:17:52.348Z"
+stopped_at: Completed 02-13-PLAN.md; beta.25 published and anonymously verified; update/live gates remain
+last_updated: "2026-09-01T15:30:21.059Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 55
-  completed_plans: 31
-  percent: 56
+  completed_plans: 32
+  percent: 58
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Plan 02-39 completed fresh beta.25 assembly/signing; next dependency-ordered plan is 02-13 publication and anonymous availability verification.
+**Current focus:** Plan 02-13 published and anonymously verified beta.25; next dependency-ordered plan is 02-14's hard human macOS update checkpoint.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-39 revalidated for beta.25; 18 of 41 completed; 02-13 is next in dependency order
-Status: beta.25 dual-target archives are signed and locally verified; no beta.25 tag, release or remote asset exists yet
+Plan: 02-13 completed; 19 of 41 completed; 02-14 is next in dependency order
+Status: beta.25 is published and anonymously verified; no update, login, Windows native or live evidence has run
 Last activity: 2026-09-02
 
-Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
+Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
 ## Performance Metrics
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 18 completed / 41 planned | In progress; beta.25 dual-target archives signed and verified locally but unpublished; live/Windows gates remain blocked | N/A |
+| 2 | 19 completed / 41 planned | In progress; beta.25 published and anonymously verified; update/live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plans: 02-36, 02-37, 02-41, 02-38, 02-39
+- Last 5 plans: 02-37, 02-41, 02-38, 02-39, 02-13
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -62,6 +62,7 @@ Plan progress: Phase 2 execution 18/41. Phase 1 remains 13/14 and is not marked 
 | Phase 02 P07 | 17min | 2 tasks | 8 files |
 | Phase 02 P08 | 18min | 2 tasks | 8 files |
 | Phase 02 P39 | 1h42min cumulative | 2 tasks | 2 files |
+| Phase 02 P13 | 20min active | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Historical signed beta.24 used one stable signed install-prompt core plus an external exact-target binding, but those unpublished bytes cannot be reused after invalidation. — A fresh beta.25 assembly must preserve the same self-reference-safe contract.
 - [Phase 02]: Plan 02-39 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; AUTH/UAT requirements remain pending. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
 - [Phase 02]: Fresh beta.25 archives replace invalidated beta.24 as the sole active Plan 02-39 outputs; historical bytes remain untouched and unusable for publication. — Publisher corrections changed selected source, so immutable release identity requires a complete rebuild and new signature rather than relabelling.
+- [Phase 02]: Beta.25 is the sole published Phase 2 beta; invalidated beta.21 through beta.24 remain consumed and unpublished. — Publication used only the locked isolated returdex identity and exact no-overwrite checks.
+- [Phase 02]: Anonymous beta.25 availability proves distribution only; Windows native/live evidence remain not_run/human_needed and Phase 3 remains blocked. — Release availability cannot substitute for user update, native runtime or L evidence.
 
 ### Pending Todos
 
@@ -117,7 +120,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；实际CLI/MCP已验证，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
-- PROJECT记录gh活动账号ywan1303；returdex已登录未激活。未来远程操作前另核对returdex认证和repo-local author/committer，检查returdex/AutoED同名冲突；本轮不切账号、不创建远程、不发布。
+- 默认gh活动账号仍为ywan1303且未切换；Plan 02-13仅使用受保护隔离配置中的returdex账号发布beta.25，并核对repo-local author/committer、repository ID与同名远程。后续远程操作仍须重复这些隔离身份检查，绝不能回退到默认账号。
 
 ### Quick Tasks Completed
 
@@ -136,6 +139,6 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T15:17:52.343Z
-Stopped at: Completed corrective 02-39 beta.25 local assembly/signing; remains unpublished
+Last session: 2026-09-01T15:30:21.059Z
+Stopped at: Completed 02-13-PLAN.md; beta.25 published and anonymously verified; update/live gates remain
 Resume file: None
