@@ -4,7 +4,7 @@ milestone: M1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
-last_updated: "2026-09-01T19:05:47.000Z"
+last_updated: "2026-09-02T05:49:55.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -108,6 +108,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: A bounded anonymous metadata/HEAD readiness gate precedes the one full byte/hash/signature/closure verifier attempt. — Readiness makes no availability claim, fails closed on mismatch/timeout and never authorizes retrying a consumed public identity.
 - [Phase 02]: Fresh beta.31 archives replace invalidated beta.30 as the sole active Plan 02-39 output; historical public bytes remain untouched and unusable for update. — The new identity was completely rebuilt and protected-key signed rather than relabelled.
 - [Phase 02]: beta.31 release 380751233 passed bounded anonymous readiness and its first full-byte verifier, binding asset IDs 539997596/539997598 to exact hashes, signatures, fingerprint, license, prompt and 16-member/27-capability closure. — Publication is distribution evidence only; update, Windows native and live gates remain pending.
+- [Release]: Every candidate after beta.31 must pass an exact-source unnumbered stabilization rehearsal before beta.N assignment; failure classes determine whether a candidate is consumed, while public objects remain permanently immutable. — Prevents internal test/runner attempts from becoming prerelease-number churn and keeps assembly/publication plans output-only.
 
 ### Pending Todos
 
@@ -130,12 +131,13 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260831-ho4 | Record beta.19 macOS status UI human UAT pass while preserving Windows as not_run/human_needed | 2026-08-31 | 61adf70 | [260831-ho4-record-beta-19-macos-status-ui-human-uat](./quick/260831-ho4-record-beta-19-macos-status-ui-human-uat/) |
-| 260831-hru | Record beta.19 packaged macOS native diagnostics pass with correct synthetic evidence boundary | 2026-08-31 | 86eb22b | [260831-hru-record-beta-19-packaged-macos-native-dia](./quick/260831-hru-record-beta-19-packaged-macos-native-dia/) |
-| 260831-o7k | Record beta.19 separate macOS standard-account install UAT and restore primary service with honest no-Node and authorization boundaries | 2026-08-31 | eae6eaa | [260831-o7k-record-beta-19-separate-macos-standard-a](./quick/260831-o7k-record-beta-19-separate-macos-standard-a/) |
-| 260901-5lh | Synchronize roadmap with user-approved macOS-first Phase 2 sequencing exception while preserving Windows and Phase 3 gates | 2026-09-01 | f41c535 | [260901-5lh-synchronize-roadmap-with-user-approved-m](./quick/260901-5lh-synchronize-roadmap-with-user-approved-m/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260831-ho4 | Record beta.19 macOS status UI human UAT pass while preserving Windows as not_run/human_needed | 2026-08-31 | 61adf70 |  | [260831-ho4-record-beta-19-macos-status-ui-human-uat](./quick/260831-ho4-record-beta-19-macos-status-ui-human-uat/) |
+| 260831-hru | Record beta.19 packaged macOS native diagnostics pass with correct synthetic evidence boundary | 2026-08-31 | 86eb22b |  | [260831-hru-record-beta-19-packaged-macos-native-dia](./quick/260831-hru-record-beta-19-packaged-macos-native-dia/) |
+| 260831-o7k | Record beta.19 separate macOS standard-account install UAT and restore primary service with honest no-Node and authorization boundaries | 2026-08-31 | eae6eaa |  | [260831-o7k-record-beta-19-separate-macos-standard-a](./quick/260831-o7k-record-beta-19-separate-macos-standard-a/) |
+| 260901-5lh | Synchronize roadmap with user-approved macOS-first Phase 2 sequencing exception while preserving Windows and Phase 3 gates | 2026-09-01 | f41c535 |  | [260901-5lh-synchronize-roadmap-with-user-approved-m](./quick/260901-5lh-synchronize-roadmap-with-user-approved-m/) |
+| 260902-lse | Establish and enforce post-beta.31 release stabilization policy | 2026-09-02 | 0109a29 | Verified | [260902-lse-validate-establish-and-enforce-a-post-be](./quick/260902-lse-validate-establish-and-enforce-a-post-be/) |
 
 ## Deferred Items
 
@@ -145,6 +147,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T19:05:47.000Z
+Last session: 2026-09-01T19:15:24.111Z
 Stopped at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
 Resume file: None
+Forensic report: `.planning/forensics/report-20260902-051348.md`; 02-14 human update checkpoint remains active.

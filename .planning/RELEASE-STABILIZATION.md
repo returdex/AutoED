@@ -1,7 +1,7 @@
 # Release Stabilization Policy
 
-**Approved:** 2026-09-02  
-**Applies to:** every AutoED release candidate selected after `0.1.0-beta.31`, including repairs discovered during Phase 2 live gates and all later milestones  
+**Approved:** 2026-09-02
+**Applies to:** every AutoED release candidate selected after `0.1.0-beta.31`, including repairs discovered during Phase 2 live gates and all later milestones
 **Does not change:** the published beta.31 bytes, receipts, prompt, current 02-14 human checkpoint, public history, privacy rules, platform gates or no-overwrite requirements
 
 ## Purpose and precedence
