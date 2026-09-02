@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.35 invalidated at R4 after canonical v-prefixed release URLs were rejected; download allowlist repair and fresh R0/R1 are next
+stopped_at: beta.36 invalidated after recurrent recovery process-stop observation failures; explicit-stop repair is implemented and fresh R0/R1 is next
 last_updated: "2026-09-02T09:35:00.000Z"
 last_activity: 2026-09-02
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.35 as immutable invalidated history; align canonical release URL validation before a fresh R0/R1. All update/login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.36 as immutable invalidated history; verify the explicit recovery process-stop repair through a fresh R0/R1. All update/login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 repair returned to RELEASE-STABILIZATION R0 after beta.35 failed R4 URL binding; 19 of 41 have completion summaries
-Status: beta.31 is immutable failed public history; beta.32, beta.33, beta.34 and beta.35 are consumed locally and unpublished; no active candidate is assigned
+Plan: Post-02-14 repair returned to RELEASE-STABILIZATION R0 after beta.36 failed recurrent R3 process-stop observation; explicit-stop repair is ready for fresh R0/R1; 19 of 41 have completion summaries
+Status: beta.31 is immutable failed public history; beta.32 through beta.36 are consumed locally and unpublished; no active candidate is assigned
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -116,6 +116,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.33 is permanently consumed and unpublished after an initial mount-observation failure, one complete pass, and a recurrent recovery/process-observation failure in the required second complete pass. — POST_TRANSIENT retention requires two consecutive complete passes; recurrence invalidates without publishing.
 - [Release]: beta.34 is permanently consumed and unpublished after R3 detected a stale rehearsal build ID (`STALE_REHEARSAL_BUILD_ID`) following a planning commit; the attestation writer now verifies the on-disk identity and source hash before writing. — A fresh unnumbered R0/R1 is required before beta.35.
 - [Release]: beta.35 is permanently consumed and unpublished after R4 rejected canonical `v0.1.0-beta.35` download URLs (`DOWNLOAD_URL_DENIED`); the allowlist now accepts both historical no-v and canonical v-prefixed tags. — A fresh unnumbered R0/R1 is required before beta.36.
+- [Release]: beta.36 is permanently consumed and unpublished after `HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED` recurred across two complete candidate gates despite a focused 8/8 pass. — POST_TRANSIENT recurrence requires returning to R0/R1 before beta.37.
+- [Repair]: Recovery and normal upgrade reopen now stop the operation-scoped API/Worker through authenticated control routes while the gate is still exclusive, then atomically exit maintenance locally; this removes heartbeat/scheduler timing from the process-stop boundary without weakening ownership checks. — Targeted recovery and compiled-CLI tests pass; fresh R0/R1 remains required.
 
 ### Pending Todos
 
@@ -138,6 +140,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-02 随后的真实 projectless macOS 更新返回 `ENTRYPOINT_MISMATCH`：beta.19 API/Worker 仍健康，但 build/entrypoints mismatch，cleanup 与 paired UI 未观察；beta.31 因此按 `HUMAN_PRODUCT` 永久失效。R0/R1 修复演练已通过，尚未分配新 beta；02-14、登录、Windows 与 Phase 3 继续阻塞。
 - 2026-09-03 beta.34 本地选择后，R3 发现选择携带的演练 build ID 与当前精确构建不一致（`STALE_REHEARSAL_BUILD_ID`）；未签名、未发布、未安装、未登录。已永久消耗 beta.34，并加入 attestation writer 的 on-disk identity/source hash 阻断与回归测试；须重新完成无编号 R0/R1 后才能选择 beta.35。
 - 2026-09-03 beta.35 完成 R3 后在 R4 失败：组装器生成的 canonical `v0.1.0-beta.35` URL 被 `DOWNLOAD_URL_DENIED` 拒绝；未发布、未安装、未登录。已永久消耗 beta.35，并修正 allowlist 与回归测试；须重新完成无编号 R0/R1 后才能选择 beta.36。
+- 2026-09-03 beta.36 首次完整候选 gate 在 upgrade-recovery 触发 `HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED`；聚焦 8/8 后，下一次完整 gate 在另一 recovery 场景再次复现。未发布、未安装、未登录。已永久消耗 beta.36；须修复 process-stop observation 并连续通过两次完整 gate 后才能选择 beta.37。
+- 2026-09-03 修复 recovery/upgrade reopen 的进程边界：在 exclusive 闸门内显式调用受认证的 shutdown，再由 installer 退出维护；针对两个回归场景和实际编译 CLI 的测试通过。尚未开始新的无编号 R0/R1。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed

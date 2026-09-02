@@ -1,8 +1,8 @@
 ---
 status: fixing
-trigger: "Beta.35 R4 failed because the updater generated v-prefixed release URLs that the archive download allowlist rejected."
+trigger: "Beta.36 R3 reproduced HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED across two complete candidate gates."
 created: 2026-09-02T11:40:00Z
-updated: 2026-09-03T01:22:00+10:00
+updated: 2026-09-03T03:12:00+10:00
 ---
 
 # Debug Session: beta.33 release-runner instability
@@ -28,6 +28,7 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
 5. Done: complete the managed R1 suites and a fresh unnumbered release rehearsal; no beta number was assigned.
 6. In progress: make rehearsal attestation writing verify the exact on-disk build identity and rerun R0/R1 after the source fix.
 7. In progress: align the immutable download allowlist with the canonical v-prefixed candidate tag while retaining historical no-v tags.
+8. In progress: verify the explicit-stop recovery boundary through a fresh R0/R1 before beta.37.
 
 ## Repair evidence
 
@@ -60,3 +61,16 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
   observation: R2 selected beta.35 and R3 passed. R4 signed/assembled initial macOS archive members, then bootstrap generation failed closed with `DOWNLOAD_URL_DENIED` because the canonical `v0.1.0-beta.35` tag path was not accepted by the allowlist.
 - classification: `POST_SOURCE` / `DOWNLOAD_URL_DENIED`; beta.35 is permanently consumed. No publication, installation, login or live gate occurred; partial local assembly is retained only as ignored diagnostic output.
 - fix: allow the optional `v` prefix for GitHub release tag paths and add a regression test covering both historical no-v and canonical v-prefixed tags. A fresh R0/R1 is required before beta.36.
+
+## Beta.36 transient recurrence
+
+- timestamp: 2026-09-03T03:05:00+10:00
+  observation: The first complete beta.36 gate failed `upgrade-recovery` with `HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED`; focused `upgrade-recovery` then passed 8/8. A following complete gate passed 31/32 files but reproduced the same code in a different recovery scenario.
+- classification: `POST_TRANSIENT` recurrence; beta.36 is permanently consumed because the required two consecutive complete gates did not pass.
+- next action: return to R0/R1 and inspect process-stop observation/ownership and recovery teardown. Do not assign beta.37 until the repaired runner proves two clean complete candidate gates.
+
+## Process-stop boundary repair
+
+- root cause: reopen paths changed the maintenance generation and then passively waited for stale API/Worker heartbeats to self-stop. A process beginning that self-stop could be observed as `unknown` between two ownership checks, producing `PROCESS_OWNERSHIP_UNCONFIRMED` or a bounded stop timeout.
+- fix: both normal upgrade and rollback recovery now issue authenticated process shutdown while the operation gate remains `exclusive`; only after all registered processes are confirmed stopped does the installer increment the gate generation locally. No signal is sent without an authenticated, matching process identity.
+- focused evidence: `upgrade-recovery` snapshot rollback, expired-lease recovery, and compiled-CLI upgrade scenarios pass after the change. Fresh unnumbered R0/R1 remains the required next gate.
