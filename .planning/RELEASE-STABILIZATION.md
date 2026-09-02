@@ -101,3 +101,7 @@ The repository Phase executor remains a non-updating controller. The user runs t
 ## Beta.31 historical exception and failure
 
 Beta.31 completed its then-current managed-runtime quality, assembly, signing, bounded readiness, publication and anonymous verification chain before this policy was written, so its historical receipts do not require a retroactive rehearsal attestation. The real 02-14 macOS update later failed with `ENTRYPOINT_MISMATCH`, proving that the old availability contract covered the outer capability archives but not a runnable updater graph. Beta.31 is immutable published history and invalidated for the update gate. Every repair candidate must follow R0–R6 without inheriting this exception.
+
+## Beta.37 public availability failure
+
+Beta.37 completed the post-beta.31 R0–R4 stabilization gates and was published once with its immutable tag, release and 16 assets. The bounded anonymous metadata/HEAD readiness gate reached the one permitted full verifier, which failed with `PHASE2_AVAILABILITY_FAILED` and produced no availability receipt. This is `POST_PUBLIC`: the public identity is permanently consumed and must not be retried, overwritten, deleted or shown as an update candidate. Read-only release metadata matched the local publication receipt's identity, asset sizes and server-reported SHA-256 digests, but the verifier exposed no narrower non-sensitive cause. Future repair returns to R0/R1 before selecting a later beta; human update, source configuration/login, Windows native evidence and Phase 3 remain blocked.
