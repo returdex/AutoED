@@ -153,6 +153,18 @@ it('two-layer install prompt signs an archive-independent core and externally bi
   expect(external).not.toContain(release.externalPromptSha256);
 });
 
+it('external install prompt provides one verified executable updater entrypoint per native target',()=>{
+  const release=artifactReceipt(),external=renderPhase2ExternalInstallPrompt(release)!;
+  expect(external).toContain("curl -fL --proto '=https'");
+  expect(external).toContain('shasum -a 256 -c -');
+  expect(external).toContain('/bin/sh autoed-bootstrap.sh --root');
+  expect(external).toContain('Invoke-WebRequest -UseBasicParsing');
+  expect(external).toContain('Get-FileHash .\\autoed-bootstrap.ps1 -Algorithm SHA256');
+  expect(external).toContain('& .\\autoed-bootstrap.ps1 -StagingParent');
+  expect(external).not.toContain("TRUST_STATE='UNESTABLISHED'");
+  expect(external).not.toContain("CORE_SHA256='UNESTABLISHED'");
+});
+
 it('two-layer prompt rejects core/external tamper, target substitution, cross-target reuse and self-reference',()=>{
   const selected=selection(),tested=report(selected),core=renderPhase2InstallPromptCore(selected,tested),release=artifactReceipt(selected,tested),external=renderPhase2ExternalInstallPrompt(release)!;
   expect(()=>validatePhase2InstallPromptCore(core+'tamper',{selection:selected,testReport:tested})).toThrow('PHASE2_PROMPT_CORE_INVALID');
