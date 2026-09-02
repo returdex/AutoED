@@ -84,13 +84,14 @@ export function canonical(value){if(Array.isArray(value))return `[${value.map(ca
 export function canonicalSha256(value){return createHash('sha256').update(Buffer.isBuffer(value)||typeof value==='string'?value:canonical(value)).digest('hex');}
 export function phase2VersionSetSha256(values){
   if(!Array.isArray(values)||new Set(values).size!==values.length||values.some(value=>!VERSION.test(value)))fail('PHASE2_VERSION_SET_INVALID');
-  const sorted=[...values].sort((a,b)=>Number(VERSION.exec(a)[1])-Number(VERSION.exec(b)[1]));return canonicalSha256(sorted);
+  const sorted=[...values].sort((a,b)=>Number(a.split('.').at(-1))-Number(b.split('.').at(-1)));return canonicalSha256(sorted);
 }
 
 function validGaps(value){return exact(value,['windowsNative','live','phase3'])&&same(value,FIXED_GAPS);}
 function validSelection(value){
-  return exact(value,['schema','status','owner','repository','repositoryId','version','tag','commit','tree','buildId','sourceSha256','versionSetSha256','trustFingerprint','license','immutable','selectedAt','gaps'])&&
-    value.schema===1&&value.status==='selected'&&value.owner==='returdex'&&value.repository==='returdex/AutoED'&&value.repositoryId===1350421724&&VERSION.test(value.version)&&value.tag===`v${value.version}`&&GIT_HASH.test(value.commit)&&GIT_HASH.test(value.tree)&&HASH.test(value.buildId)&&HASH.test(value.sourceSha256)&&HASH.test(value.versionSetSha256)&&value.trustFingerprint===FIXED_FINGERPRINT&&value.license===FIXED_LICENSE&&value.immutable===true&&ISO(value.selectedAt)&&validGaps(value.gaps);
+  const number=VERSION.test(value?.version)?Number(value.version.split('.').at(-1)):NaN,rehearsed=Number.isSafeInteger(number)&&number>31,keys=['schema','status','owner','repository','repositoryId','version','tag','commit','tree','buildId','sourceSha256','versionSetSha256','trustFingerprint','license','immutable','selectedAt','gaps',...(rehearsed?['rehearsalSha256']:[])];
+  return exact(value,keys)&&
+    value.schema===1&&value.status==='selected'&&value.owner==='returdex'&&value.repository==='returdex/AutoED'&&value.repositoryId===1350421724&&VERSION.test(value.version)&&value.tag===`v${value.version}`&&GIT_HASH.test(value.commit)&&GIT_HASH.test(value.tree)&&HASH.test(value.buildId)&&HASH.test(value.sourceSha256)&&HASH.test(value.versionSetSha256)&&(!rehearsed||HASH.test(value.rehearsalSha256))&&value.trustFingerprint===FIXED_FINGERPRINT&&value.license===FIXED_LICENSE&&value.immutable===true&&ISO(value.selectedAt)&&validGaps(value.gaps);
 }
 
 export function validateBuildSelection(value){if(!validSelection(value))fail('PHASE2_SELECTION_INVALID');return freeze(value);}

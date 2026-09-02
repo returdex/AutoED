@@ -28,6 +28,7 @@ import {
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
+import {validatePhase2Rehearsal,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 
 const roots:string[]=[];
 afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true,force:true});});
@@ -94,6 +95,19 @@ it('quality gate binds exact selection and test-report schema to one source iden
   expect(()=>validateBuildSelection({...selected,extra:true})).toThrow('PHASE2_SELECTION_INVALID');
   expect(()=>validatePhase2TestReport({...tested,selectionSha256:hash('f')},selected)).toThrow('PHASE2_TEST_REPORT_INVALID');
   expect(()=>verifyPhase2SourceBinding({selection:selected,testReport:tested,current:{commit:selected.commit,tree:commit('f'),buildId:selected.buildId,sourceSha256:selected.sourceSha256}})).toThrow('PHASE2_SOURCE_DRIFT');
+});
+
+it('post-beta31 selection requires one unnumbered rehearsal attestation digest',()=>{
+  const legacy=selection(31),future=selection(32);
+  expect(validateBuildSelection(legacy)).toEqual(legacy);
+  expect(()=>validateBuildSelection(future)).toThrow('PHASE2_SELECTION_INVALID');
+  expect(validateBuildSelection({...future,rehearsalSha256:hash('e')})).toMatchObject({version:'0.1.0-beta.32',rehearsalSha256:hash('e')});
+  expect(()=>validateBuildSelection({...legacy,rehearsalSha256:hash('e')})).toThrow('PHASE2_SELECTION_INVALID');
+});
+
+it('unnumbered rehearsal attestation is strict, sanitized and written once before candidate selection',()=>{
+  const root=makeRoot();mkdirSync(join(root,'.planning'),{mode:0o700});const value={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:commit('a'),tree:commit('b'),buildId:hash('c'),sourceSha256:hash('d'),managedRuntime:{verified:true,node:'24.20.0',npm:'11.19.0'},focused:{status:'pass',commandSha256:hash('1'),tests:12,skipped:0,todo:0},quality:Object.fromEntries([...['typecheck','unit','integration','ui','native'].map((name,index)=>[name,{status:'pass',commandSha256:sha(`${index}:${name}`),tests:index+1,skipped:0,todo:0}]),['sensitiveScan',{status:'pass',findings:0,reportSha256:hash('2')}]]),closures:{macos:{status:'pass',platform:'macos',files:100,assets:8,sensitiveFindings:0},windows:{status:'pass',platform:'windows',files:100,assets:8,sensitiveFindings:0}},prompt:{status:'pass',targetCount:2,assetCount:16,commandsBound:true,latestReferences:0},publication:{status:'pass',contractTests:23,remoteMutations:0,fullVerifierInvocations:1},failureHistory:[{class:'PRE_SOURCE',code:'ENTRYPOINT_CONTRACT_MISSING'}],completedAt:now};const path=join(root,'.planning/release-rehearsals',`${value.commit}-${value.buildId}.json`);
+  expect(validatePhase2Rehearsal(value)).toEqual(value);expect(writePhase2Rehearsal(path,value,{root})).toMatchObject({status:'pass',rehearsalSha256:canonicalSha256(value)});expect(()=>writePhase2Rehearsal(path,value,{root})).toThrow('PHASE2_REHEARSAL_OUTPUT_INVALID');expect(()=>validatePhase2Rehearsal({...value,releaseCoordinate:'0.1.0-beta.32'})).toThrow('PHASE2_REHEARSAL_INVALID');expect(()=>validatePhase2Rehearsal({...value,failureHistory:[{class:'PRE_SOURCE',code:'/Users/private/Profile'}]})).toThrow('PHASE2_REHEARSAL_INVALID');
 });
 
 it('quality gate rejects partial suites, skip/todo state, missing obligations and unsafe scan output',()=>{
