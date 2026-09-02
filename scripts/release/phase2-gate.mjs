@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {createHash,randomUUID} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {closeSync,existsSync,fsyncSync,linkSync,openSync,readFileSync,unlinkSync,writeFileSync} from 'node:fs';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -96,6 +97,11 @@ function validSelection(value){
 
 export function validateBuildSelection(value){if(!validSelection(value))fail('PHASE2_SELECTION_INVALID');return freeze(value);}
 export function createBuildSelection(value){return validateBuildSelection(structuredClone(value));}
+export function verifySelectionCheckout(selectionInput,current){
+  const selection=validateBuildSelection(selectionInput);
+  if(!exact(current,['commit','tree','sourceSha256'])||current.commit!==selection.commit||current.tree!==selection.tree||current.sourceSha256!==selection.sourceSha256)fail('PHASE2_SELECTION_CHECKOUT_DRIFT');
+  return freeze({status:'pass',commit:selection.commit,tree:selection.tree,sourceSha256:selection.sourceSha256});
+}
 
 function validSuite(value,sourceSha256){return exact(value,['status','commandSha256','sourceSha256','tests','skipped','todo'])&&value.status==='pass'&&HASH.test(value.commandSha256)&&value.sourceSha256===sourceSha256&&Number.isSafeInteger(value.tests)&&value.tests>0&&value.skipped===0&&value.todo===0;}
 function validScan(value){return exact(value,['status','surfaces','findings','reportDigest'])&&value.status==='pass'&&Array.isArray(value.surfaces)&&value.surfaces.join(',')===SCAN_SURFACES.join(',')&&value.findings===0&&HASH.test(value.reportDigest);}
@@ -151,7 +157,7 @@ function atomicNoReplace(path,value){const temporary=join(dirname(path),`.phase2
 async function main(){
   const args=process.argv.slice(2);let result;
   if(args.length===5&&args[0]==='--write-selection'&&args[1]==='--input'&&args[3]==='--out'){
-    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs');readPhase2RehearsalBinding(value);}atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
+    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs'),{hashBuildInputs}=await import('../dev/runtime.mjs');readPhase2RehearsalBinding(value);verifySelectionCheckout(value,{commit:execFileSync('git',['rev-parse','HEAD'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),tree:execFileSync('git',['rev-parse','HEAD^{tree}'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),sourceSha256:hashBuildInputs(REPO_ROOT)});}atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
   }else if(args.length===7&&args[0]==='--write-report'&&args[1]==='--selection'&&args[3]==='--input'&&args[5]==='--out'){
     if(resolve(args[2])!==join(REPO_ROOT,'release/phase2-build-selection.json'))fail('PHASE2_GATE_ARGUMENT_INVALID');const selection=validateBuildSelection(readJson(resolve(args[2]))),value=validatePhase2TestReport(readJson(resolve(args[4])),selection),target=fixedOutput(args[6],'release/phase2-test-report.json');atomicNoReplace(target,value);result={status:'pass',version:value.version,buildId:value.buildId,testReportSha256:canonicalSha256(value)};
   }else if(args.length===3&&args[0]==='--validate-selection'&&args[2]==='--read-only'){

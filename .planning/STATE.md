@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.31 real macOS update failed ENTRYPOINT_MISMATCH; R0/R1 repair rehearsal passed; R2 candidate assignment is next
+stopped_at: beta.32 invalidated by selection-checkout drift; candidate writer repair and fresh R0/R1 are next
 last_updated: "2026-09-02T09:35:00.000Z"
 last_activity: 2026-09-02
 progress:
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31 as immutable published-but-update-invalidated history after the real `ENTRYPOINT_MISMATCH`; R0/R1 repair rehearsal passed and R2 candidate assignment is next. All login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31 and locally selected beta.32 as immutable invalidated history; repair the candidate writer so selection cannot target a non-current checkout, then rerun R0/R1 before any later beta. All login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 failure repair completed RELEASE-STABILIZATION R0/R1; 19 of 41 have completion summaries; revised 02-38 R2 is next
-Status: beta.31 release 380751233 remains immutable public history but failed the real macOS update with ENTRYPOINT_MISMATCH; no later beta is assigned
+Plan: Post-02-14 repair returned to RELEASE-STABILIZATION R0 after beta.32 selection-checkout drift; 19 of 41 have completion summaries
+Status: beta.31 is immutable failed public history; beta.32 is consumed locally and unpublished; no active candidate is assigned
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -112,6 +112,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Human update execution is isolated from the repository controller: the user runs the exact verified prompt in a same-host/account local projectless Codex task, personally controls OS/restart actions, and returns sanitized output; an AutoED project task's inherited-gate refusal is UPDATE_TASK_CONTEXT_INVALID. — Prevents the controller gate from deadlocking the approved prompt-driven updater without allowing self-approval or school access.
 - [Phase 02]: beta.31's real macOS update is a `HUMAN_PRODUCT` failure: the old beta.19 runtime stayed active because the released archives lacked a bound runnable updater graph. — API/Worker health from the old build cannot satisfy exact-build, entrypoint, cleanup or paired-UI requirements.
 - [Release]: The corrective R0/R1 rehearsal passed only after binding 8 assets per platform and exact updater commands, making candidate writer/assembly/preflight reload the exact attestation, serializing the process-sensitive integration suite, and switching capability rehearsal from tar to exact-member ZIP to preserve legitimate long Chrome helper paths. — The final attestation digest is `a8f0e55e4a1f6bd67caa4746b30304ff467d79d9eda1afa6661be1ab9e107a84`; it assigns no beta number.
+- [Release]: beta.32 is permanently consumed and unpublished after R3 exposed that selection targeted rehearsed commit `fe54a6e…` while the active checkout had advanced to planning commit `7372fe5…`. — Candidate writing must require exact current commit/tree/source; changing a selected identity in place is forbidden.
 
 ### Pending Todos
 
@@ -153,7 +154,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-01T19:15:24.111Z
-Stopped at: beta.31 real macOS update failed ENTRYPOINT_MISMATCH; R0/R1 repair rehearsal passed; revised 02-38 R2 candidate assignment is next
+Stopped at: beta.32 invalidated by selection-checkout drift; repair candidate writer and rerun R0/R1 before selecting a later beta
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
 Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`; beta.31 is update-invalidated and the repaired release contract passed unnumbered R0/R1 rehearsal.
