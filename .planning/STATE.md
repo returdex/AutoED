@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
-last_updated: "2026-09-02T06:15:28.000Z"
+stopped_at: beta.31 real macOS update failed ENTRYPOINT_MISMATCH; R0/R1 repair rehearsal passed; R2 candidate assignment is next
+last_updated: "2026-09-02T09:35:00.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Stop at Plan 02-14's hard human update checkpoint using availability-proven beta.31; public beta.25, beta.29 and beta.30 remain immutable invalidated history.
+**Current focus:** Preserve beta.31 as immutable published-but-update-invalidated history after the real `ENTRYPOINT_MISMATCH`; R0/R1 repair rehearsal passed and R2 candidate assignment is next. All login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: 02-13 revalidated, published and anonymously verified beta.31; 19 of 41 have completion summaries; 02-14 hard human action is next
-Status: beta.31 release 380751233 and both exact assets are public and availability-proven; no update, install or live action has run
+Plan: Post-02-14 failure repair completed RELEASE-STABILIZATION R0/R1; 19 of 41 have completion summaries; revised 02-38 R2 is next
+Status: beta.31 release 380751233 remains immutable public history but failed the real macOS update with ENTRYPOINT_MISMATCH; no later beta is assigned
 Last activity: 2026-09-02
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (02-38, 02-39 and 02-13 are current for availability-proven beta.31)
+- Total plan summaries on disk: 32 (historical 02-38, 02-39 and 02-13 produced beta.31; its real update failed and corrective R0/R1 is complete)
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.31 published and anonymously availability-proven; update/live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.31 update-invalidated, R0/R1 repair passed, later candidate not assigned; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is the 02-14 hard human update gate
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position returned to revised 02-38 R2 after beta.31's failed 02-14 update
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -97,7 +97,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Full source identity and canonical origin exist only in the paired local-UI protected projection; bearer/model/receipt outputs are rebuilt from redacted allowlists. — Prevents protected identity from reaching CLI, MCP, logs, diagnostics or receipts.
 - [Phase 02]: Ordinary login action IDs are restart-revoked, single-use and bound to the authenticated browser session, source, approved config and runtime generation; they grant no evidence authority. — Prevents forged, cross-session or replayed login completion from authorizing probes or live receipts.
 - [Phase 02]: Auth mutations require paired cookie principal, exact same-origin and CSRF together; CLI and MCP remain auth status/receipt read-only. — Preserves one local control plane without bearer mutation authority.
-- [Phase 02]: beta.21 through beta.30 are permanently consumed and invalidated; beta.31 is the sole active published and availability-proven update candidate. — beta.25, beta.29 and beta.30 remain immutable published history, while unpublished invalidated identities cannot be reused.
+- [Phase 02]: beta.21 through beta.31 are permanently consumed and invalidated; beta.31 is published and availability-proven history but failed the real update gate with `ENTRYPOINT_MISMATCH`. — All public identities remain immutable, while no invalidated identity can be retried or reused.
 - [Phase 02]: Historical signed beta.24/beta.25/beta.29/beta.30 used one stable signed install-prompt core plus an external exact-target binding, but those bytes cannot be reused after invalidation. — A fresh beta.31 assembly must preserve the same self-reference-safe contract.
 - [Phase 02]: Historical Plan 02-39 beta.30 local signing leaves Windows native and live evidence not_run/human_needed and Phase 3 blocked; beta.31 requires an entirely fresh assembly/signing rerun. — AGENTS.md forbids treating local or synthetic verification as real native/live evidence.
 - [Phase 02]: Published beta.25 remains immutable public history but is not an active update candidate. — The update-freshness correction changed selected source; no tag, release or asset was overwritten or deleted.
@@ -110,6 +110,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: beta.31 release 380751233 passed bounded anonymous readiness and its first full-byte verifier, binding asset IDs 539997596/539997598 to exact hashes, signatures, fingerprint, license, prompt and 16-member/27-capability closure. — Publication is distribution evidence only; update, Windows native and live gates remain pending.
 - [Release]: Every candidate after beta.31 must pass an exact-source unnumbered stabilization rehearsal before beta.N assignment; failure classes determine whether a candidate is consumed, while public objects remain permanently immutable. — Prevents internal test/runner attempts from becoming prerelease-number churn and keeps assembly/publication plans output-only.
 - [Phase 02]: Human update execution is isolated from the repository controller: the user runs the exact verified prompt in a same-host/account local projectless Codex task, personally controls OS/restart actions, and returns sanitized output; an AutoED project task's inherited-gate refusal is UPDATE_TASK_CONTEXT_INVALID. — Prevents the controller gate from deadlocking the approved prompt-driven updater without allowing self-approval or school access.
+- [Phase 02]: beta.31's real macOS update is a `HUMAN_PRODUCT` failure: the old beta.19 runtime stayed active because the released archives lacked a bound runnable updater graph. — API/Worker health from the old build cannot satisfy exact-build, entrypoint, cleanup or paired-UI requirements.
+- [Release]: The corrective R0/R1 rehearsal passed only after binding 8 assets per platform and exact updater commands, serializing the process-sensitive integration suite, and switching capability rehearsal from tar to exact-member ZIP to preserve legitimate long Chrome helper paths. — The attestation digest is `033a6fd1e1db0202336101026e080a4dba3185130fbe1715e50b33f462e544d5`; it assigns no beta number.
 
 ### Pending Todos
 
@@ -129,6 +131,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
 - 2026-09-02 首次 beta.31 更新任务因附属于 AutoED project 而继承 controller gate，返回 `human_needed/not_observed`；这被分类为 `UPDATE_TASK_CONTEXT_INVALID`，没有执行安装、没有产品失败、没有新 beta。重试必须使用同一主机/账户的 local projectless Codex task 和完全相同的 verified prompt。
+- 2026-09-02 随后的真实 projectless macOS 更新返回 `ENTRYPOINT_MISMATCH`：beta.19 API/Worker 仍健康，但 build/entrypoints mismatch，cleanup 与 paired UI 未观察；beta.31 因此按 `HUMAN_PRODUCT` 永久失效。R0/R1 修复演练已通过，尚未分配新 beta；02-14、登录、Windows 与 Phase 3 继续阻塞。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
@@ -150,7 +153,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-01T19:15:24.111Z
-Stopped at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
+Stopped at: beta.31 real macOS update failed ENTRYPOINT_MISMATCH; R0/R1 repair rehearsal passed; revised 02-38 R2 candidate assignment is next
 Resume file: None
-Forensic report: `.planning/forensics/report-20260902-051348.md`; 02-14 human update checkpoint remains active.
-Resolved debug: `.planning/debug/update-task-inherits-gate.md`; project-attached updater refusal is context-invalid and the beta.31 checkpoint remains active.
+Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`; beta.31 is update-invalidated and the repaired release contract passed unnumbered R0/R1 rehearsal.

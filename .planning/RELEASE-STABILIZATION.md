@@ -2,7 +2,7 @@
 
 **Approved:** 2026-09-02
 **Applies to:** every AutoED release candidate selected after `0.1.0-beta.31`, including repairs discovered during Phase 2 live gates and all later milestones
-**Does not change:** the published beta.31 bytes, receipts, prompt, current 02-14 human checkpoint, public history, privacy rules, platform gates or no-overwrite requirements
+**Does not change:** the published beta.31 bytes or public objects, public history, privacy rules, platform gates or no-overwrite requirements
 
 ## Purpose and precedence
 
@@ -98,6 +98,6 @@ The repository Phase executor remains a non-updating controller. The user runs t
 - Future milestone planning must include R0–R6 as explicit dependencies whenever it creates a public release.
 - Plan checkers and verifiers must flag any claim that later output-only plans will edit release source, any direct use of host runtime, or any repair wording that skips rehearsal.
 
-## Beta.31 grandfathering
+## Beta.31 historical exception and failure
 
-Beta.31 completed the corrected managed-runtime quality, assembly, signing, bounded readiness, publication and anonymous verification chain before this policy was written. It remains the exact active release for the 02-14 human update checkpoint and does not require a retroactive rehearsal attestation. This exception applies only to beta.31 and creates no precedent for later candidates.
+Beta.31 completed its then-current managed-runtime quality, assembly, signing, bounded readiness, publication and anonymous verification chain before this policy was written, so its historical receipts do not require a retroactive rehearsal attestation. The real 02-14 macOS update later failed with `ENTRYPOINT_MISMATCH`, proving that the old availability contract covered the outer capability archives but not a runnable updater graph. Beta.31 is immutable published history and invalidated for the update gate. Every repair candidate must follow R0–R6 without inheriting this exception.
