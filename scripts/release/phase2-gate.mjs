@@ -148,17 +148,17 @@ function readJson(path){try{return JSON.parse(readFileSync(path,'utf8'));}catch{
 function fixedOutput(path,expected){const target=resolve(path);if(target!==join(REPO_ROOT,expected)||existsSync(target))fail('PHASE2_GATE_OUTPUT_INVALID');return target;}
 function atomicNoReplace(path,value){const temporary=join(dirname(path),`.phase2-gate-${randomUUID()}`);let fd;try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(value)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;linkSync(temporary,path);unlinkSync(temporary);if(process.platform==='darwin'){const directory=openSync(dirname(path),'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch(error){if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}if(error?.code==='EEXIST')fail('PHASE2_GATE_OUTPUT_INVALID');fail('PHASE2_GATE_WRITE_FAILED');}}
 
-function main(){
+async function main(){
   const args=process.argv.slice(2);let result;
   if(args.length===5&&args[0]==='--write-selection'&&args[1]==='--input'&&args[3]==='--out'){
-    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
+    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs');readPhase2RehearsalBinding(value);}atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
   }else if(args.length===7&&args[0]==='--write-report'&&args[1]==='--selection'&&args[3]==='--input'&&args[5]==='--out'){
     if(resolve(args[2])!==join(REPO_ROOT,'release/phase2-build-selection.json'))fail('PHASE2_GATE_ARGUMENT_INVALID');const selection=validateBuildSelection(readJson(resolve(args[2]))),value=validatePhase2TestReport(readJson(resolve(args[4])),selection),target=fixedOutput(args[6],'release/phase2-test-report.json');atomicNoReplace(target,value);result={status:'pass',version:value.version,buildId:value.buildId,testReportSha256:canonicalSha256(value)};
   }else if(args.length===3&&args[0]==='--validate-selection'&&args[2]==='--read-only'){
-    const value=validateBuildSelection(readJson(resolve(args[1])));result={status:'pass',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
+    const value=validateBuildSelection(readJson(resolve(args[1])));if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs');readPhase2RehearsalBinding(value);}result={status:'pass',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
   }else if(args.length===4&&args[0]==='--validate-report'&&args[3]==='--read-only'){
     const selection=validateBuildSelection(readJson(resolve(args[1]))),value=validatePhase2TestReport(readJson(resolve(args[2])),selection);result={status:'pass',version:value.version,buildId:value.buildId,testReportSha256:canonicalSha256(value)};
   }else fail('PHASE2_GATE_ARGUMENT_INVALID');
   process.stdout.write(canonical(result)+'\n');
 }
-if(process.argv[1]&&resolve(process.argv[1])===SCRIPT_PATH){try{main();}catch(error){const code=/^PHASE2_[A-Z0-9_]+$/.test(error?.message??'')?error.message:'PHASE2_GATE_FAILED';process.stderr.write(code+'\n');process.exitCode=1;}}
+if(process.argv[1]&&resolve(process.argv[1])===SCRIPT_PATH){main().catch(error=>{const code=/^PHASE2_[A-Z0-9_]+$/.test(error?.message??'')?error.message:'PHASE2_GATE_FAILED';process.stderr.write(code+'\n');process.exitCode=1;});}
