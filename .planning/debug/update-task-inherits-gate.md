@@ -38,6 +38,8 @@ updated: 2026-09-02T06:15:28Z
   observation: AGENTS, PROJECT D16, ROADMAP, RELEASE-STABILIZATION R6, Phase 2 D-20 and Plan 02-14 now distinguish a non-updating repository controller from a bounded local projectless updater task and classify inherited-gate refusal as UPDATE_TASK_CONTEXT_INVALID.
 - timestamp: 2026-09-02T06:15:28Z
   observation: Plan 02-14 passes GSD plan-structure verification with zero errors/warnings; all six beta.31 handoff file SHA-256 values remain exactly unchanged and no release/product/test/runtime file changed.
+- timestamp: 2026-09-02T06:15:28Z
+  observation: The strict non-pass `MacosUpdateFeedback.result_code` allowlist now includes UPDATE_TASK_CONTEXT_INVALID; the pass-only machine receipt schema remains unchanged and still cannot be created from this result.
 
 ## Eliminated
 
