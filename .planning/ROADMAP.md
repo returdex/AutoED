@@ -99,7 +99,7 @@ updated: 2026-08-26
 **Plans**: 41 plans in 35 waves (see `.planning/phases/02-poc-live/02-PLAN-OUTLINE.md` for the dependency-ordered list and exact `depends_on` graph)
 **UI hint**: yes
 
-**Cross-cutting plan constraints**: Every human update/login/MFA/restart/cross-day/reauth step remains a non-auto checkpoint; L evidence is written only by the paired server from real user action, while repo-side gates are read-only or create strict sanitized handoffs; macOS evidence cannot fill Windows cells; Phase 1/2 remain incomplete and Phase 3 remains blocked until the declared dual-platform requiredness registry passes.
+**Cross-cutting plan constraints**: Every human update/login/MFA/restart/cross-day/reauth step remains a non-auto checkpoint; L evidence is written only by the paired server from real user action, while repo-side gates are read-only or create strict sanitized handoffs; macOS evidence cannot fill Windows cells; Phase 1/2 remain incomplete and Phase 3 remains blocked until the declared dual-platform requiredness registry passes. Prompt-driven update execution is isolated from the repository controller: the user starts a local projectless Codex task on the same host/account with the exact verified prompt, personally controls OS/restart actions, and returns only strict sanitized results. An AutoED project task's inherited-gate refusal is `UPDATE_TASK_CONTEXT_INVALID`, not product evidence.
 
 **Release-repair routing:** beta.31 是当前02-14的 grandfathered exact release。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
 

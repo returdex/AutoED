@@ -156,6 +156,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 | D13 | 交互建项、standard 约 8 阶段、官方研究/plan check/verifier、独立研究可并行子代理、继承模型、去敏文档本地 Git 跟踪 | accepted | config.json created; auto flags false |
 | D14 | 全部51项需求、五项细化提案及八阶段路线图获批；M1目标0.1.0生效 | accepted (2026-08-26) | planning complete; implementation/tests not_run |
 | D15 | beta.31 后采用“设计冻结→无编号 rehearsal→候选锁定→完整门禁→签名→readiness→一次完整匿名验证→人工门”发布生命周期；公开对象继续严格不可变 | accepted (2026-09-02) | policy recorded; beta.31 grandfathered and current 02-14 unchanged |
+| D16 | 人工更新由仓库内 Phase controller 硬停等待；用户在同一主机/账户中新建 local projectless Codex updater task，逐字粘贴已验证 external prompt 执行自动更新部分，并本人处理 OS 授权/重启后把脱敏结果交回 controller | accepted (2026-09-02) | fixes inherited-AGENTS deadlock without changing beta.31 bytes or weakening human gates |
 
 ## Remaining Questions and Gates
 

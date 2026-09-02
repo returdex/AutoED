@@ -4,7 +4,7 @@ milestone: M1
 milestone_name: milestone
 status: executing
 stopped_at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
-last_updated: "2026-09-02T05:49:55.000Z"
+last_updated: "2026-09-02T06:15:28.000Z"
 last_activity: 2026-09-02
 progress:
   total_phases: 9
@@ -109,6 +109,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Phase 02]: Fresh beta.31 archives replace invalidated beta.30 as the sole active Plan 02-39 output; historical public bytes remain untouched and unusable for update. — The new identity was completely rebuilt and protected-key signed rather than relabelled.
 - [Phase 02]: beta.31 release 380751233 passed bounded anonymous readiness and its first full-byte verifier, binding asset IDs 539997596/539997598 to exact hashes, signatures, fingerprint, license, prompt and 16-member/27-capability closure. — Publication is distribution evidence only; update, Windows native and live gates remain pending.
 - [Release]: Every candidate after beta.31 must pass an exact-source unnumbered stabilization rehearsal before beta.N assignment; failure classes determine whether a candidate is consumed, while public objects remain permanently immutable. — Prevents internal test/runner attempts from becoming prerelease-number churn and keeps assembly/publication plans output-only.
+- [Phase 02]: Human update execution is isolated from the repository controller: the user runs the exact verified prompt in a same-host/account local projectless Codex task, personally controls OS/restart actions, and returns sanitized output; an AutoED project task's inherited-gate refusal is UPDATE_TASK_CONTEXT_INVALID. — Prevents the controller gate from deadlocking the approved prompt-driven updater without allowing self-approval or school access.
 
 ### Pending Todos
 
@@ -127,6 +128,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 精确开发依赖、SQLite任务、原生保护、认证API与独立Worker已有本机证据；实际CLI/MCP已验证，Windows原生运行与安装升级仍待后续验证；P2前确认实际来源/账户/课程/access plan/目的地。维护退出后的API/Worker必须新代重启和再次探测，不能直接复用候选自检结果。
 - P2所有必需真实场景未跑：官方登录、Profile重开三次、Worker/系统重启、Codex退出、至少24小时复查、退出/过期reauth和实际账户绑定。换号/identity_mismatch/网络/403/parser反例另记必需S/I，不故意制造学校错误、不要求未授权第二账号，不拿S/I填L；缺失/失败阻止依赖，Windows不能用WSL代替。
 - 每次人工UAT先自动检查、发布并核对可获取beta，再给精确更新/测试步骤，等用户在Codex手动更新反馈。P1仅检查安装/升级；官方登录仅P2及以后按场景需要请求。发布成功本身不是live通过。
+- 2026-09-02 首次 beta.31 更新任务因附属于 AutoED project 而继承 controller gate，返回 `human_needed/not_observed`；这被分类为 `UPDATE_TASK_CONTEXT_INVALID`，没有执行安装、没有产品失败、没有新 beta。重试必须使用同一主机/账户的 local projectless Codex task 和完全相同的 verified prompt。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
@@ -151,3 +153,4 @@ Last session: 2026-09-01T19:15:24.111Z
 Stopped at: Completed 02-13 beta.31 immutable publication and anonymous availability; 02-14 hard human update gate is next
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; 02-14 human update checkpoint remains active.
+Resolved debug: `.planning/debug/update-task-inherits-gate.md`; project-attached updater refusal is context-invalid and the beta.31 checkpoint remains active.

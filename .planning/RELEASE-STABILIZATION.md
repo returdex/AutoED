@@ -73,6 +73,8 @@ Before public mutation, repeat repository/identity/tag/asset conflict checks. Pu
 
 Only an availability-proven release may be shown to the user. Publication, readiness, download or automated native evidence never substitutes for the user's actual update, OS approval, official login/MFA or live result.
 
+The repository Phase executor remains a non-updating controller. The user runs the verified external prompt in a separate **local projectless Codex updater task** on the same host/account; that task may perform only the prompt's bounded automated update and return sanitized output, while the user personally controls OS approval and restart. A task attached to the AutoED project/worktree will inherit the controller gate and must refuse; classify that refusal as `UPDATE_TASK_CONTEXT_INVALID`, correct the task context and reuse the same immutable candidate. It is not a product failure and does not authorize a later beta.
+
 ## Failure classification
 
 | Class | Example | Required response | Consumes beta.N? |
