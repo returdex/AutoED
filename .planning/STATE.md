@@ -50,7 +50,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position returned to revised 02-38 R2 after beta.31's failed 02-14 update
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is revised 02-38 R2 after the beta.33 runner repair and exact R0/R1 rehearsal
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -111,7 +111,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: Every candidate after beta.31 must pass an exact-source unnumbered stabilization rehearsal before beta.N assignment; failure classes determine whether a candidate is consumed, while public objects remain permanently immutable. — Prevents internal test/runner attempts from becoming prerelease-number churn and keeps assembly/publication plans output-only.
 - [Phase 02]: Human update execution is isolated from the repository controller: the user runs the exact verified prompt in a same-host/account local projectless Codex task, personally controls OS/restart actions, and returns sanitized output; an AutoED project task's inherited-gate refusal is UPDATE_TASK_CONTEXT_INVALID. — Prevents the controller gate from deadlocking the approved prompt-driven updater without allowing self-approval or school access.
 - [Phase 02]: beta.31's real macOS update is a `HUMAN_PRODUCT` failure: the old beta.19 runtime stayed active because the released archives lacked a bound runnable updater graph. — API/Worker health from the old build cannot satisfy exact-build, entrypoint, cleanup or paired-UI requirements.
-- [Release]: The corrective R0/R1 rehearsal passed only after binding 8 assets per platform and exact updater commands, making candidate writer/assembly/preflight reload the exact attestation, serializing the process-sensitive integration suite, and switching capability rehearsal from tar to exact-member ZIP to preserve legitimate long Chrome helper paths. — The final attestation digest is `a8f0e55e4a1f6bd67caa4746b30304ff467d79d9eda1afa6661be1ab9e107a84`; it assigns no beta number.
+- [Release]: The corrective R0/R1 rehearsal passed only after binding 8 assets per platform and exact updater commands, adding protected synthetic-process ownership ledgers, bounded process/listener/mount observations, and switching capability rehearsal from tar to exact-member ZIP to preserve legitimate long Chrome helper paths. — The current sanitized attestation is intentionally kept uncommitted until R2 selection; it assigns no beta number.
 - [Release]: beta.32 is permanently consumed and unpublished after R3 exposed that selection targeted rehearsed commit `fe54a6e…` while the active checkout had advanced to planning commit `7372fe5…`. — Candidate writing must require exact current commit/tree/source; changing a selected identity in place is forbidden.
 - [Release]: beta.33 is permanently consumed and unpublished after an initial mount-observation failure, one complete pass, and a recurrent recovery/process-observation failure in the required second complete pass. — POST_TRANSIENT retention requires two consecutive complete passes; recurrence invalidates without publishing.
 
@@ -154,8 +154,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-01T19:15:24.111Z
-Stopped at: beta.33 invalidated after recurrent R3 runner failures; resolve `.planning/debug/beta33-runner-instability.md` before a later beta
+Last session: 2026-09-03T00:06:25+10:00
+Stopped at: beta.33 runner repair and exact unnumbered R0/R1 rehearsal complete; remain before R2 candidate assignment
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`; beta.31 is update-invalidated and the repaired release contract passed unnumbered R0/R1 rehearsal.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`; beta.31 is update-invalidated and the repaired release contract passed unnumbered R0/R1 rehearsal.
