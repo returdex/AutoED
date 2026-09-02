@@ -20,7 +20,7 @@
 | 02-36 | Paired-server durable A/B/C/D/reauth workflows and payload-external transactional L authority for both platforms. | 8 | 02-08, 02-09, 02-35 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
 | 02-37 | Complete signed live/audit/final/update gate branches and current-build native S/I/N producer before release. | 9 | 02-35, 02-36 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
 | 02-41 | Finalize/test all release tooling before selecting one immutable source identity. | 10 | 02-37 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
-| 02-38 | Select one immutable beta identity and bind full quality/security evidence without source edits. | 11 | 02-10, 02-11, 02-12, 02-36, 02-37, 02-41 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
+| 02-38 | For post-beta.31 corrective runs, complete unnumbered release rehearsal first; then select one immutable beta identity and bind full quality/security evidence without source edits. | 11 | 02-10, 02-11, 02-12, 02-36, 02-37, 02-41 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
 | 02-39 | Assemble, sign and locally verify dual-target artifacts without source edits. | 12 | 02-38 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
 | 02-13 | Publish once and anonymously verify availability without source edits. | 13 | 02-39 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
 | 02-14 | Hard human gate: actual macOS Codex update. | 14 | 02-13 | AUTH-02, UAT-01 |
@@ -45,3 +45,7 @@
 | 02-32 | Future hard human gate: Windows D real ≥24-hour recheck. | 33 | 02-31 | AUTH-02, AUTH-03, UAT-01 |
 | 02-33 | Future hard human gate: Windows reauth. | 34 | 02-32 | AUTH-02, AUTH-03, SEC-02, UAT-01 |
 | 02-34 | Final exact-requiredness gate: 176 possible, 44 required L, named S/I/N and all Phase 1/2 prerequisites. | 35 | 02-33 | AUTH-01, AUTH-02, AUTH-03, AUTH-04, SEC-02, UAT-01 |
+
+## Post-beta.31 repair routing
+
+Beta.31's completed 02-38→02-39→02-13 chain is historical and remains the exact input to the current 02-14 checkpoint. Any later Phase 2 plan that discovers a reproducible signed-capability/source defect stops and enters `.planning/RELEASE-STABILIZATION.md` R0/R1. It does not immediately reserve a higher beta. After rehearsal passes, the corrective run resumes at the revised 02-38 candidate lock, then 02-39 assembly/signing and 02-13 publication/availability. Runner/transient and human-environment failures follow their separate policy classes and do not automatically create a release.

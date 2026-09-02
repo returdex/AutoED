@@ -42,6 +42,7 @@
 ### 平台门禁与推进例外
 - **D-17:** macOS 优先推进是用户于 2026-09-01 明确批准的执行顺序例外。Phase 1 继续为部分通过；Phase 2 Windows 原生与 live 单元继续为 `not_run / human_needed`；任何 macOS、S/I 或 synthetic 结果不得填入 Windows/L 单元。
 - **D-18:** Phase 2 可以完成 macOS 设计、计划、实现、自动测试、beta 发布和 macOS 人工检查点，但不得据此整体判定 Phase 2 通过或自动进入 Phase 3。恢复 Phase 3 推进前必须补齐原路线图要求的双平台硬门禁，或由用户另行明确重定义产品平台范围并同步需求与路线图。
+- **D-19:** beta.31 保持当前02-14精确人工更新版本且不追溯新增 rehearsal。beta.31 后如 live/安装发现缺陷，先按 `.planning/RELEASE-STABILIZATION.md` 做设计冻结与无编号 internal rehearsal；只有受管 runtime、完整测试、真实归档闭包、release 状态机和外部 readiness 全通过后才选择更高 `beta.N`。公开失败永远不可重试/覆盖；仅未公开、零 source/test/tool/artifact drift 且完成聚焦诊断与连续完整门禁的 runner/transient 失败不自动消费候选。
 
 ### the agent's Discretion
 - 三次暂时性恢复探针的安全退避间隔、内部状态机字段、不可逆短指纹算法、状态卡视觉布局和结果单机器格式由研究与规划决定，但不得改变上述用户可见行为、隐私边界或证据分类。

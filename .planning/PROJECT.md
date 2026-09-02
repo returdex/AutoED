@@ -122,6 +122,8 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 - M1 路线图已确认，目标版本为 `0.1.0`（尚未发布）；每次新里程碑确认时 y 加一且 z 归零；不因新 phase 或里程碑完成再次自动更新 y。
 - 里程碑外零散修复，每次发布更新 z；普通本地 commit 不等于发布。
 - 测试版本为 `x.y.z-beta.N`，N 从 1 递增；例如 `0.1.0-beta.1`、`0.1.0-beta.2`，不覆盖已发布产物。
+- `beta.N` 是通过内部稳定化演练后的公开候选，不是 CI/测试尝试计数器。beta.31 之后的新候选必须先按 [RELEASE-STABILIZATION.md](RELEASE-STABILIZATION.md) 完成不占用版本号的 rehearsal，再选择 N；公开 tag/release 仍永久不可覆盖或复用。
+- 修复结果按 source/contract、runner/setup、pre-publication transient、artifact、post-publication 和 human gate 分类。只有满足零 source/test/tool/artifact drift、未产生公开对象并通过聚焦诊断及连续两次完整门禁的 pre-publication transient 才可保留已选候选；其他 post-selection 变化与所有 post-publication 失败都消费该版本。
 - GitHub 仓库、认证推送账号限定 `returdex`，禁止 `ywan1303`。
 - Git commit author/committer 与 GitHub 登录是不同身份，必须分别验证；本地 repo 配置正确关联的身份，禁止猜测邮箱或修改全局配置影响其他仓库。
 - 新功能验收必须经过实际安装入口 → MCP/CLI → API → Worker，不能仅检查版本字符串或 injected callback。
@@ -153,6 +155,7 @@ AutoED 是独立运行在用户本机的课程信息同步与归档服务，面�
 | D12 | 计划经用户确认后，自动执行批准范围内工作直至必须人工操作/测试；不得自动批准人工门禁 | accepted | not_run |
 | D13 | 交互建项、standard 约 8 阶段、官方研究/plan check/verifier、独立研究可并行子代理、继承模型、去敏文档本地 Git 跟踪 | accepted | config.json created; auto flags false |
 | D14 | 全部51项需求、五项细化提案及八阶段路线图获批；M1目标0.1.0生效 | accepted (2026-08-26) | planning complete; implementation/tests not_run |
+| D15 | beta.31 后采用“设计冻结→无编号 rehearsal→候选锁定→完整门禁→签名→readiness→一次完整匿名验证→人工门”发布生命周期；公开对象继续严格不可变 | accepted (2026-09-02) | policy recorded; beta.31 grandfathered and current 02-14 unchanged |
 
 ## Remaining Questions and Gates
 

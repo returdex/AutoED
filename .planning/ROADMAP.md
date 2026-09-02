@@ -48,6 +48,7 @@ updated: 2026-08-26
 - **实际 MCP 提前到 P3：** 尽早验证安装入口 → stdio MCP → 认证 HTTP → 独立后端；P7 才扩充完整工具、Skill 与实际模型读取验收。早期切片不等于完整 MCP 已完成。
 - **课程覆盖分层交付：** P3/P4 获取选定课程事实及附件索引；P5 交付文件/完整正文；P6 交付全生命周期。单课程/单作业仅为 POC，不是最终范围。
 - **新旧与发布隔离：** 新安装 ID、数据根、DB、端口和 MCP 注册独立，旧目录只读。未来发布前分别核对 repo-local author/committer 与实际 GitHub 认证为 returdex，检查 `returdex/AutoED` 同名冲突即停；PROJECT 记录 returdex 已登录但 gh 当前活动为 ywan1303，不能据此发布。保持标准 PolyForm Noncommercial 1.0.0 和商业另行授权说明。beta 使用 `x.y.z-beta.N`、N 从1递增且不覆盖；x 仅由用户明确更新，y 在新里程碑确认时增加并重置 z，里程碑外修复发布才增加 z，不按 phase/commit 升版。
+- **候选稳定化（beta.31 后）：** 所有修复版和后续里程碑发布遵循 [RELEASE-STABILIZATION.md](RELEASE-STABILIZATION.md)：先冻结决策/源码并以无编号 internal rehearsal 验证受管 runtime、完整测试、真实双目标闭包、prompt/receipt 状态机、外部 API 语义和 CDN readiness，全部通过后才分配 `beta.N`。公开失败永远消费版本；无公开对象且零 source/test/tool/artifact drift 的 runner/transient 失败按分类诊断和连续完整门禁处理，不再把内部 CI 次数当 beta 编号。
 
 ## Phases
 
@@ -99,6 +100,8 @@ updated: 2026-08-26
 **UI hint**: yes
 
 **Cross-cutting plan constraints**: Every human update/login/MFA/restart/cross-day/reauth step remains a non-auto checkpoint; L evidence is written only by the paired server from real user action, while repo-side gates are read-only or create strict sanitized handoffs; macOS evidence cannot fill Windows cells; Phase 1/2 remain incomplete and Phase 3 remains blocked until the declared dual-platform requiredness registry passes.
+
+**Release-repair routing:** beta.31 是当前02-14的 grandfathered exact release。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
 
 **Hard stop**: 采用 VALIDATION-STRATEGY 的 G3 live 矩阵及独立自动故障台账。换号/绑定不匹配、权限拒绝、网络中断、parser drift 和旧 Worker 并发反例必须有 S/I 证据，但不填写任何 L 格；真实登录/复用及绑定仍逐格实测，不要求故意制造学校错误或未授权第二个真实账号。只诊断批准范围内连接方案，不自动推进 P3。
 
