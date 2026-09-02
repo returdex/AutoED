@@ -1,9 +1,10 @@
-import { mkdtempSync, lstatSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, lstatSync, realpathSync, rmSync, writeFileSync, unlinkSync, existsSync } from 'node:fs';
 import { tmpdir, release } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
+import { protectPath } from '../../platform/src/permissions.js';
 
 export type EvidenceKind = 'S' | 'I' | 'N' | 'L';
 export type EvidenceResult = 'not_run' | 'pass' | 'fail' | 'skip' | 'human_needed';
@@ -36,6 +37,16 @@ export function createHarness() {
   const root = mkdtempSync(join(tmpdir(), 'autoed-synthetic-'));
   const original = lstatSync(root);
   const canonical = realpathSync(root);
+  const ownerStartIdentity = process.platform === 'darwin'
+    ? execFileSync('/bin/ps', ['-p', String(process.pid), '-o', 'lstart='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).trim()
+    : `pid-${process.pid}`;
+  if (!ownerStartIdentity) throw new Error('SYNTHETIC_OWNER_UNCONFIRMED');
+  const runId = randomUUID();
+  // Keep the ownership marker beside (not inside) the disposable root so tests
+  // that assert a pristine staging directory remain meaningful.
+  const markerPath = `${root}.synthetic-run.json`;
+  writeFileSync(markerPath, JSON.stringify({ schema: 1, root: canonical, runId, owner: { pid: process.pid, osStartIdentity: ownerStartIdentity, executable: realpathSync(process.execPath) } }), { mode: 0o600 });
+  protectPath(markerPath);
   const owned = new Set<ChildProcess>();
   let cleaned = false;
   async function stop(child: ChildProcess): Promise<void> {
@@ -58,7 +69,7 @@ export function createHarness() {
     },
     spawn(args: readonly string[]): ChildProcess {
       if (cleaned) throw new Error('Harness already cleaned');
-      const child = spawn(process.execPath, [...args], { cwd: root, stdio: 'ignore', env: { PATH: process.env.PATH, AUTOED_SYNTHETIC_TEST: '1', AUTOED_SYNTHETIC_PORT: process.env.AUTOED_SYNTHETIC_PORT } });
+      const child = spawn(process.execPath, [...args], { cwd: root, stdio: 'ignore', env: { PATH: process.env.PATH, AUTOED_SYNTHETIC_TEST: '1', AUTOED_SYNTHETIC_PORT: process.env.AUTOED_SYNTHETIC_PORT, AUTOED_SYNTHETIC_RUN_ID: runId } });
       owned.add(child);
       return child;
     },
@@ -68,6 +79,7 @@ export function createHarness() {
       for (const child of owned) await stop(child);
       const current = lstatSync(root);
       if (current.isSymbolicLink() || current.ino !== original.ino || current.dev !== original.dev || realpathSync(root) !== canonical) throw new Error('Temporary root ownership changed');
+      if (existsSync(markerPath)) unlinkSync(markerPath);
       rmSync(root, { recursive: true });
       cleaned = true;
     },

@@ -44,7 +44,15 @@ export function assertLocalVolume(path: string, fixture?: { platform: string; mo
   const platform = fixture?.platform ?? process.platform;
   if (platform === 'darwin') {
     let table: string;
-    try { table = fixture?.mountTable ?? execFileSync('/sbin/mount', [], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }); } catch { throw new Error('LOCAL_VOLUME_UNCONFIRMED'); }
+    if (fixture) table = fixture.mountTable;
+    else {
+      table = '';
+      for (let attempt = 0; attempt < 2 && !table; attempt++) {
+        try { table = execFileSync('/sbin/mount', [], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }); }
+        catch { if (attempt === 1) throw new Error('LOCAL_VOLUME_UNCONFIRMED'); }
+      }
+      if (!table) throw new Error('LOCAL_VOLUME_UNCONFIRMED');
+    }
     const mounts = table.split('\n').map(line => /^(.+) on (.+) \((.+)\)$/.exec(line)).filter(match => match && within(match[2]!, path)).sort((a, b) => b![2]!.length - a![2]!.length);
     const match = mounts[0]; if (!match) throw new Error('LOCAL_VOLUME_UNCONFIRMED');
     const flags = match[3]!.split(', ');

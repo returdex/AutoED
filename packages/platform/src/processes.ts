@@ -15,7 +15,7 @@ export interface OSProcess { osStartIdentity: string; executable: string }
 /** OS observation is a cross-check, never sufficient ownership authority by itself. */
 export async function observeProcess(pid: number): Promise<OSProcess|null> {
   if(!Number.isSafeInteger(pid)||pid<1)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');
-  try {
+  for(let attempt=0;attempt<3;attempt++) { try {
     if(process.platform==='darwin') {
       const text=execFileSync('/bin/ps',['-ww','-p',String(pid),'-o','lstart=','-o','comm='],{encoding:'utf8',stdio:['ignore','pipe','ignore'],timeout:3000}).trim();
       if(!text)return null;
@@ -32,8 +32,10 @@ export async function observeProcess(pid: number): Promise<OSProcess|null> {
   } catch(error) {
     // ps status 1 means no matching process. Permission/query failures are unknown.
     if(process.platform==='darwin'&&(error as {status?:number}).status===1)return null;
-    throw new Error('PROCESS_OBSERVATION_UNAVAILABLE');
-  }
+    if(attempt===2)throw new Error('PROCESS_OBSERVATION_UNAVAILABLE');
+    await new Promise(resolve=>setTimeout(resolve,25*(attempt+1)));
+  }}
+  throw new Error('PROCESS_OBSERVATION_UNAVAILABLE');
 }
 export function matchesProcess(identity: ProcessIdentity, observation: OSProcess|null): boolean {
   return !!observation && !!identity.executable && identity.osStartIdentity===observation.osStartIdentity && identity.executable===observation.executable;
@@ -41,7 +43,7 @@ export function matchesProcess(identity: ProcessIdentity, observation: OSProcess
 /** Bounded exact PID/port query; never enumerate unrelated processes or sockets. */
 export function ownsListener(pid:number,port:number):boolean {
   if(!Number.isSafeInteger(pid)||pid<1||!Number.isInteger(port)||port<1||port>65535)return false;
-  try {
+  for(let attempt=0;attempt<3;attempt++) try {
     if(process.platform==='darwin') {
       const output=execFileSync('/usr/sbin/lsof',['-nP','-a','-p',String(pid),`-iTCP@127.0.0.1:${port}`,'-sTCP:LISTEN','-Fp'],{encoding:'utf8',stdio:['ignore','pipe','ignore'],timeout:3000,maxBuffer:4096});
       // lsof includes mandatory descriptor fields even when only PID was requested.
@@ -49,7 +51,7 @@ export function ownsListener(pid:number,port:number):boolean {
       return fields.filter(line=>line.startsWith('p')).join('\n')===`p${pid}` && fields.every(line=>/^p\d+$|^f\d+$/.test(line));
     }
     if(process.platform==='win32')return windowsProbe("$q=@(Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort ([int]$p.port) -State Listen -OwningProcess ([int]$p.pid) -ErrorAction SilentlyContinue); ($q.Count -eq 1)|ConvertTo-Json -Compress",{pid,port})===true;
-  } catch{return false;}
+  } catch { if(attempt===2)return false; }
   return false;
 }
 const recordSchema=z.strictObject({installationId:z.uuid(),role:z.enum(['api','worker']),buildId:z.string().regex(/^[a-f0-9]{64}$/),pid:z.number().int().positive(),nonce:z.uuid(),osStartIdentity:z.string().min(1).max(128),executable:z.string().min(1).max(4096),entrypoint:z.string().min(1).max(4096),controlPort:z.number().int().min(1).max(65535)});
@@ -98,7 +100,10 @@ export function serviceSelection():{selection:RootSelection;nonce:string}|null {
 export interface SupervisorOptions { selection:RootSelection;managedNode:string;entries:Record<'api'|'worker',string>;secrets?:SecretStore;workerContext?:WriteContext }
 export class OwnedProcessSupervisor implements ProcessSupervisor {
   private readonly secrets:SecretStore;
+  private readonly inspectionFailures = new Map<'api'|'worker', string>();
   constructor(private readonly options:SupervisorOptions){this.secrets=options.secrets??new NativeSecretStore();}
+  /** Internal diagnostics only; callers must still treat `unknown` as fail-closed. */
+  inspectionCause(role:'api'|'worker'): string | undefined { return this.inspectionFailures.get(role); }
   private record(role:'api'|'worker'):ProcessRecord|null {
     const path=recordPath(this.options.selection,role);if(!existsSync(path))return null;
     if(lstatSync(path).size>16384)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');
@@ -146,11 +151,11 @@ export class OwnedProcessSupervisor implements ProcessSupervisor {
   async inspect(identity:ProcessIdentity):Promise<'running'|'exited'|'identity_mismatch'|'unknown'> {
     try {
       const metadata=readInstallation(this.options.selection);const record=this.record(identity.role);
-      if(!record||metadata.installationId!==identity.installationId||!same(record,identity))return 'identity_mismatch';
-      const os=await observeProcess(identity.pid);if(!os)return 'exited';
-      if(!matchesProcess(identity,os))return 'identity_mismatch';
-      await this.request(await this.validated(identity),'/api/process/inspect');return 'running';
-    } catch{return 'unknown';}
+      if(!record||metadata.installationId!==identity.installationId||!same(record,identity)){this.inspectionFailures.set(identity.role,'PROCESS_OWNERSHIP_UNCONFIRMED');return 'identity_mismatch';}
+      const os=await observeProcess(identity.pid);if(!os){this.inspectionFailures.delete(identity.role);return 'exited';}
+      if(!matchesProcess(identity,os)){this.inspectionFailures.set(identity.role,'PROCESS_OWNERSHIP_UNCONFIRMED');return 'identity_mismatch';}
+      await this.request(await this.validated(identity),'/api/process/inspect');this.inspectionFailures.delete(identity.role);return 'running';
+    } catch(error){const code=error instanceof Error&&/^[A-Z_]+$/.test(error.message)?error.message:'PROCESS_OWNERSHIP_UNCONFIRMED';this.inspectionFailures.set(identity.role,code);return 'unknown';}
   }
   async start(launch:ProcessLaunch):Promise<ProcessIdentity> {
     const metadata=readInstallation(this.options.selection);BuildIdentitySchema.parse(launch.build);

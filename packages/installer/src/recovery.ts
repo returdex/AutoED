@@ -17,7 +17,15 @@ import {protectPath} from '../../platform/src/permissions.js';
 import {databaseDigest} from './snapshot.js';
 import {cleanupManaged,cleanupRuntimeInventory} from './cleanup.js';
 
-export class RecoveryError extends Error {constructor(readonly code:'HUMAN_RECOVERY_REQUIRED',readonly causeCode:string){super(code);}}
+export class RecoveryError extends Error {
+  constructor(readonly code:'HUMAN_RECOVERY_REQUIRED',readonly causeCode:string){
+    // Keep the public error bounded while retaining the exact internal cause
+    // for recovery receipts and test diagnostics. Never put paths or arbitrary
+    // exception text into the thrown message.
+    const safe=/^[A-Z0-9_]+$/.test(causeCode)?causeCode:'UNSPECIFIED';
+    super(`${code}_${safe}`);
+  }
+}
 const Failure=z.strictObject({operationId:z.uuid(),code:z.string(),generation:z.number().int().nonnegative(),writeGeneration:z.number().int().nonnegative(),projectionWritten:z.boolean().optional(),projectionCode:z.string().optional()});
 const CleanupFailure=Failure.extend({code:z.string().regex(/^CLEANUP_PENDING(?:_[A-Z_]+)?_CLEANED_INTENT$/),projectionWritten:z.literal(true),projectionCode:z.literal('AUTHENTICATED_ROUTE')});
 const Admission=z.strictObject({operationId:z.uuid(),buildId:z.string().regex(/^[a-f0-9]{64}$/),mode:z.enum(['selfcheck','normal_probe','blocked'])});
@@ -28,7 +36,7 @@ export function pendingCleanupRecovery(selection:RootSelection){
   const lock=join(selection.root,'installer-staging','update.lock');if(!existsSync(lock))return null;
   try{const admission=Admission.parse(protectedRecord(join(lock,'admission.json'))),failure=CleanupFailure.parse(protectedRecord(join(selection.root,'installer-staging',`failure-${admission.operationId}.json`))),journal=UpgradeJournal.read(selection,admission.operationId),last=journal.entries.at(-1);if(failure.operationId!==admission.operationId||admission.mode!=='selfcheck'||journal.recovery||journal.header.previousInstallation!=='present'||last?.stage!=='cleaned'||last.phase!=='intent'||journal.entries.length!==19)throw new Error('MAINTENANCE_RECOVERY_REQUIRED');return admission.operationId;}catch(error){if(error instanceof Error&&error.message==='MAINTENANCE_RECOVERY_REQUIRED')throw error;throw new Error('MAINTENANCE_RECOVERY_REQUIRED');}
 }
-async function stopAll(selection:RootSelection,manifest:VerifiedManifest){const s=runtimeSupervisor(selection,manifest);for(const i of s.registered().reverse()){const state=await s.inspect(i);if(state==='running')await s.stop(i);else if(state!=='exited')throw new RecoveryError('HUMAN_RECOVERY_REQUIRED','PROCESS_OWNERSHIP_UNCONFIRMED');}for(const h of await inspectClientHosts(selection))if(h.state!=='exited')throw new RecoveryError('HUMAN_RECOVERY_REQUIRED','HOST_OWNERSHIP_UNCONFIRMED');}
+async function stopAll(selection:RootSelection,manifest:VerifiedManifest){const s=runtimeSupervisor(selection,manifest);for(const i of s.registered().reverse()){const state=await s.inspect(i);if(state==='running')await s.stop(i);else if(state!=='exited')throw new RecoveryError('HUMAN_RECOVERY_REQUIRED',s.inspectionCause(i.role)??'PROCESS_OWNERSHIP_UNCONFIRMED');}for(const h of await inspectClientHosts(selection))if(h.state!=='exited')throw new RecoveryError('HUMAN_RECOVERY_REQUIRED','HOST_OWNERSHIP_UNCONFIRMED');}
 async function probe(selection:RootSelection,manifest:VerifiedManifest,operationId:string|null,generation:number,store:SecretStore){const runtime=verifiedRuntime(selection,manifest),client=verifiedInstallerClient(selection,manifest),result=await runSelfcheck({selection,managedNode:runtime.managedNode,cliEntry:runtime.entries.cli,mcpEntry:runtime.entries.mcp,manifestPath:runtime.manifestPath,operationId,generation,installerClient:client,releaseObservation:manifest.evidence==='verified_release_manifest'?{build:manifest.manifest.build,manifestHash:manifest.manifestHash,evidence:'verified_release_manifest',checkedAt:new Date().toISOString()}:undefined});if(!result?.matched||result.featureResult!=='pass'){const code=result&&'code'in result?result.code:null,detail=typeof code==='string'&&/^[A-Z_]+$/.test(code)?`_${code}`:'';throw new RecoveryError('HUMAN_RECOVERY_REQUIRED',`ROLLBACK_SELFCHECK_FAILED${detail}`);}return client;}
 async function awaitStopped(supervisor:ReturnType<typeof runtimeSupervisor>){const deadline=performance.now()+10000;while(performance.now()<deadline){const states=await Promise.all(supervisor.registered().map(i=>supervisor.inspect(i)));if(states.every(s=>s==='exited'))return;await pause(100);}throw new Error('PROCESS_STOP_UNCONFIRMED');}
 

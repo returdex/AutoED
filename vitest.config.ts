@@ -32,7 +32,7 @@ export default defineConfig({
     passWithNoTests: false,
     reporters: ['default', requireExecutedTests],
     projects: ['unit', 'integration', 'native'].map(name => ({
-      test: { name, include: [`tests/${name}/**/*.test.ts`], environment: 'node', testTimeout: 30_000, hookTimeout: 30_000, passWithNoTests: false },
+      test: { name, include: [`tests/${name}/**/*.test.ts`], setupFiles: ['./tests/setup/synthetic-process-ledger.ts'], environment: 'node', testTimeout: 30_000, hookTimeout: 30_000, passWithNoTests: false },
     })),
   },
 });
