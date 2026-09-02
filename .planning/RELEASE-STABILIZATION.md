@@ -90,7 +90,7 @@ Only an availability-proven release may be shown to the user. Publication, readi
 
 ## Plan enforcement
 
-- For future corrective runs after beta.31, Plan 02-38 begins at R0/R1, not candidate selection.
+- For future corrective runs after beta.31, Plan 02-38 begins at R0/R1, not candidate selection. Its first corrective execution must implement and test the strict rehearsal-attestation writer plus conditional selection validator before any later beta is assigned; beta.31 remains the only schema-v1 grandfathered input.
 - Plan 02-39 and Plan 02-13 must reject a post-beta.31 candidate whose selection lacks the rehearsal-attestation digest.
 - A live plan that discovers a missing capability must stop; it may not patch in place. It routes to this policy and does not immediately reserve a new beta number.
 - Future milestone planning must include R0–R6 as explicit dependencies whenever it creates a public release.

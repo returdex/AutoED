@@ -18,7 +18,7 @@ The active beta.31 handoff and Plan 02-14 human checkpoint remain unchanged. No 
 
 - Added `.planning/RELEASE-STABILIZATION.md` with R0–R6 stages, managed-runtime and real-closure rehearsal requirements, bounded readiness, one-shot full verification and explicit failure classes.
 - Made the policy authoritative in `AGENTS.md`, `PROJECT.md`, `ROADMAP.md`, Phase 2 context and plan outline.
-- Revised 02-38 so post-beta.31 corrective work begins with an unnumbered rehearsal and binds its attestation before candidate selection.
+- Revised 02-38 so post-beta.31 corrective work begins by implementing the strict rehearsal writer/validator, then runs an unnumbered rehearsal and machine-binds its attestation before candidate selection; beta.31 remains the only grandfathered schema-v1 input.
 - Revised 02-39 and 02-13 to reject later candidates without exact-source rehearsal evidence and to remain output-only.
 - Revised only the future-repair routing in 02-14; the beta.31 prompt, feedback schema, human steps and blocking semantics were not changed.
 - Preserved the forensic diagnosis in `.planning/forensics/report-20260902-051348.md`.

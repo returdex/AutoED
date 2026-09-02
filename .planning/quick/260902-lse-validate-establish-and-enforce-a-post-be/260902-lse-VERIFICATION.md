@@ -16,7 +16,7 @@ PASSED. The planning/process change establishes the requested prevention control
 | Must-have | Result | Evidence |
 |---|---|---|
 | Beta.31 and 02-14 remain compatible | PASS | Six release handoff hashes equal the recorded before values; 02-14 diff changes only a policy context reference and future repair routing. |
-| Rehearsal precedes later beta assignment | PASS | `RELEASE-STABILIZATION.md` R0–R2 and 02-38 Task 0 require an unnumbered exact-source rehearsal before selection. |
+| Rehearsal precedes later beta assignment | PASS | `RELEASE-STABILIZATION.md` R0–R2 and 02-38 Task 0 require implementing the strict writer/validator, then completing an unnumbered exact-source rehearsal before selection. |
 | Failure types have different consequences | PASS | Policy defines `PRE_SOURCE`, `PRE_RUNNER`, `POST_SOURCE`, `POST_TRANSIENT`, `POST_ARTIFACT`, `POST_PUBLIC`, `HUMAN_ENV` and `HUMAN_PRODUCT`. |
 | High-risk release behavior is exercised early | PASS | R1 covers managed runtime, determinism preflight, complete suites, real dual-target closure, prompt schemas, external API semantics and CDN readiness. |
 | Later plans share one repair route | PASS | AGENTS, ROADMAP, Phase 2 context/outline and Plans 02-38/39/13/14 reference the canonical policy. |
