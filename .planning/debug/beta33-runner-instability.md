@@ -1,8 +1,8 @@
 ---
-status: resolved
-trigger: "Beta.33 R3 failed at two different host/process observation boundaries despite one intervening complete pass and no source drift."
+status: fixing
+trigger: "Beta.34 R3 failed because the selected rehearsal build identity was stale after a planning commit changed the active checkout."
 created: 2026-09-02T11:40:00Z
-updated: 2026-09-02T23:58:21+10:00
+updated: 2026-09-03T00:20:00+10:00
 ---
 
 # Debug Session: beta.33 release-runner instability
@@ -17,7 +17,7 @@ updated: 2026-09-02T23:58:21+10:00
 
 ## Boundary
 
-Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-recovery checks. Do not select beta.34, sign, publish, update or log in from this repair session.
+Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-recovery checks. Do not sign, publish, update or log in from this repair session. Beta.34 is permanently consumed by the failed selection/build attempt.
 
 ## Current focus
 
@@ -26,6 +26,7 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
 3. Done: reclaim only a disposable-root process whose command, root, receipt and start identity match and whose recorded test owner has exited; the beta.19 installation remains outside the ledger.
 4. Done: bound process/listener and local-volume probes without weakening fail-closed behavior.
 5. Done: complete the managed R1 suites and a fresh unnumbered release rehearsal; no beta number was assigned.
+6. In progress: make rehearsal attestation writing verify the exact on-disk build identity and rerun R0/R1 after the source fix.
 
 ## Repair evidence
 
@@ -44,3 +45,10 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
 - Fix: add a protected sibling run marker and pre/post synthetic-process ledger; reclaim only an exact disposable-root process after owner exit; add bounded process/listener/mount probes; preserve fail-closed ownership and recovery semantics; expose only an allowlisted recovery cause code.
 - Verification: the complete managed R1 gate and fresh unnumbered release rehearsal passed on build `82c8139dd3aff64a8f66113137b427fa6a258f3e946f50fa1deff7804535910b`, with source/tree identity and sanitized attestation recorded separately. Beta.31/32/33 history is unchanged, and no beta.34 was selected.
 - Selection sequencing: the current sanitized attestation is intentionally kept as an uncommitted planning output until R2 selection, so the candidate writer can bind it to the active checkout without another planning commit moving HEAD. The prior committed copy remains historical evidence only.
+
+## Reopened failure
+
+- timestamp: 2026-09-03T00:10:00+10:00
+  observation: Beta.34 selection bound commit `ab7705c…`, tree `3f342c…`, build `82c8139d…` from the prior rehearsal. The exact R3 build on that same checkout produced `3ca40e6f…`; no signing, publication, install, login or live gate occurred.
+- classification: `POST_SOURCE` / `STALE_REHEARSAL_BUILD_ID`; the candidate was locally selected, so beta.34 is consumed and must never be reused.
+- fix: `writePhase2Rehearsal` now compares any on-disk `build/identity.json` against the attestation commit, tree, build ID and source hash, and a contract test covers stale identity rejection.

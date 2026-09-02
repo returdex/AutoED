@@ -4,6 +4,7 @@ import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,openSync,rea
 import {basename,dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {canonical,canonicalSha256} from './phase2-gate.mjs';
+import {hashBuildInputs} from '../dev/runtime.mjs';
 
 const SCRIPT_PATH=fileURLToPath(import.meta.url),ROOT=resolve(dirname(SCRIPT_PATH),'../..'),HASH=/^[a-f0-9]{64}$/,GIT=/^[a-f0-9]{40}$/,ISO=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&/(?:Z|[+-]\d\d:\d\d)$/.test(value),PRIVATE=/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----|\/(?:Users|home)\/|Profile|Cookies?|password|mfa|authorization)/i;
 function fail(code){throw new Error(code);}
@@ -22,6 +23,22 @@ export function verifyPhase2RehearsalBinding(selection,value){
     return Object.freeze({status:'pass',commit:checked.commit,tree:checked.tree,buildId:checked.buildId,sourceSha256:checked.sourceSha256,rehearsalSha256:selection.rehearsalSha256});
   }catch{fail('PHASE2_REHEARSAL_BINDING_INVALID');}
 }
+
+/**
+ * Bind a rehearsal attestation to the actual unnumbered build currently on disk.
+ * If a build identity exists, stale or hand-carried build IDs are rejected before
+ * the attestation can be written. Temporary fixture roots without a build remain
+ * valid for contract tests.
+ */
+export function verifyPhase2RehearsalBuild(value,{root=ROOT}={}){
+  try{
+    const identityPath=join(root,'build/identity.json');
+    if(!existsSync(identityPath))return true;
+    const identity=JSON.parse(readFileSync(identityPath,'utf8'));
+    if(identity?.version!=='0.1.0'||identity.commit!==value.commit||identity.tree!==value.tree||identity.buildId!==value.buildId||hashBuildInputs(root)!==value.sourceSha256)throw new Error();
+    return true;
+  }catch{fail('PHASE2_REHEARSAL_BUILD_INVALID');}
+}
 export function readPhase2RehearsalBinding(selection,{root=ROOT}={}){
   try{
     const parent=join(realpathSync(root),'.planning/release-rehearsals'),target=join(parent,`${selection.commit}-${selection.buildId}.json`),stat=lstatSync(target);
@@ -30,7 +47,7 @@ export function readPhase2RehearsalBinding(selection,{root=ROOT}={}){
   }catch(error){if(error instanceof Error&&error.message==='PHASE2_REHEARSAL_BINDING_INVALID')throw error;fail('PHASE2_REHEARSAL_BINDING_INVALID');}
 }
 export function writePhase2Rehearsal(path,value,{root=ROOT}={}){
-  const checked=validatePhase2Rehearsal(value),parent=join(realpathSync(root),'.planning/release-rehearsals'),name=`${checked.commit}-${checked.buildId}.json`,target=resolve(path);if(target!==join(parent,name)||existsSync(target))fail('PHASE2_REHEARSAL_OUTPUT_INVALID');if(!existsSync(parent))mkdirSync(parent,{recursive:true,mode:0o700});if(realpathSync(parent)!==parent||!lstatSync(parent).isDirectory()||lstatSync(parent).isSymbolicLink())fail('PHASE2_REHEARSAL_OUTPUT_INVALID');const temporary=join(parent,`.rehearsal-${randomUUID()}`);let fd;try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(checked)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;linkSync(temporary,target);unlinkSync(temporary);if(process.platform==='darwin'){const directory=openSync(parent,'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch(error){if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}if(error?.code==='EEXIST')fail('PHASE2_REHEARSAL_OUTPUT_EXISTS');fail('PHASE2_REHEARSAL_WRITE_FAILED');}return Object.freeze({status:'pass',path:basename(target),rehearsalSha256:canonicalSha256(checked),commit:checked.commit,tree:checked.tree,buildId:checked.buildId});
+  const checked=validatePhase2Rehearsal(value);verifyPhase2RehearsalBuild(checked,{root});const parent=join(realpathSync(root),'.planning/release-rehearsals'),name=`${checked.commit}-${checked.buildId}.json`,target=resolve(path);if(target!==join(parent,name)||existsSync(target))fail('PHASE2_REHEARSAL_OUTPUT_INVALID');if(!existsSync(parent))mkdirSync(parent,{recursive:true,mode:0o700});if(realpathSync(parent)!==parent||!lstatSync(parent).isDirectory()||lstatSync(parent).isSymbolicLink())fail('PHASE2_REHEARSAL_OUTPUT_INVALID');const temporary=join(parent,`.rehearsal-${randomUUID()}`);let fd;try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(checked)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;linkSync(temporary,target);unlinkSync(temporary);if(process.platform==='darwin'){const directory=openSync(parent,'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch(error){if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}if(error?.code==='EEXIST')fail('PHASE2_REHEARSAL_OUTPUT_EXISTS');fail('PHASE2_REHEARSAL_WRITE_FAILED');}return Object.freeze({status:'pass',path:basename(target),rehearsalSha256:canonicalSha256(checked),commit:checked.commit,tree:checked.tree,buildId:checked.buildId});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===SCRIPT_PATH){try{const args=process.argv.slice(2);if(args.length!==4||args[0]!=='--input'||args[2]!=='--out')fail('PHASE2_REHEARSAL_ARGUMENT_INVALID');const value=JSON.parse(readFileSync(resolve(args[1]),'utf8')),result=writePhase2Rehearsal(args[3],value);process.stdout.write(canonical(result)+'\n');}catch(error){process.stderr.write((/^PHASE2_REHEARSAL_[A-Z0-9_]+$/.test(error?.message??'')?error.message:'PHASE2_REHEARSAL_FAILED')+'\n');process.exitCode=1;}}
