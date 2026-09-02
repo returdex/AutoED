@@ -1,8 +1,8 @@
 ---
 status: fixing
-trigger: "Beta.34 R3 failed because the selected rehearsal build identity was stale after a planning commit changed the active checkout."
+trigger: "Beta.35 R4 failed because the updater generated v-prefixed release URLs that the archive download allowlist rejected."
 created: 2026-09-02T11:40:00Z
-updated: 2026-09-03T00:20:00+10:00
+updated: 2026-09-03T01:22:00+10:00
 ---
 
 # Debug Session: beta.33 release-runner instability
@@ -27,6 +27,7 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
 4. Done: bound process/listener and local-volume probes without weakening fail-closed behavior.
 5. Done: complete the managed R1 suites and a fresh unnumbered release rehearsal; no beta number was assigned.
 6. In progress: make rehearsal attestation writing verify the exact on-disk build identity and rerun R0/R1 after the source fix.
+7. In progress: align the immutable download allowlist with the canonical v-prefixed candidate tag while retaining historical no-v tags.
 
 ## Repair evidence
 
@@ -52,3 +53,10 @@ Do not weaken local-volume, process-ownership, host-ownership, cleanup or human-
   observation: Beta.34 selection bound commit `ab7705c…`, tree `3f342c…`, build `82c8139d…` from the prior rehearsal. The exact R3 build on that same checkout produced `3ca40e6f…`; no signing, publication, install, login or live gate occurred.
 - classification: `POST_SOURCE` / `STALE_REHEARSAL_BUILD_ID`; the candidate was locally selected, so beta.34 is consumed and must never be reused.
 - fix: `writePhase2Rehearsal` now compares any on-disk `build/identity.json` against the attestation commit, tree, build ID and source hash, and a contract test covers stale identity rejection.
+
+## Beta.35 R4 failure
+
+- timestamp: 2026-09-03T01:20:00+10:00
+  observation: R2 selected beta.35 and R3 passed. R4 signed/assembled initial macOS archive members, then bootstrap generation failed closed with `DOWNLOAD_URL_DENIED` because the canonical `v0.1.0-beta.35` tag path was not accepted by the allowlist.
+- classification: `POST_SOURCE` / `DOWNLOAD_URL_DENIED`; beta.35 is permanently consumed. No publication, installation, login or live gate occurred; partial local assembly is retained only as ignored diagnostic output.
+- fix: allow the optional `v` prefix for GitHub release tag paths and add a regression test covering both historical no-v and canonical v-prefixed tags. A fresh R0/R1 is required before beta.36.

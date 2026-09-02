@@ -30,6 +30,9 @@ it('download policy rejects unapproved domains, private addresses and redirects 
     await expect(downloadArtifact(v,'payload.tar.gz',root,{resolve:async()=>['104.20.1.2'],request:async()=>{requests++;return {status:302,location:'https://127.0.0.1/private',body:[]};}})).rejects.toThrow('DOWNLOAD_URL_DENIED');expect(requests).toBe(1);expect(readdirSync(root)).toEqual([]);
   }finally{await h.cleanup();}
 });
+it('download policy accepts both historical and v-prefixed immutable release tags',()=>{
+  for(const tag of ['0.1.0-beta.20','v0.1.0-beta.35'])expect(assertDownloadURL(`https://github.com/returdex/AutoED/releases/download/${tag}/manifest.json`).pathname).toContain(tag);
+});
 it('ZIP decodes full names and checks local names, CRC and bounded output',()=>{
   const archive=(name:Buffer,data:Buffer)=>{const local=Buffer.alloc(30),central=Buffer.alloc(46),end=Buffer.alloc(22);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt32LE(crc32(data),14);local.writeUInt32LE(data.length,18);local.writeUInt32LE(data.length,22);local.writeUInt16LE(name.length,26);central.writeUInt32LE(0x02014b50);central.writeUInt16LE(20,6);central.writeUInt32LE(crc32(data),16);central.writeUInt32LE(data.length,20);central.writeUInt32LE(data.length,24);central.writeUInt16LE(name.length,28);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(1,8);end.writeUInt16LE(1,10);end.writeUInt32LE(46+name.length,12);end.writeUInt32LE(30+name.length+data.length,16);return Buffer.concat([local,name,data,central,name,end]);};
   const valid=archive(Buffer.from('app.js'),Buffer.from('abc'));expect(zipEntries(valid)[0]!.read().toString()).toBe('abc');

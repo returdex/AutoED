@@ -102,7 +102,7 @@ export function extractArchive(artifact:ArchiveDescriptor,bytes:Buffer,root:stri
 
 export function assertDownloadURL(input:string):URL{
   let u:URL;try{u=new URL(input);}catch{throw new Error('DOWNLOAD_URL_DENIED');}
-  const paths:Record<string,RegExp>={'nodejs.org':/^\/dist\/v24\.20\.0\/[A-Za-z0-9._-]+$/,'github.com':/^\/returdex\/AutoED\/releases\/download\/0\.\d+\.\d+-beta\.\d+\/[A-Za-z0-9._-]+$/,'release-assets.githubusercontent.com':/^\//,'objects.githubusercontent.com':/^\//,'cdn.playwright.dev':/^\/builds\//,'storage.googleapis.com':/^\/chrome-for-testing-public\//};
+  const paths:Record<string,RegExp>={'nodejs.org':/^\/dist\/v24\.20\.0\/[A-Za-z0-9._-]+$/,'github.com':/^\/returdex\/AutoED\/releases\/download\/v?0\.\d+\.\d+-beta\.\d+\/[A-Za-z0-9._-]+$/,'release-assets.githubusercontent.com':/^\//,'objects.githubusercontent.com':/^\//,'cdn.playwright.dev':/^\/builds\//,'storage.googleapis.com':/^\/chrome-for-testing-public\//};
   if(u.protocol!=='https:'||u.username||u.password||u.hash||u.port&&u.port!=='443'||!paths[u.hostname]?.test(u.pathname)||u.pathname.includes('%'))throw new Error('DOWNLOAD_URL_DENIED');return u;
 }
 export function assertPublicIPv4(ip:string):string{
