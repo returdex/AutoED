@@ -110,6 +110,10 @@ it('unnumbered rehearsal attestation is strict, sanitized and written once befor
   expect(validatePhase2Rehearsal(value)).toEqual(value);expect(writePhase2Rehearsal(path,value,{root})).toMatchObject({status:'pass',rehearsalSha256:canonicalSha256(value)});expect(()=>writePhase2Rehearsal(path,value,{root})).toThrow('PHASE2_REHEARSAL_OUTPUT_INVALID');expect(()=>validatePhase2Rehearsal({...value,releaseCoordinate:'0.1.0-beta.32'})).toThrow('PHASE2_REHEARSAL_INVALID');expect(()=>validatePhase2Rehearsal({...value,failureHistory:[{class:'PRE_SOURCE',code:'/Users/private/Profile'}]})).toThrow('PHASE2_REHEARSAL_INVALID');
 });
 
+it('internal rehearsal sentinel cannot be selected as a public candidate',()=>{
+  expect(()=>validateBuildSelection({...selection(31),version:'0.1.0-beta.0',tag:'v0.1.0-beta.0'})).toThrow('PHASE2_SELECTION_INVALID');
+});
+
 it('quality gate rejects partial suites, skip/todo state, missing obligations and unsafe scan output',()=>{
   const selected=selection(),tested=report(selected);
   expect(()=>validatePhase2TestReport({...tested,suites:{...tested.suites,integration:{...tested.suites.integration,status:'fail'}}},selected)).toThrow('PHASE2_TEST_REPORT_INVALID');
