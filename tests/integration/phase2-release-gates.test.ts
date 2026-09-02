@@ -12,6 +12,7 @@ import {
   renderPhase2InstallPromptCore,
   validateBuildSelection,
   validatePhase2TestReport,
+  verifySelectionCheckout,
   verifyPhase2SourceBinding,
 } from '../../scripts/release/phase2-gate.mjs';
 import {
@@ -113,6 +114,14 @@ it('unnumbered rehearsal attestation is strict, sanitized and written once befor
 it('post-beta31 selection is bound to the exact stored rehearsal source and digest',()=>{
   const root=makeRoot();mkdirSync(join(root,'.planning'),{mode:0o700});const value={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:commit('a'),tree:commit('b'),buildId:hash('c'),sourceSha256:hash('d'),managedRuntime:{verified:true,node:'24.20.0',npm:'11.19.0'},focused:{status:'pass',commandSha256:hash('1'),tests:12,skipped:0,todo:0},quality:Object.fromEntries([...['typecheck','unit','integration','ui','native'].map((name,index)=>[name,{status:'pass',commandSha256:sha(`${index}:${name}`),tests:index+1,skipped:0,todo:0}]),['sensitiveScan',{status:'pass',findings:0,reportSha256:hash('2')}]]),closures:{macos:{status:'pass',platform:'macos',files:100,assets:8,sensitiveFindings:0},windows:{status:'pass',platform:'windows',files:100,assets:8,sensitiveFindings:0}},prompt:{status:'pass',targetCount:2,assetCount:16,commandsBound:true,latestReferences:0},publication:{status:'pass',contractTests:23,remoteMutations:0,fullVerifierInvocations:1},failureHistory:[],completedAt:now};const path=join(root,'.planning/release-rehearsals',`${value.commit}-${value.buildId}.json`),selected={...selection(32),commit:value.commit,tree:value.tree,buildId:value.buildId,sourceSha256:value.sourceSha256,rehearsalSha256:canonicalSha256(value)};
   writePhase2Rehearsal(path,value,{root});expect(verifyPhase2RehearsalBinding(selected,value)).toMatchObject({status:'pass',rehearsalSha256:selected.rehearsalSha256});expect(readPhase2RehearsalBinding(selected,{root})).toMatchObject({status:'pass'});expect(()=>verifyPhase2RehearsalBinding({...selected,rehearsalSha256:hash('f')},value)).toThrow('PHASE2_REHEARSAL_BINDING_INVALID');expect(()=>verifyPhase2RehearsalBinding({...selected,commit:commit('f')},value)).toThrow('PHASE2_REHEARSAL_BINDING_INVALID');
+});
+
+it('candidate selection rejects a rehearsed identity that is not the active checkout',()=>{
+  const selected={...selection(32),rehearsalSha256:hash('e')},current={commit:selected.commit,tree:selected.tree,sourceSha256:selected.sourceSha256};
+  expect(verifySelectionCheckout(selected,current)).toMatchObject({status:'pass',commit:selected.commit});
+  expect(()=>verifySelectionCheckout(selected,{...current,commit:commit('f')})).toThrow('PHASE2_SELECTION_CHECKOUT_DRIFT');
+  expect(()=>verifySelectionCheckout(selected,{...current,tree:commit('f')})).toThrow('PHASE2_SELECTION_CHECKOUT_DRIFT');
+  expect(()=>verifySelectionCheckout(selected,{...current,sourceSha256:hash('f')})).toThrow('PHASE2_SELECTION_CHECKOUT_DRIFT');
 });
 
 it('internal rehearsal sentinel cannot be selected as a public candidate',()=>{
