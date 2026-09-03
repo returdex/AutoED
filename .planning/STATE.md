@@ -119,6 +119,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.36 is permanently consumed and unpublished after `HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED` recurred across two complete candidate gates despite a focused 8/8 pass. — POST_TRANSIENT recurrence requires returning to R0/R1 before beta.37.
 - [Repair]: Recovery and normal upgrade reopen now stop the operation-scoped API/Worker through authenticated control routes while the gate is still exclusive, then atomically exit maintenance locally; this removes heartbeat/scheduler timing from the process-stop boundary without weakening ownership checks. — Targeted recovery and compiled-CLI tests pass; fresh R0/R1 remains required.
 - [Release]: beta.37 passed R0–R4 and was published once with 16 immutable assets, but its one permitted anonymous full availability verifier failed with `PHASE2_AVAILABILITY_FAILED` and wrote no availability receipt. — Classify as `POST_PUBLIC`; preserve the public release permanently and return to R0/R1 before beta.38.
+- [Repair]: Availability verification now preserves only allowlisted phase, asset name and fixed reason diagnostics while keeping the public failure code stable; release-gates 30/30 and managed typecheck pass. — This repair invalidates beta.37's source binding and requires a fresh R0/R1 before beta.38.
 
 ### Pending Todos
 
@@ -144,6 +145,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 beta.36 首次完整候选 gate 在 upgrade-recovery 触发 `HUMAN_RECOVERY_REQUIRED_PROCESS_STOP_UNCONFIRMED`；聚焦 8/8 后，下一次完整 gate 在另一 recovery 场景再次复现。未发布、未安装、未登录。已永久消耗 beta.36；须修复 process-stop observation 并连续通过两次完整 gate 后才能选择 beta.37。
 - 2026-09-03 修复 recovery/upgrade reopen 的进程边界：在 exclusive 闸门内显式调用受认证的 shutdown，再由 installer 退出维护；针对两个回归场景和实际编译 CLI 的测试通过。新的无编号 R0/R1、R2、R3、R4通过，beta.37已发布但R5完整可用性校验失败。
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；后续必须回到R0/R1再选择beta.38。
+- 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
