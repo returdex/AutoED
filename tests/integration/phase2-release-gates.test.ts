@@ -27,7 +27,7 @@ import {
   validatePhase2InstallPromptCore,
 } from '../../scripts/release/preflight.mjs';
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
-import {verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
+import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 import {readPhase2RehearsalBinding,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 
@@ -303,6 +303,15 @@ it('anonymous availability rejects partial/authenticated fetch, redirect substit
   for(const response of [{status:206,finalUrl:'https://release-assets.githubusercontent.com/x',body:bodies.macos},{status:200,finalUrl:'https://evil.example/x',body:bodies.macos},{status:200,finalUrl:'https://release-assets.githubusercontent.com/x',body:Buffer.from('changed')}])await expect(verifyPhase2Availability({release,publication,deps:{temporaryParent:makeRoot(),now:()=>Date.parse(now),fetchMetadata:async()=>metadata,fetchAsset:async(_url:string,options:{headers:Record<string,string>})=>{expect(options.headers.authorization).toBeUndefined();return{status:response.status,finalUrl:response.finalUrl,headers:new Map([['content-length',String(response.body.length)]]),arrayBuffer:async()=>response.body};},verifyTarget:async()=>({fingerprint:release.fingerprint,manifestSha256:hash('7'),signatureSha256:hash('9'),capabilityClosureSha256:hash('4'),installPromptCoreSha256:release.installPromptCoreSha256})}})).rejects.toThrow('PHASE2_AVAILABILITY_FAILED');
   const validFetch=async(url:string)=>{const body=url.includes('darwin')?bodies.macos:bodies.windows;return{status:200,finalUrl:'https://release-assets.githubusercontent.com/x',headers:new Map([['content-length',String(body.length)]]),arrayBuffer:async()=>body};},base={fingerprint:release.fingerprint,manifestSha256:release.targets.macos.manifestSha256,signatureSha256:release.targets.macos.signatureSha256,capabilityClosureSha256:release.targets.macos.capabilityClosureSha256,installPromptCoreSha256:release.installPromptCoreSha256};
   for(const field of ['fingerprint','signatureSha256','capabilityClosureSha256','installPromptCoreSha256'] as const)await expect(verifyPhase2Availability({release,publication,deps:{temporaryParent:makeRoot(),now:()=>Date.parse(now),fetchMetadata:async()=>metadata,fetchAsset:validFetch,verifyTarget:async(platform:'macos'|'windows')=>({...base,manifestSha256:release.targets[platform].manifestSha256,signatureSha256:release.targets[platform].signatureSha256,capabilityClosureSha256:release.targets[platform].capabilityClosureSha256,[field]:hash('f')})}})).rejects.toThrow('PHASE2_AVAILABILITY_FAILED');
+});
+
+it('reports only sanitized phase and asset details for a full availability failure',async()=>{
+  const bodies={macos:Buffer.from('macos archive'),windows:Buffer.from('windows archive')},release=artifactReceipt(selection(),report(),bodies),assets=publishedAssets(release,350),publication={schema:1,status:'pass',owner:'returdex',repositoryId:1350421724,version:release.version,tag:release.tag,buildId:release.buildId,manifestSha256:release.manifestSha256,immutable:true,assets,checkedAt:now};
+  let caught:unknown;
+  const metadata={schema:1,owner:'returdex',repositoryId:1350421724,version:release.version,tag:release.tag,buildId:release.buildId,manifestSha256:release.manifestSha256,installPromptCoreSha256:release.installPromptCoreSha256,externalPromptSha256:release.externalPromptSha256,capabilitiesSha256:release.capabilitiesSha256,immutable:true,assets};
+  try{await verifyPhase2Availability({release,publication,deps:{temporaryParent:makeRoot(),now:()=>Date.parse(now),fetchMetadata:async()=>metadata,fetchAsset:async()=>{throw new Error('private transport detail');},verifyTarget:async()=>{throw new Error('private archive detail');}}});}catch(error){caught=error;}
+  expect(caught).toBeTruthy();expect((caught as Error).message).toBe('PHASE2_AVAILABILITY_FAILED');expect(formatPhase2AvailabilityError(caught)).toBe(`PHASE2_AVAILABILITY_FAILED phase=download asset=${assets.macos[0].name} reason=transport`);
+  expect(formatPhase2AvailabilityError(new Error('private detail'))).toBe('PHASE2_AVAILABILITY_FAILED');
 });
 
 it('update handoff is read-only and rejects platform spoof or identity drift',async()=>{
