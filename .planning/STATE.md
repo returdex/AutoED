@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.37 permanently consumed after the one permitted public availability verifier failed; return to R0/R1 before beta.38
-last_updated: "2026-09-02T18:50:10.000Z"
+stopped_at: beta.38 selected and automated R3 quality report passed; R4 assembly/signing and R5 publication remain
+last_updated: "2026-09-03T12:50:00.000Z"
 last_activity: 2026-09-03
 progress:
   total_phases: 9
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.37 as immutable invalidated history; diagnose the beta.37 public availability verifier failure through a fresh R0/R1 before any beta.38 selection. All update/login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.37 as immutable invalidated history; carry the fresh beta.38 selection through output-only assembly and publication gates. All update/login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.37 R5 publication, but its one permitted anonymous full availability verifier failed; return to R0/R1; 19 of 41 have completion summaries
-Status: beta.31 and beta.37 are immutable failed public history; beta.32 through beta.36 are consumed locally and unpublished; no active candidate is assigned
+Plan: Post-02-14 release stabilization reached beta.37 R5 publication, then fresh beta.38 R0/R1, R2 selection and R3 report passed; 21 of 41 have completion summaries
+Status: beta.31 and beta.37 are immutable failed public history; beta.32 through beta.36 are consumed locally and unpublished; beta.38 is selected with automated evidence, not yet assembled or published
 Last activity: 2026-09-03
 
-Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
+Plan progress: Phase 2 execution 21/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
 ## Performance Metrics
 
@@ -50,7 +50,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is post-02-13 R5 public availability failure, returning to R0/R1 before beta.38
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.38 R2/R3 passed, before output-only R4/R5
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -121,6 +121,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.37 passed R0–R4 and was published once with 16 immutable assets, but its one permitted anonymous full availability verifier failed with `PHASE2_AVAILABILITY_FAILED` and wrote no availability receipt. — Classify as `POST_PUBLIC`; preserve the public release permanently and return to R0/R1 before beta.38.
 - [Repair]: Availability verification now preserves only allowlisted phase, asset name and fixed reason diagnostics while keeping the public failure code stable; release-gates 30/30 and managed typecheck pass. — This repair invalidates beta.37's source binding and requires a fresh R0/R1 before beta.38.
 - [Release]: A fresh unnumbered R0/R1 rehearsal after the availability-diagnostic repair passed on commit `49893af…`, tree `ea74b0b…`, build `d8935065…`: managed Node/npm, focused 54/54, typecheck, unit 144, integration 361, UI 34, native 24, dual-target closures 3930/3901 with 8 assets each, sensitive scan 0 and no remote mutation. — The attestation is bound to the exact on-disk identity and is the sole basis for a later beta.38 selection; beta.37 remains permanently invalidated.
+- [Release]: Retiring beta.37 active receipts changed the planning tree, so the prior unnumbered attestation was intentionally not reused. A fresh R0/R1 rehearsal passed on commit `f8c87b3…`, tree `963ce4e…`, build `2999283b…`: focused 54/54, typecheck, unit 144, integration 361, UI 34, native 24, dual-target closures 3930/3901 with 8 assets each, sensitive scan 0 and no remote mutation.
+- [Release]: beta.38 is selected exactly once from the fresh rehearsal with selection SHA-256 `5597ebf…`; the complete automated R3 report passed with report SHA-256 `e15547fc…`. Windows native and live remain `not_run/human_needed`, and Phase 3 remains blocked. No signing, publication, update or login has occurred.
 
 ### Pending Todos
 
@@ -147,6 +149,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 修复 recovery/upgrade reopen 的进程边界：在 exclusive 闸门内显式调用受认证的 shutdown，再由 installer 退出维护；针对两个回归场景和实际编译 CLI 的测试通过。新的无编号 R0/R1、R2、R3、R4通过，beta.37已发布但R5完整可用性校验失败。
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；后续必须回到R0/R1再选择beta.38。
 - 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
+- 2026-09-03 beta.38 在新的精确树上完成 R0/R1、R2 选择和 R3 自动质量报告：selection/build/test-report 均通过严格绑定；尚未进入签名、发布、更新或登录。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
@@ -167,8 +170,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-03T04:50:10+10:00
-Stopped at: beta.37 public availability verifier failed after publication; return to R0/R1 before beta.38
+Last session: 2026-09-03T22:50:00+10:00
+Stopped at: beta.38 automated R3 report passed; continue with R4 assembly/signing and R5 publication gates
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
 Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`; `.planning/debug/beta37-public-availability.md` records the sanitized POST_PUBLIC failure. Beta.37 is immutable published-but-invalidated history; no human update prompt is authorized.
