@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.39 R3 complete quality gate passed; continue with R4 assembly/signing and R5 readiness, then stop before any human update gate
-last_updated: "2026-09-03T13:56:00.000Z"
+stopped_at: beta.39 R5 publication completed, but its one permitted anonymous verifier produced no availability receipt; return to a fresh unnumbered R0/R1 before beta.40
+last_updated: "2026-09-04T00:10:00.000Z"
 last_activity: 2026-09-03
 progress:
   total_phases: 9
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.38 as immutable invalidated history; carry beta.39 through R4/R5 without entering the human update/login gate. All update/login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.39 as immutable invalidated history; restart the next candidate at a fresh unnumbered R0/R1. All update/login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.38 R5 publication failure, then fresh beta.39 R0/R1, R2 selection and R3 quality passed; 22 of 41 have completion summaries
-Status: beta.31 and beta.38 are immutable failed public history; beta.32 through beta.37 are consumed/invalidated histories; beta.39 is selected and quality-qualified, with R4 assembly/signing pending and no update candidate authorized yet
+Plan: Post-02-14 release stabilization reached beta.39 R5 publication, then its one permitted anonymous verifier produced no receipt; 22 of 41 have completion summaries
+Status: beta.31, beta.38 and beta.39 are immutable failed public history; beta.32 through beta.37 are consumed/invalidated histories; beta.39's publication receipt is historical only, no availability receipt exists, and no update candidate is authorized
 Last activity: 2026-09-03
 
 Plan progress: Phase 2 execution 22/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
@@ -50,7 +50,7 @@ Plan progress: Phase 2 execution 22/41. Phase 1 remains 13/14 and is not marked 
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.39 R3 quality passed before R4 assembly/signing
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.39 public publication invalidated without an availability receipt
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -126,6 +126,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.38 R4 assembled and signed both target archives from the selected identity; macOS SHA-256 `7260c787…` (227426388 bytes), Windows SHA-256 `a99d7923…` (250437303 bytes), shared signed closure `00941a9f…`, and external prompt SHA-256 `1b8715bd…`. Local signature/closure verification and phase2 preflight passed; publication remains pending.
 - [Release]: beta.38 was published once with its exact selected commit/build and 16 immutable assets; bounded anonymous readiness passed, but the single permitted full verifier failed at `phase=target-proof`, `asset=macos`, `reason=archive_or_signature` with `PHASE2_AVAILABILITY_FAILED`. No availability receipt was written. This is `POST_PUBLIC`: preserve the public release permanently, do not retry/overwrite/delete/relabel it, and return to a fresh unnumbered R0/R1 before selecting beta.39.
 - [Release]: A fresh unnumbered R0/R1 after beta.38's public failure passed on commit `4ca8a81…`, tree `376a3b…`, build `2047d7ea…`: managed Node/npm, focused 45/45, typecheck, unit 144, integration 361, UI 34, native 24, dual-target closures 3930/3901 with 8 assets each, sensitive scan 0 and no remote mutation. Beta.39 was then selected exactly once with selection SHA-256 `9022b28e…` and its complete R3 report passed with test-report SHA-256 `dcb0e71b…`; R4/R5 remain pending.
+- [Release]: beta.39 completed R4 and was published once with 16 immutable assets. Its one permitted anonymous full verifier was invoked but the controller wait was interrupted before any sanitized verifier result or availability receipt was produced. Availability therefore cannot be attested; classify beta.39 as `POST_PUBLIC`, preserve the public release permanently, do not retry/overwrite/delete/relabel it, and return to a fresh unnumbered R0/R1 before selecting beta.40.
 
 ### Pending Todos
 
@@ -153,7 +154,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；随后按策略回到R0/R1并选择了beta.38，beta.38也已记录为公开后失效。
 - 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
 - 2026-09-03 beta.38 在新的精确树上完成 R0/R1、R2 选择和 R3 自动质量报告：selection/build/test-report 均通过严格绑定；尚未进入签名、发布、更新或登录。
-- 2026-09-03 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后已完成新的无编号 R0/R1、选择 beta.39 和 R3 质量报告，下一步仅为 R4/R5。
+- 2026-09-03/04 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后 beta.39 完成新的 R0/R1、R2、R3、R4 并发布，但匿名校验未产生回执。下一步必须回到新的无编号 R0/R1 再选择 beta.40。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
@@ -174,8 +175,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-03T23:56:00+10:00
-Stopped at: beta.39 R3 complete quality gate passed; continue with R4 assembly/signing and R5 publication/readiness
+Last session: 2026-09-04T00:10:00+10:00
+Stopped at: beta.39 R5 publication completed; one-shot anonymous verifier produced no availability receipt and the candidate is permanently invalidated
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38's sanitized POST_PUBLIC failure is recorded in `.planning/phases/02-poc-live/02-38-BETA-38-INVALIDATION.md`. Beta.37 and beta.38 are immutable published-but-invalidated history; no human update prompt is authorized.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 and beta.39 sanitized POST_PUBLIC failures are recorded in `.planning/phases/02-poc-live/02-38-BETA-38-INVALIDATION.md` and `.planning/phases/02-poc-live/02-38-BETA-39-INVALIDATION.md`. Beta.37 through beta.39 are immutable published-but-invalidated history; no human update prompt is authorized.
