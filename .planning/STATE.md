@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 Phase: 02 (poc-live) — EXECUTING
 Plan: Post-02-14 release stabilization reached beta.39 R5 publication, then its one permitted anonymous verifier produced no receipt; 22 of 41 have completion summaries
 Status: beta.31, beta.38 and beta.39 are immutable failed public history; beta.32 through beta.37 are consumed/invalidated histories; beta.39's publication receipt is historical only, no availability receipt exists, and no update candidate is authorized
-Last activity: 2026-09-04 - Completed quick task 260904-w8b: 创建共享 macOS 测试步骤与脱敏证据指南，放入项目根目录 share 文件夹供其他用户查看，不执行安装、登录或更新
+Last activity: 2026-09-04 - Completed quick task 260905-566: 将共享 macOS 测试指南改为直接可执行的操作步骤，减少背景说明，保留脱敏证据和硬门槛
 
 Plan progress: Phase 2 execution 22/41. Phase 1 remains 13/14 and is not marked complete; the approved macOS-first ordering exception does not clear Windows or Phase 3 gates.
 
@@ -167,6 +167,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 | 260901-5lh | Synchronize roadmap with user-approved macOS-first Phase 2 sequencing exception while preserving Windows and Phase 3 gates | 2026-09-01 | f41c535 |  | [260901-5lh-synchronize-roadmap-with-user-approved-m](./quick/260901-5lh-synchronize-roadmap-with-user-approved-m/) |
 | 260902-lse | Establish and enforce post-beta.31 release stabilization policy | 2026-09-02 | 0109a29 | Verified | [260902-lse-validate-establish-and-enforce-a-post-be](./quick/260902-lse-validate-establish-and-enforce-a-post-be/) |
 | 260904-w8b | 创建共享 macOS 测试步骤与脱敏证据指南，放入项目根目录 share 文件夹供其他用户查看，不执行安装、登录或更新 | 2026-09-04 | pending | Verified | [260904-w8b-macos-share](./quick/260904-w8b-macos-share/) |
+| 260905-566 | 将共享 macOS 测试指南改为直接可执行的操作步骤，减少背景说明，保留脱敏证据和硬门槛 | 2026-09-04 | pending | Verified | [260905-566-macos](./quick/260905-566-macos/) |
 
 ## Deferred Items
 
