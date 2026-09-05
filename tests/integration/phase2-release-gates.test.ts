@@ -1,4 +1,5 @@
 import {createHash,generateKeyPairSync,sign,verify} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {lstatSync,mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname,join} from 'node:path';
@@ -29,8 +30,9 @@ import {
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
+import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
 const roots:string[]=[];
 afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true,force:true});});
@@ -240,6 +242,12 @@ it('normalizes aliased temporary roots before production assembly and preserves 
   const productionRoot=makeRoot(),ops=createProductionPhase2RehearsalOps({root:productionRoot});
   await expect(ops.cleanup()).resolves.toBe(true);
   rmSync(normalized,{recursive:true,force:true});expect(lstatSync(physical).isDirectory()).toBe(true);
+});
+
+it('R1 source scanning uses the shared reviewed predicate and preserves sealed report identity',()=>{
+  const root=makeRoot();execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['config','user.name','test'],{cwd:root});execFileSync('git',['config','user.email','test@example.invalid'],{cwd:root});writeFileSync(join(root,'safe.txt'),'safe');execFileSync('git',['add','safe.txt'],{cwd:root});execFileSync('git',['commit','-qm','safe'],{cwd:root});
+  const captured=scanSensitiveBytes('captured',{surface:'captured_output'}),combined=scanPhase2RehearsalSources(root,captured);
+  expect(combined).toMatchObject({status:'pass',surface:'captured_output',findings:0});expect(scanPhase2RehearsalSources(root,JSON.parse(JSON.stringify(captured)))).toMatchObject({status:'fail',findings:1});
 });
 
 it('unnumbered rehearsal attestation is strict, sanitized and written once before candidate selection',()=>{

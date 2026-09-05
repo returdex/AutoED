@@ -6,19 +6,14 @@ import {dirname,join,relative,isAbsolute,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {PHASE2_CAPABILITIES,canonicalSha256,renderPhase2InstallPromptCore,validateBuildSelection,validatePhase2TestReport} from './phase2-gate.mjs';
 import {readPhase2RehearsalBinding} from './phase2-rehearsal.mjs';
+import {isReviewedFixtureException} from './reviewed-sensitive-fixtures.mjs';
 import {hashBuildInputs} from '../dev/runtime.mjs';
 import {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanReachableHistory as scanSensitiveReachableHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from './sensitive-scan.mjs';
 
 const repo=join(dirname(fileURLToPath(import.meta.url)),'../..'),allowedNames=new Set(['LICENSE','LICENSING.md']),allowedRoots=new Set(['dist','runtime','browser','public-manifest','bootstrap','docs']),sourceRoots=new Set(['.planning','apps','docs','packages','rebuild-2026-08-26','release','scripts','share','tests']),sourceFiles=new Set(['.gitignore','AGENTS.md','LICENSE','LICENSING.md','package-lock.json','package.json','playwright.config.ts','tsconfig.json','vitest.config.ts']);
-const reviewedFixtures=new Map([
-  ['cef27bea75b9b60bd08288674cf66fcbe3e14518',{path:'scripts/release/preflight.mjs',reason:'reviewed-detector-source'}],
-  ['90eaa763d659068307640c66381003243a47cc0c',{path:'tests/integration/release-gates.test.ts',reason:'reviewed-negative-fixture'}],
-  ['2624b58ba44aa0c961c04f58421964ed8e56d127',{path:'tests/integration/release-gates.test.ts',reason:'reviewed-negative-fixture'}],
-]);
 const digest=value=>createHash('sha256').update(value).digest('hex');
 function reject(code){throw new Error(code);}
 function approvedEmail(value){return /^\d+\+returdex@users\.noreply\.github\.com$/.test(value);}
-export function isReviewedFixtureException(hash,path){const item=reviewedFixtures.get(hash);return !!item&&item.path===path&&(path==='scripts/release/preflight.mjs'||path==='tests/integration/release-gates.test.ts');}
 
 export function assertReleaseIdentity(value){
   if(value?.authorName!=='returdex'||value?.committerName!=='returdex'||!approvedEmail(value.authorEmail)||!approvedEmail(value.committerEmail)||value.login!=='returdex'||value.repository?.owner!=='returdex'||value.repository?.name!=='AutoED')reject('RELEASE_IDENTITY_MISMATCH');
@@ -42,7 +37,7 @@ export function scanReachableHistory(root,treeish='HEAD'){
   try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())reject('SOURCE_HISTORY_REJECTED');const result=scanSensitiveReachableHistory(root,treeish,{allowPath:sourcePathAllowed,isReviewedException:isReviewedFixtureException});if(result.status!=='pass')reject('SOURCE_HISTORY_REJECTED');return result;}catch(error){if(error instanceof Error&&error.message==='SOURCE_HISTORY_REJECTED')throw error;reject('SOURCE_HISTORY_REJECTED');}
 }
 
-export {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanSensitiveBytes,scanTrackedTree,scanWorkingTree};
+export {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,isReviewedFixtureException,scanCapturedOutput,scanOwnedTree,scanSensitiveBytes,scanTrackedTree,scanWorkingTree};
 
 function shaFile(path){return digest(readFileSync(path));}
 export function identityOnly({root=repo,prerequisitesPath=join(repo,'release/prerequisites.json')}={}){

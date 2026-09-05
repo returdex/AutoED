@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
 import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory,validatePrerequisites} from '../../scripts/release/preflight.mjs';
+import {isReviewedFixtureException as isReviewedSensitiveFixture} from '../../scripts/release/reviewed-sensitive-fixtures.mjs';
 import {combineOwnedTreeReports,combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanReachableHistory as scanSensitiveHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from '../../scripts/release/sensitive-scan.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
@@ -31,7 +32,21 @@ it('refuses beta overwrite, license drift, forbidden runtime material and packag
 });
 
 it('limits reviewed fixture exceptions to exact immutable object and path pairs',()=>{
-  const hash='cef27bea75b9b60bd08288674cf66fcbe3e14518';expect(isReviewedFixtureException(hash,'scripts/release/preflight.mjs')).toBe(true);expect(isReviewedFixtureException(hash,'tests/integration/release-gates.test.ts')).toBe(false);expect(isReviewedFixtureException('0'+hash.slice(1),'scripts/release/preflight.mjs')).toBe(false);expect(isReviewedFixtureException(hash,'runtime/preflight.mjs')).toBe(false);expect(isReviewedFixtureException('f'.repeat(40),'scripts/release/preflight.mjs')).toBe(false);
+  const pairs=[
+    ['cef27bea75b9b60bd08288674cf66fcbe3e14518','scripts/release/preflight.mjs'],
+    ['90eaa763d659068307640c66381003243a47cc0c','tests/integration/release-gates.test.ts'],
+    ['2624b58ba44aa0c961c04f58421964ed8e56d127','tests/integration/release-gates.test.ts'],
+  ] as const;
+  for(const [hash,path] of pairs){
+    expect(isReviewedSensitiveFixture(hash,path)).toBe(true);expect(isReviewedFixtureException(hash,path)).toBe(true);
+    const last=hash.at(-1)==='0'?'1':'0';
+    expect(isReviewedSensitiveFixture(hash.slice(0,-1)+last,path)).toBe(false);
+    expect(isReviewedSensitiveFixture(hash.toUpperCase(),path)).toBe(false);
+    expect(isReviewedSensitiveFixture(`0${hash}`,path)).toBe(false);
+    expect(isReviewedSensitiveFixture(hash,`./${path}`)).toBe(false);
+  }
+  expect(isReviewedFixtureException(pairs[0][0],'tests/integration/release-gates.test.ts')).toBe(false);
+  expect(isReviewedFixtureException('f'.repeat(40),'scripts/release/preflight.mjs')).toBe(false);
 });
 
 it('scans every reachable source-history blob and blocks a secret deleted from the working tree',()=>{
