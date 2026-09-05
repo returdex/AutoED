@@ -29,7 +29,8 @@ import {
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {readPhase2RehearsalBinding,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {readPhase2RehearsalBinding,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 
 const roots:string[]=[];
 afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true,force:true});});
@@ -104,6 +105,15 @@ it('post-beta31 selection requires one unnumbered rehearsal attestation digest',
   expect(()=>validateBuildSelection(future)).toThrow('PHASE2_SELECTION_INVALID');
   expect(validateBuildSelection({...future,rehearsalSha256:hash('e')})).toMatchObject({version:'0.1.0-beta.32',rehearsalSha256:hash('e')});
   expect(()=>validateBuildSelection({...legacy,rehearsalSha256:hash('e')})).toThrow('PHASE2_SELECTION_INVALID');
+});
+
+it('fixed rehearsal derives every attestation field from ordered raw ops and cleans before writing',async()=>{
+  const root=makeRoot(),calls:string[]=[],source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
+  const command=(id:string)=>({schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:phase2RehearsalCommandSha256({program:'managed-node',args:[id]})});
+  const assets=(target:string)=>Array.from({length:8},(_,index)=>({name:`${target}-${index}`,bytes:index+1,sha256:sha(`${target}:${index}`),files:[{}]}));
+  const result:any=await runPhase2Rehearsal({root,ops:{runtime:async()=>{calls.push('runtime');return{verified:true,node:'24.20.0',npm:'11.19.0'};},snapshot:async()=>{calls.push('snapshot');return snapshot;},build:async()=>{calls.push('build');return{version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:source};},command:async(id:string)=>{calls.push(id);return command(id);},assembly:async()=>{calls.push('assembly');return{status:'pass',releaseCoordinate:null,signerExited:true,targets:[{target:'darwin-arm64',assets:assets('mac')},{target:'win32-x64',assets:assets('win')} ]};},prompt:async({core,assembly}:any)=>{calls.push('prompt');return{core,targetCount:assembly.targets.length,assetCount:assembly.targets.reduce((n:number,item:any)=>n+item.assets.length,0),commandsBound:true,latestReferences:0};},publication:async()=>{calls.push('publication');return{status:'pass',contractTests:30,remoteMutations:0,fullVerifierInvocations:1};},scan:async()=>{calls.push('scan');return{status:'pass',findings:0,reportSha256:hash('9')};},cleanup:async()=>{calls.push('cleanup');return true;},now:async()=>{calls.push('now');return now;}}});
+  expect(result).toMatchObject({status:'pass',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f')});expect(calls).toEqual(['runtime','snapshot','build','focused','typecheck','unit','integration','ui','native','assembly','prompt','publication','scan','snapshot','cleanup','now']);expect(readPhase2RehearsalBinding({...selection(32),commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:source,rehearsalSha256:result.rehearsalSha256},{root})).toMatchObject({status:'pass'});
+  expect(()=>reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' Tests  1 passed (1)',commandSha256:hash('1')})).toThrow('REPORT_MALFORMED');
 });
 
 it('unnumbered rehearsal attestation is strict, sanitized and written once before candidate selection',()=>{
