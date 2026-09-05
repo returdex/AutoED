@@ -11,7 +11,7 @@ const CLOSURE_CHUNK_BYTES=1024*1024;
 const CLOSURE_PROFILES=Object.freeze({closure:Object.freeze({maxFileBytes:512*1024*1024,maxTreeBytes:512*1024*1024}),test:Object.freeze({maxFileBytes:96,maxTreeBytes:128})});
 const HASH=/^[a-f0-9]{40,64}$/;
 const SURFACES=new Set(['tracked','history','working_tree','captured_output','owned_tree','public_package']);
-const PRIVATE_PATH=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
+const PRIVATE_PATH=/(?:^|\/)(?:Profile|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
 const SENSITIVE=new RegExp(['gh'+'[pousr]_[A-Za-z0-9]{20,}','github_'+'pat_[A-Za-z0-9_]{20,}','-----BEGIN '+'(?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----','CANARY_'+'RELEASE_SECRET'].join('|'));
 const reports=new WeakSet();
 const evidence=new WeakMap();
@@ -24,6 +24,7 @@ function safeRoot(root){try{if(!isAbsolute(root))return null;const actual=realpa
 function safeRelative(value){return typeof value==='string'&&value.length>0&&value.length<=4096&&!value.includes('\\')&&!value.includes('\0')&&!isAbsolute(value)&&!value.split('/').some(part=>part===''||part==='.'||part==='..');}
 function childOf(root,path){const resolved=resolve(root,path);return relative(root,resolved)!==''&&!relative(root,resolved).startsWith('..')&&!isAbsolute(relative(root,resolved))?resolved:null;}
 function insideRoot(root,path){const rel=relative(root,path);return rel!==''&&!rel.startsWith('..')&&!isAbsolute(rel);}
+function privatePathDenied(path){if(PRIVATE_PATH.test(path))return true;const segments=path.split('/');for(let index=0;index<segments.length;index++){if(!/^cookies?$/i.test(segments[index]))continue;const dependencyPackage=segments[0]==='node_modules'&&(segments[index-1]==='node_modules'||(index>1&&segments[index-2]==='node_modules'&&segments[index-1].startsWith('@')));if(!dependencyPackage)return true;}return false;}
 function report(surface,{objects,bytes,findings},contentSha256=''){const status=findings===0?'pass':'fail',body={status,surface,objects,bytes,findings};const result=Object.freeze({...body,reportSha256:sha(canonical({...body,contentSha256}))});reports.add(result);evidence.set(result,contentSha256);return result;}
 function emptyFailure(surface){return report(surface,{objects:0,bytes:0,findings:1});}
 
@@ -51,11 +52,11 @@ export function createSensitiveChunkScanner({surface,maxBytes=surface==='capture
     tail=window.subarray(Math.max(0,window.length-4096));
     return findings===0;
   };
-  const writePath=value=>{
+  const writePath=(value,{privatePath=value}={})=>{
     if(closed)fail('SENSITIVE_SCAN_CLOSED');
-    if(typeof value!=='string'||value.length===0||value.length>4096){findings=1;return false;}
+    if(typeof value!=='string'||value.length===0||value.length>4096||typeof privatePath!=='string'||privatePath.length===0||privatePath.length>4096){findings=1;return false;}
     digest.update(Buffer.from(`path\0${value}`));
-    if(PRIVATE_PATH.test(value)||SENSITIVE.test(value)){findings=1;return false;}
+    if(privatePathDenied(privatePath)||SENSITIVE.test(value)||SENSITIVE.test(privatePath)){findings=1;return false;}
     return findings===0;
   };
   const finish=()=>{if(closed)fail('SENSITIVE_SCAN_CLOSED');closed=true;if(surface==='captured_output'&&objects===0)findings=1;return report(surface,{objects,bytes,findings},digest.digest('hex'));};
@@ -83,7 +84,7 @@ function scanBlob(root,hash,{surface,onObject}){
     return onObject(bytes);
   }catch{return false;}
 }
-function sourcePathAllowed(path,allowPath){return safeRelative(path)&&!PRIVATE_PATH.test(path)&&(typeof allowPath!=='function'||allowPath(path)===true);}
+function sourcePathAllowed(path,allowPath){return safeRelative(path)&&!privatePathDenied(path)&&(typeof allowPath!=='function'||allowPath(path)===true);}
 
 /** @param {string} root @param {string} [treeish] @param {{allowPath?:(path:string)=>boolean}} [options] */
 export function scanTrackedTree(root,treeish='HEAD',{allowPath}={}){
@@ -155,7 +156,7 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,prof
     const markObject=()=>{if(++count>maxObjects)throw new Error();scanner.write(Buffer.alloc(0));};
     const streamFile=(absolute,path,{recordPath=true}={})=>{
       const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes||realpathSync(absolute)!==absolute)throw new Error();
-      if(recordPath){markObject();scanner.writePath(`file/${path}`);}if(scannedFiles.has(absolute))return;scannedFiles.add(absolute);
+      if(recordPath){markObject();scanner.writePath(`file/${path}`,{privatePath:path});}if(scannedFiles.has(absolute))return;scannedFiles.add(absolute);
       let fd;try{fd=openSync(absolute,'r');let offset=0;if(stat.size===0){scanner.write(Buffer.alloc(0),{object:false});return;}while(offset<stat.size){const chunk=Buffer.allocUnsafe(Math.min(CLOSURE_CHUNK_BYTES,stat.size-offset)),read=readSync(fd,chunk,0,chunk.length,offset);if(!Number.isSafeInteger(read)||read<1)throw new Error();scanner.write(chunk.subarray(0,read),{object:false});offset+=read;}}finally{if(fd!==undefined)closeSync(fd);}
     };
     const scanFile=(absolute,path)=>streamFile(absolute,path);
@@ -165,7 +166,7 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,prof
       const lexical=resolve(dirname(absolute),target);if(!insideRoot(actual,lexical))throw new Error();
       const resolved=realpathSync(absolute);if(!insideRoot(actual,resolved))throw new Error();
       const resolvedPath=relative(actual,resolved);if(!safeRelative(resolvedPath)||!sourcePathAllowed(resolvedPath,allowPath))throw new Error();
-      markObject();scanner.writePath(`link/${path}`);scanner.writePath(`link-target/${target}`);scanner.writePath(`link-resolved/${resolvedPath}`);
+      markObject();scanner.writePath(`link/${path}`,{privatePath:path});scanner.writePath(`link-target/${target}`,{privatePath:resolvedPath});scanner.writePath(`link-resolved/${resolvedPath}`,{privatePath:resolvedPath});
       return {resolved,resolvedPath};
     };
     const scanLink=(absolute,path)=>{
@@ -174,7 +175,7 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,prof
       if(!stat.isDirectory()||insideRoot(resolved,absolute))throw new Error();
       if(scannedDirectories.has(resolved))return;scannedDirectories.add(resolved);walk(resolved,resolvedPath,{alreadyScanned:true});
     };
-    const walk=(directory,prefix='',{alreadyScanned=false}={})=>{if(!alreadyScanned){if(realpathSync(directory)!==directory)throw new Error();markObject();scanner.writePath(`directory/${prefix}`);if(scannedDirectories.has(directory))return;scannedDirectories.add(directory);}for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
+    const walk=(directory,prefix='',{alreadyScanned=false}={})=>{if(!alreadyScanned){if(realpathSync(directory)!==directory)throw new Error();markObject();scanner.writePath(`directory/${prefix}`,{privatePath:prefix||'.'});if(scannedDirectories.has(directory))return;scannedDirectories.add(directory);}for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
       const path=prefix?`${prefix}/${entry.name}`:entry.name,absolute=childOf(actual,path);if(!absolute||!safeRelative(path)||!sourcePathAllowed(path,allowPath))throw new Error();
       const stat=lstatSync(absolute);if(stat.isDirectory()&&realpathSync(absolute)===absolute)walk(absolute,path);else if(stat.isSymbolicLink())scanLink(absolute,path);else scanFile(absolute,path);
     }};
