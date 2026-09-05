@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {createHash} from 'node:crypto';
+import {createHash,createPublicKey,verify} from 'node:crypto';
 import {gzipSync,crc32} from 'node:zlib';
 import {join} from 'node:path';
 import {mkdirSync,readFileSync,realpathSync,readdirSync,writeFileSync,readlinkSync,symlinkSync,chmodSync} from 'node:fs';
@@ -7,7 +7,7 @@ import {homedir} from 'node:os';
 import {execFileSync} from 'node:child_process';
 import {createHarness} from '../../packages/test-support/src/harness.js';
 import {protectPath} from '../../packages/platform/src/permissions.js';
-import {signSyntheticManifests} from '../../scripts/build/synthetic-sign.mjs';
+import {signSyntheticManifests,withSyntheticSigner} from '../../scripts/build/synthetic-sign.mjs';
 import {createFixtureVerifier} from '../../packages/installer/src/verify-manifest.js';
 import {extractVerifiedArchive,assertDownloadURL,assertPublicIPv4,downloadArtifact} from '../../packages/installer/src/download.js';
 import {zipEntries,validateLinkGraph,renderBootstrapPayload,renderRehearsalBootstrapPayload,verifyBootstrapManifest} from '../../packages/installer/src/archive-core.js';
@@ -18,6 +18,9 @@ async function verified(root:string,archive:Buffer,files:{path:string;data:strin
   const m={schema:1,product:'autoed-rebuild',build:{version:'0.1.0-beta.1',buildId:'a'.repeat(64),commit:'b'.repeat(40),tree:'c'.repeat(40),dependencyHash:'d'.repeat(64),protocol:1,schemaMin:1,schemaMax:1,capabilities:['echo']},target:{os:'darwin',arch:'arm64',minVersion:'14.0.0'},dependencies:{node:'24.20.0',playwright:'1.62.1',browserRevision:'1234',browserVersion:'151.0.7922.34'},artifacts:[{name:'payload.tar.gz',role,url:'https://github.com/returdex/AutoED/releases/download/0.1.0-beta.1/payload.tar.gz',sha256:sha(archive),bytes:archive.length,format,unpackedBytes:files.reduce((n,f)=>n+Buffer.byteLength(f.data),0),files:files.map(({data,...f})=>({...f,sha256:sha(data),bytes:Buffer.byteLength(data)}))}],dependencySources:[{name:'node',version:'24.20.0',url:'https://nodejs.org/dist/v24.20.0/node-v24.20.0-darwin-arm64.tar.gz',integrity:'sha256-'+'e'.repeat(64)}],tests:{synthetic:'pass',integration:'pass',macosNative:'not_run',windowsNative:'not_run',human:'not_run'}};
   const bytes=Buffer.from(JSON.stringify(m)),signed=await signSyntheticManifests(root,[bytes]);return createFixtureVerifier(signed.publicKey,signed.fingerprint)(bytes,Buffer.from(signed.signatures[0],'base64'),{os:'darwin',arch:'arm64',version:'26.5.2',schema:1,protocol:1});
 }
+it('two-stage synthetic signer binds post-discovery bytes to the same ephemeral fingerprint and exits',async()=>{
+  const h=createHarness();try{const root=realpathSync(h.root),bytes=Buffer.from('post-key-discovery');const signed:any=await withSyntheticSigner(root,async(signer:any)=>({fingerprint:signer.fingerprint,signature:(await signer.sign([bytes]))[0]}));expect(signed.signerExited).toBe(true);expect(signed.result.fingerprint).toBe(signed.fingerprint);expect(verify(null,bytes,createPublicKey(signed.publicKey),Buffer.from(signed.result.signature,'base64'))).toBe(true);await expect(withSyntheticSigner(root,async()=>{throw new Error('callback');})).rejects.toThrow('SYNTHETIC_SIGNER_FAILED');await expect(withSyntheticSigner(root as any,null as any)).rejects.toThrow('INVALID_SYNTHETIC_INPUT');}finally{await h.cleanup();}
+});
 it('verified USTAR extracts exact regular bytes; bad hash, traversal, extra members, duplicates and links reject before writing',async()=>{
   const h=createHarness();try{const root=realpathSync(h.root);protectPath(root);const entries=[{path:'app.js',data:'abc'}],archive=tar(entries),v=await verified(root,archive,entries);const output=join(root,'output');mkdirSync(output,{mode:0o700});protectPath(output);await extractVerifiedArchive(v,'payload.tar.gz',archive,output);expect(readFileSync(join(output,'app.js'),'utf8')).toBe('abc');
     for(const [label,bad]of [['hash',Buffer.from('broken')],['traversal',tar([{path:'../escape',data:'abc'}])],['extra',tar([...entries,{path:'evil.js',data:'abc'}])],['duplicate',tar([...entries,...entries])],['link',tar([{path:'app.js',link:'../../escape'}])]] as const){const dest=join(root,label);mkdirSync(dest,{mode:0o700});protectPath(dest);const signed=label==='hash'?v:await verified(root,bad,entries);await expect(extractVerifiedArchive(signed,'payload.tar.gz',bad,dest)).rejects.toThrow();expect(readdirSync(dest)).toEqual([]);}

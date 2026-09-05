@@ -2,9 +2,12 @@ import {expect,it} from 'vitest';
 import {existsSync,mkdtempSync,mkdirSync,writeFileSync,readFileSync,symlinkSync,realpathSync,chmodSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {assembleTarget,auditDelivery} from '../../scripts/build/assemble.mjs';
-import {inspectNativeBinary} from '../../scripts/build/native-artifacts.mjs';
-import {renderPhase2RehearsalInstallPromptCore} from '../../scripts/release/phase2-gate.mjs';
+import {assembleTarget,assembleManagedUpdaterRehearsalPair,auditDelivery,auditRehearsalOuterArchive} from '../../scripts/build/assemble.mjs';
+import {inspectNativeBinary,sha256} from '../../scripts/build/native-artifacts.mjs';
+import {canonicalSha256,renderPhase2RehearsalInstallPromptCore} from '../../scripts/release/phase2-gate.mjs';
+import {hashBuildInputs} from '../../scripts/dev/runtime.mjs';
+import {tarEntries} from '../../packages/installer/src/archive-core.js';
+import {createHarness} from '../../packages/test-support/src/harness.js';
 import matrix from '../../scripts/build/platform-matrix.json' with {type:'json'};
 
 function fixture(target:'darwin-arm64'|'win32-x64'){
@@ -15,6 +18,12 @@ function fixture(target:'darwin-arm64'|'win32-x64'){
   if(target==='darwin-arm64'){mkdirSync(join(source,'browser','Versions'));mkdirSync(join(source,'browser','Versions','151.0.7922.34'));symlinkSync('151.0.7922.34',join(source,'browser','Versions','Current'));}
   return {root,source,output,target,components:[['program','pure-js'],['node','node'],['browser','browser'],['native','better-sqlite3']] as const};
 }
+it('accepts omitted implicit tar directories but rejects unexpected and long outer members',()=>{
+  const data=Buffer.from('x'),file={path:'nested/member',type:'file',bytes:data.length,sha256:sha256(data)},entry={path:file.path,kind:'file' as const,size:data.length,read:()=>data};
+  expect(auditRehearsalOuterArchive([entry],[file])).toBe('PASS');
+  expect(auditRehearsalOuterArchive([entry,{path:'unexpected',kind:'directory' as const,size:0,read:()=>Buffer.alloc(0)}],[file])).toBe('UNEXPECTED_DIRECTORY');
+  const long={...file,path:'a'.repeat(101)};expect(auditRehearsalOuterArchive([{...entry,path:long.path}],[long])).toBe('LONG_PATH');
+});
 
 it.each(['darwin-arm64','win32-x64'] as const)('writes an auditable, target-specific dependency closure for %s',async target=>{
   const f=fixture(target),result=await assembleTarget({target,outputRoot:f.output,sourceRoot:f.source,components:f.components,diagnosticsRequired:false});expect(result.report.target).toBe(target);expect(result.report.nativeEvidence).toBe(target==='darwin-arm64'?'static_only':'not_run');expect(result.report.nativeEvidence).not.toBe('passed');expect(result.report.platform.actualNative.status).toBe('not_run');expect(result.report.files.length).toBeGreaterThan(4);expect(result.report.files.find(file=>file.path===`node/${target==='darwin-arm64'?'node':'node.exe'}`)?.executable).toBe(true);expect(result.report.components.every(c=>c.sourceURL&&c.integrity&&c.license)).toBe(true);expect(auditDelivery(result.root).target).toBe(target);
@@ -38,3 +47,8 @@ it('renders a release-coordinate-free rehearsal prompt core bound to exact sourc
   expect(core).toContain('Release coordinate: null');expect(core).toContain(value.qualitySha256);expect(core).not.toMatch(/https?:\/\/|beta\.|github\.com|latest/);
   expect(()=>renderPhase2RehearsalInstallPromptCore({...value,releaseCoordinate:'0.1.0-beta.40'})).toThrow('PHASE2_REHEARSAL_PROMPT_INVALID');
 });
+it('assembles a dual-target rehearsal capability package with compressed component siblings',async()=>{
+  const h=createHarness();try{const build=JSON.parse(readFileSync('build/identity.json','utf8')),identity={releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:hashBuildInputs(process.cwd()),qualitySha256:'f'.repeat(64)},pair:any=await assembleManagedUpdaterRehearsalPair({temporaryRoot:join(realpathSync(h.root),'rehearsal'),identity});expect(pair.signerExited).toBe(true);expect(pair.targets).toHaveLength(2);
+    for(const target of pair.targets as any[]){expect(target.assets).toHaveLength(8);expect(new Set(target.assets.map((asset:any)=>asset.name)).size).toBe(8);expect(target.assets.map((asset:any)=>asset.role).sort()).toEqual(['bootstrap','browser','capability','installer','manifest','node','program','signature']);expect(target.assets.every((asset:any)=>asset.bytes>0&&/^[a-f0-9]{64}$/.test(asset.sha256))).toBe(true);expect(target.capabilityClosure.memberCount).toBe(16);expect(target.sensitive.delivery.status).toBe('pass');expect(target.sensitive.outer.status).toBe('pass');const outer=target.assets.find((asset:any)=>asset.role==='capability')!,entries=tarEntries(readFileSync(outer.path),512*1024*1024),members=entries.map(entry=>entry.path),byPath=new Map(entries.map(entry=>[entry.path,entry])),node=target.assets.find((asset:any)=>asset.role==='node')!,browser=target.assets.find((asset:any)=>asset.role==='browser')!;expect(entries.every(entry=>entry.kind==='file'||entry.kind==='directory')).toBe(true);expect(members).toContain(`components/${node.name}`);expect(members).toContain(`components/${browser.name}`);expect(sha256(byPath.get(`components/${node.name}`)!.read())).toBe(node.sha256);expect(sha256(byPath.get(`components/${browser.name}`)!.read())).toBe(browser.sha256);expect(members.some(path=>path.startsWith('node/')||path.startsWith('browser/'))).toBe(false);expect(members).not.toContain(node.name);expect(members).not.toContain(browser.name);expect(members).not.toContain(target.assets.find((asset:any)=>asset.role==='installer')!.name);expect(members).not.toContain(target.assets.find((asset:any)=>asset.role==='program')!.name);expect(members).toContain('components/inventory.json');expect(members).toContain('delivery.json');expect(members).toContain('phase2/manifest.json');expect(members).toContain('phase2/manifest.sig');expect(members).toContain('phase2/capability-closure.json');expect(members).toContain('program/phase2/install-prompt-core.md');expect(members).toContain('program/LICENSE');expect(members).not.toContain('phase2-rehearsal-prompt-core.md');expect(members).not.toContain('release/phase2-install-prompt.md');expect(members).not.toContain(outer.name);const componentInventory=JSON.parse(byPath.get('components/inventory.json')!.read().toString('utf8'));expect(componentInventory.components.map((item:any)=>item.role).sort()).toEqual(['browser','node']);const capabilityManifest=JSON.parse(byPath.get('phase2/manifest.json')!.read().toString('utf8')),capabilityClosure=JSON.parse(byPath.get('phase2/capability-closure.json')!.read().toString('utf8'));expect(capabilityManifest.fingerprint).toBe(pair.fingerprint);expect(capabilityManifest.closureSha256).toBe(canonicalSha256(capabilityClosure));expect(capabilityClosure.members).toHaveLength(16);}
+  }finally{await h.cleanup();}
+},120000);
