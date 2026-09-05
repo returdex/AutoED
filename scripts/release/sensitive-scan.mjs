@@ -1,12 +1,14 @@
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {lstatSync,readdirSync,readFileSync,realpathSync,readlinkSync,statSync} from 'node:fs';
+import {closeSync,lstatSync,openSync,readSync,readdirSync,readFileSync,realpathSync,readlinkSync,statSync} from 'node:fs';
 import {dirname,isAbsolute,join,relative,resolve} from 'node:path';
 
 const MAX_OBJECT_BYTES=64*1024*1024;
 const MAX_OBJECTS=200000;
 const MAX_TOTAL_BYTES=512*1024*1024;
 const MAX_CAPTURED_OUTPUT_BYTES=64*1024*1024;
+const CLOSURE_CHUNK_BYTES=1024*1024;
+const CLOSURE_PROFILES=Object.freeze({closure:Object.freeze({maxFileBytes:512*1024*1024,maxTreeBytes:512*1024*1024}),test:Object.freeze({maxFileBytes:96,maxTreeBytes:128})});
 const HASH=/^[a-f0-9]{40,64}$/;
 const SURFACES=new Set(['tracked','history','working_tree','captured_output','owned_tree','public_package']);
 const PRIVATE_PATH=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
@@ -34,12 +36,12 @@ export function createSensitiveChunkScanner({surface,maxBytes=surface==='capture
   if(!validSurface(surface)||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>ceiling)fail('SENSITIVE_SCAN_INVALID');
   let bytes=0,objects=0,findings=0,closed=false,overflow=false,tail=Buffer.alloc(0);
   const digest=createHash('sha256');
-  const write=value=>{
+  const write=(value,{object=true}={})=>{
     if(closed)fail('SENSITIVE_SCAN_CLOSED');
     const chunk=Buffer.isBuffer(value)?value:typeof value==='string'?Buffer.from(value):null;
     if(!chunk){findings=1;return false;}
     if(overflow)return false;
-    objects++;
+    if(object)objects++;
     if(chunk.length>maxBytes-bytes){bytes=maxBytes+1;findings=1;overflow=true;tail=Buffer.alloc(0);return false;}
     bytes+=chunk.length;
     digest.update(chunk);
@@ -143,21 +145,26 @@ export function scanWorkingTree(root,{allowPath}={}){
  * Scans a caller-owned closure. macOS permits only relative file symlinks that
  * resolve inside this root; Windows and neutral closures reject every link.
  */
-/** @param {string} root @param {{surface?:string,allowPath?:(path:string)=>boolean,platform:'darwin-arm64'|'win32-x64'|'neutral',maxObjects?:number,maxBytes?:number}} options */
-export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,maxObjects=100000,maxBytes=MAX_TOTAL_BYTES}={}){
+/** @param {string} root @param {{surface?:string,allowPath?:(path:string)=>boolean,platform:'darwin-arm64'|'win32-x64'|'neutral',profile?:'closure'|'test',maxObjects?:number}} options */
+export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,profile='closure',maxObjects=100000}={}){
   const actual=safeRoot(root);
   try{
-    if(!actual||!validSurface(surface)||typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform)||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>MAX_TOTAL_BYTES)return emptyFailure(validSurface(surface)?surface:'owned_tree');
-    const scanner=createSensitiveChunkScanner({surface,maxBytes});scanner.writePath(`platform/${platform}`);let count=0;
-    const scanFile=(absolute,path)=>{const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>MAX_OBJECT_BYTES||realpathSync(absolute)!==absolute||++count>maxObjects)throw new Error();scanner.writePath(path);scanner.write(readFileSync(absolute));};
+    const limits=CLOSURE_PROFILES[profile];if(!actual||!validSurface(surface)||typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform)||!limits||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS)return emptyFailure(validSurface(surface)?surface:'owned_tree');
+    const scanner=createSensitiveChunkScanner({surface,maxBytes:limits.maxTreeBytes});scanner.writePath(`platform/${platform}`);let count=0;const scanned=new Set();
+    const streamFile=(absolute,path,{recordPath=true}={})=>{
+      const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes||realpathSync(absolute)!==absolute||++count>maxObjects)throw new Error();
+      if(recordPath)scanner.writePath(`file/${path}`);if(scanned.has(absolute))return;scanned.add(absolute);
+      let fd;try{fd=openSync(absolute,'r');let offset=0,first=true;if(stat.size===0){scanner.write(Buffer.alloc(0));return;}while(offset<stat.size){const chunk=Buffer.allocUnsafe(Math.min(CLOSURE_CHUNK_BYTES,stat.size-offset)),read=readSync(fd,chunk,0,chunk.length,offset);if(!Number.isSafeInteger(read)||read<1)throw new Error();scanner.write(chunk.subarray(0,read),{object:first});first=false;offset+=read;}}finally{if(fd!==undefined)closeSync(fd);}
+    };
+    const scanFile=(absolute,path)=>streamFile(absolute,path);
     const scanLink=(absolute,path)=>{
       if(platform!=='darwin-arm64')throw new Error();const target=readlinkSync(absolute);
       if(typeof target!=='string'||target.length===0||target.length>4096||target.includes('\\')||target.includes('\0')||isAbsolute(target))throw new Error();
       const lexical=resolve(dirname(absolute),target),inside=childOf(actual,relative(actual,lexical));if(!inside||inside!==lexical)throw new Error();
       const resolved=realpathSync(absolute);if(!childOf(actual,relative(actual,resolved))||resolved!==childOf(actual,relative(actual,resolved)))throw new Error();
       const resolvedPath=relative(actual,resolved);if(!safeRelative(resolvedPath)||!sourcePathAllowed(resolvedPath,allowPath))throw new Error();
-      const stat=statSync(absolute);if(!stat.isFile()||stat.nlink!==1||stat.size<0||stat.size>MAX_OBJECT_BYTES||++count>maxObjects)throw new Error();
-      scanner.writePath(path);scanner.writePath(target);scanner.writePath(resolvedPath);scanner.write(readFileSync(resolved));
+      const stat=statSync(absolute);if(!stat.isFile()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes)throw new Error();
+      scanner.writePath(`link/${path}`);scanner.writePath(`link-target/${target}`);scanner.writePath(`link-resolved/${resolvedPath}`);streamFile(resolved,resolvedPath,{recordPath:false});
     };
     const walk=(directory,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){
       const path=prefix?`${prefix}/${entry.name}`:entry.name,absolute=childOf(actual,path);if(!absolute||!safeRelative(path)||!sourcePathAllowed(path,allowPath))throw new Error();

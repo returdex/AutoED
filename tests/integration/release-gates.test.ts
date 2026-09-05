@@ -1,6 +1,6 @@
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,symlinkSync,unlinkSync,writeFileSync} from 'node:fs';
+import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,symlinkSync,truncateSync,unlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
@@ -60,6 +60,10 @@ it('keeps ignored runtime/Profile material out of the working-tree walk and reje
 
 it('permits only an in-root macOS closure link and rejects escaping, absolute, looping and Windows links',()=>{
   const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-closure-links-'))),owned=join(root,'owned');try{mkdirSync(join(owned,'lib'),{recursive:true});mkdirSync(join(owned,'bin'));writeFileSync(join(owned,'lib','safe.txt'),'safe');symlinkSync('../lib/safe.txt',join(owned,'bin','safe-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'pass',findings:0});expect(scanOwnedTree(realpathSync(owned),{platform:'win32-x64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','safe-link'));writeFileSync(join(root,'outside.txt'),'safe');symlinkSync('../../outside.txt',join(owned,'bin','escape-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','escape-link'));symlinkSync(join(owned,'lib','safe.txt'),join(owned,'bin','absolute-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','absolute-link'));symlinkSync('loop-link',join(owned,'bin','loop-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('streams closure files above the historical 64 MiB limit and seals chunk-boundary and tail changes',()=>{
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-closure-stream-'))),owned=join(root,'owned');try{mkdirSync(owned);const large=join(owned,'large.bin');writeFileSync(large,Buffer.alloc(0));truncateSync(large,64*1024*1024+1);expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'pass',findings:0});const first=scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'});writeFileSync(large,Buffer.from('tail-a'),{flag:'a'});const second=scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'});expect(second.reportSha256).not.toBe(first.reportSha256);const crossing=join(owned,'crossing.bin');writeFileSync(crossing,Buffer.concat([Buffer.alloc(1024*1024-3,0x41),Buffer.from('ghp_'+'A'.repeat(36))]));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});const limited=join(root,'limited');mkdirSync(limited);writeFileSync(join(limited,'hard-cap.bin'),Buffer.alloc(97));expect(scanOwnedTree(realpathSync(limited),{platform:'darwin-arm64',profile:'test'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
 });
 
 it('requires one long-lived captured-output stream and fails closed for empty or round-tripped capture reports',()=>{
