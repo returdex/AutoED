@@ -11,18 +11,19 @@ function exact(value,keys){return value&&typeof value==='object'&&!Array.isArray
 /** Run a bounded, one-key signing session without exporting or persisting its
  * private key. The callback may sign only bounded byte batches after seeing
  * the matching ephemeral public key and fingerprint. */
-export async function withSyntheticSigner(root,callback){
-  safeRoot(root);if(typeof callback!=='function'||process.versions.node!=='24.20.0')throw new Error('INVALID_SYNTHETIC_INPUT');
+export async function withSyntheticSigner(root,callback,{timeoutMs=10000}={}){
+  safeRoot(root);if(typeof callback!=='function'||process.versions.node!=='24.20.0'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>10000)throw new Error('INVALID_SYNTHETIC_INPUT');
   const child=spawn(process.execPath,[fileURLToPath(import.meta.url),'--synthetic-session'],{cwd:root,env:{},stdio:['pipe','pipe','pipe'],windowsHide:true});let output='',ready,closed=false,waiters=new Map(),next=0;
   const fail=()=>{for(const reject of waiters.values())reject(new Error('SYNTHETIC_SIGNER_FAILED'));waiters.clear();};
   const consume=()=>{let newline;while((newline=output.indexOf('\n'))>=0){const line=output.slice(0,newline);output=output.slice(newline+1);let message;try{message=JSON.parse(line);}catch{child.kill('SIGKILL');return fail();}if(!ready){if(!exact(message,['type','publicKey','fingerprint'])||message.type!=='ready'||typeof message.publicKey!=='string'||!message.publicKey.includes('BEGIN PUBLIC KEY')||!/^[a-f0-9]{64}$/.test(message.fingerprint)){child.kill('SIGKILL');return fail();}ready=message;continue;}if(!exact(message,['type','id','signatures'])||message.type!=='signed'||!Number.isSafeInteger(message.id)||!Array.isArray(message.signatures)||message.signatures.some(value=>typeof value!=='string'||Buffer.from(value,'base64').length!==64)){child.kill('SIGKILL');return fail();}const waiter=waiters.get(message.id);if(!waiter){child.kill('SIGKILL');return fail();}waiters.delete(message.id);waiter.resolve(message.signatures);}};
   child.stdout.on('data',chunk=>{output+=chunk;if(output.length>MAX_OUTPUT_BYTES){child.kill('SIGKILL');fail();return;}consume();});child.stderr.on('data',()=>{});child.once('error',fail);const closedPromise=new Promise(resolve=>child.once('close',code=>{closed=true;if(code!==0||output||waiters.size)fail();resolve(code);}));
-  const timer=setTimeout(()=>child.kill('SIGKILL'),10000);
+  let timedOut=false,timeoutReject;const deadline=new Promise((_,reject)=>{timeoutReject=reject;});const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL');timeoutReject(new Error('SYNTHETIC_SIGNER_FAILED'));},timeoutMs);
   try{
-    await new Promise((resolve,reject)=>{const interval=setInterval(()=>{if(ready){clearInterval(interval);resolve();}else if(closed){clearInterval(interval);reject(new Error('SYNTHETIC_SIGNER_FAILED'));}},5);});
+    const run=async()=>{await new Promise((resolve,reject)=>{const interval=setInterval(()=>{if(ready){clearInterval(interval);resolve();}else if(closed){clearInterval(interval);reject(new Error('SYNTHETIC_SIGNER_FAILED'));}},5);});
     const signBytes=manifests=>{if(!validBytes(manifests)||closed)throw new Error('INVALID_SYNTHETIC_INPUT');const id=next++,payload=JSON.stringify({type:'sign',id,manifests:manifests.map(bytes=>bytes.toString('base64'))});if(payload.length>MAX_INPUT_BYTES)throw new Error('INVALID_SYNTHETIC_INPUT');return new Promise((resolve,reject)=>{waiters.set(id,{resolve,reject});child.stdin.write(payload+'\n',error=>{if(error){waiters.delete(id);reject(new Error('SYNTHETIC_SIGNER_FAILED'));}});});};
-    const result=await callback(Object.freeze({publicKey:ready.publicKey,fingerprint:ready.fingerprint,sign:signBytes}));child.stdin.end(JSON.stringify({type:'close'})+'\n');if(await closedPromise!==0)throw new Error('SYNTHETIC_SIGNER_FAILED');return Object.freeze({result,publicKey:ready.publicKey,fingerprint:ready.fingerprint,signerExited:true});
-  }catch(error){child.kill('SIGKILL');throw error instanceof Error&&['INVALID_SYNTHETIC_INPUT','UNSAFE_SYNTHETIC_ROOT'].includes(error.message)?error:new Error('SYNTHETIC_SIGNER_FAILED');}finally{clearTimeout(timer);}
+    const result=await callback(Object.freeze({publicKey:ready.publicKey,fingerprint:ready.fingerprint,sign:signBytes}));child.stdin.end(JSON.stringify({type:'close'})+'\n');if(await closedPromise!==0)throw new Error('SYNTHETIC_SIGNER_FAILED');return Object.freeze({result,publicKey:ready.publicKey,fingerprint:ready.fingerprint,signerExited:true});};
+    return await Promise.race([run(),deadline]);
+  }catch(error){child.kill('SIGKILL');await closedPromise;throw error instanceof Error&&['INVALID_SYNTHETIC_INPUT','UNSAFE_SYNTHETIC_ROOT'].includes(error.message)&&!timedOut?error:new Error('SYNTHETIC_SIGNER_FAILED');}finally{clearTimeout(timer);}
 }
 
 /** Test support only. A separate process owns the private KeyObject and exits;
