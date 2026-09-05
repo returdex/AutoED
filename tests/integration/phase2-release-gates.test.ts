@@ -1,5 +1,5 @@
 import {createHash,generateKeyPairSync,sign,verify} from 'node:crypto';
-import {mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
+import {lstatSync,mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname,join} from 'node:path';
 import {afterEach,expect,it} from 'vitest';
@@ -29,7 +29,7 @@ import {
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {exercisePhase2PublicationContract,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 
 const roots:string[]=[];
@@ -202,11 +202,44 @@ it('detached runner merges stderr, enforces limits and removes descendants befor
 });
 
 it('classifies failures by operation boundary without parsing arbitrary error text',async()=>{
-  const root=makeRoot(),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:hash('a'),refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true},base={runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,cleanup:async()=>true};
-  await expect(runPhase2Rehearsal({root,ops:{...base,runtime:async()=>{throw new Error('not-a-classification');}}})).rejects.toThrow('class=PRE_RUNNER code=OPERATION_FAILED');
-  await expect(runPhase2Rehearsal({root,ops:{...base,build:async()=>{throw new Error('not-a-classification');}}})).rejects.toThrow('class=PRE_SOURCE code=OPERATION_FAILED');
+  const snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:hash('a'),refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};
+  const command={schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:hash('1')};
+  const base={runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,build:async()=>({version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:snapshot.sourceSha256}),command:async()=>command,assembly:async()=>rehearsalAssembly(),prompt:async({core,assembly}:any)=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async()=>({status:'pass',contractTests:1,remoteMutations:0,fullVerifierInvocations:1}),scan:async()=>({status:'pass',findings:0,reportSha256:hash('2')}),cleanup:async()=>true,now:async()=>now};
+  const cases:[string,'PRE_RUNNER'|'PRE_SOURCE',string][]=[
+    ['runtime','PRE_RUNNER','RUNTIME_OPERATION_FAILED'],
+    ['snapshot-initial','PRE_RUNNER','SNAPSHOT_INITIAL_OPERATION_FAILED'],
+    ['build','PRE_SOURCE','BUILD_OPERATION_FAILED'],
+    ['command','PRE_SOURCE','COMMAND_OPERATION_FAILED'],
+    ['assembly','PRE_SOURCE','ASSEMBLY_OPERATION_FAILED'],
+    ['prompt','PRE_SOURCE','PROMPT_OPERATION_FAILED'],
+    ['publication','PRE_SOURCE','PUBLICATION_OPERATION_FAILED'],
+    ['scan','PRE_SOURCE','SCAN_OPERATION_FAILED'],
+  ];
+  for(const [operation,failureClass,code] of cases){
+    const root=makeRoot(),ops={...base};
+    if(operation==='snapshot-initial')ops.snapshot=async()=>{throw new Error('private operation detail');};
+    else (ops as any)[operation]=async()=>{throw new Error('private operation detail');};
+    let caught:any;try{await runPhase2Rehearsal({root,ops});}catch(error){caught=error;}
+    expect(caught?.message).toBe(`PHASE2_REHEARSAL_FAILED class=${failureClass} code=${code}`);expect(caught?.message).not.toContain('private operation detail');
+  }
+  const finalSnapshotRoot=makeRoot(),snapshotCalls={value:0};let finalCaught:any;
+  try{await runPhase2Rehearsal({root:finalSnapshotRoot,ops:{...base,snapshot:async()=>{snapshotCalls.value++;if(snapshotCalls.value===2)throw new Error('private final snapshot detail');return snapshot;}}});}catch(error){finalCaught=error;}
+  expect(finalCaught?.message).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=SNAPSHOT_FINAL_OPERATION_FAILED');expect(finalCaught?.message).not.toContain('private final snapshot detail');
+  const cleanupRoot=makeRoot();let cleanupCaught:any;try{await runPhase2Rehearsal({root:cleanupRoot,ops:{...base,cleanup:async()=>{throw new Error('private cleanup detail');}}});}catch(error){cleanupCaught=error;}
+  expect(cleanupCaught?.message).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=CLEANUP_OPERATION_FAILED');expect(cleanupCaught?.message).not.toContain('private cleanup detail');
+  const nowRoot=makeRoot();let nowCaught:any;try{await runPhase2Rehearsal({root:nowRoot,ops:{...base,now:async()=>{throw new Error('private now detail');}}});}catch(error){nowCaught=error;}
+  expect(nowCaught?.message).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=NOW_OPERATION_FAILED');expect(nowCaught?.message).not.toContain('private now detail');
   expect(()=>requirePhase2ProcessSuccess({exitCode:1,signal:null},'PRE_RUNNER')).toThrow('class=PRE_RUNNER code=COMMAND_PROCESS_FAILED');
   expect(()=>requirePhase2ProcessSuccess({exitCode:1,signal:null},'PRE_SOURCE')).toThrow('class=PRE_SOURCE code=COMMAND_PROCESS_FAILED');
+});
+
+it('normalizes aliased temporary roots before production assembly and preserves 0700 cleanup semantics',async()=>{
+  const physical=makeRoot(),aliasParent=makeRoot(),alias=join(aliasParent,'physical');symlinkSync(physical,alias,'dir');
+  const lexical=mkdtempSync(join(alias,'owned-')),normalized=normalizePhase2RehearsalOwnedRoot(lexical);
+  expect(normalized).toBe(realpathSync(lexical));expect(normalized).not.toBe(lexical);expect((lstatSync(normalized).mode&0o077)).toBe(0);
+  const productionRoot=makeRoot(),ops=createProductionPhase2RehearsalOps({root:productionRoot});
+  await expect(ops.cleanup()).resolves.toBe(true);
+  rmSync(normalized,{recursive:true,force:true});expect(lstatSync(physical).isDirectory()).toBe(true);
 });
 
 it('unnumbered rehearsal attestation is strict, sanitized and written once before candidate selection',()=>{

@@ -127,6 +127,8 @@ async function runFixedCommand(root,id,scanner,ledger){
   return Object.freeze({schema:1,runner:spec.steps.length===1?spec.steps[0].runner:'vitest',status:'pass',passed,failed:0,skipped:0,todo:0,commandSha256});
 }
 function runnerFail(kind,code){const error=new Error(`PHASE2_REHEARSAL_FAILED class=${kind} code=${code}`);error.rehearsal=true;throw error;}
+const OPERATION_FAILURE_CODES=Object.freeze({runtime:'RUNTIME_OPERATION_FAILED',snapshot:'SNAPSHOT_OPERATION_FAILED',build:'BUILD_OPERATION_FAILED',command:'COMMAND_OPERATION_FAILED',assembly:'ASSEMBLY_OPERATION_FAILED',prompt:'PROMPT_OPERATION_FAILED',publication:'PUBLICATION_OPERATION_FAILED',scan:'SCAN_OPERATION_FAILED',cleanup:'CLEANUP_OPERATION_FAILED',now:'NOW_OPERATION_FAILED'});
+function operationFailureCode(name,stage){if(name==='snapshot')return stage==='final'?'SNAPSHOT_FINAL_OPERATION_FAILED':'SNAPSHOT_INITIAL_OPERATION_FAILED';return OPERATION_FAILURE_CODES[name]??'OPERATION_FAILED';}
 export function requirePhase2ProcessSuccess(result,failureClass){
   if(!['PRE_RUNNER','PRE_SOURCE'].includes(failureClass))runnerFail('PRE_RUNNER','CAPTURE_CLASS_INVALID');
   if(!result||result.exitCode!==0||result.signal)runnerFail(failureClass,'COMMAND_PROCESS_FAILED');
@@ -228,11 +230,12 @@ export async function exercisePhase2PublicationContract({identity,assembly,now,c
  */
 export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
   const operationClass=Object.freeze({runtime:'PRE_RUNNER',snapshot:'PRE_RUNNER',build:'PRE_SOURCE',command:'PRE_SOURCE',assembly:'PRE_SOURCE',prompt:'PRE_SOURCE',publication:'PRE_SOURCE',scan:'PRE_SOURCE',cleanup:'PRE_RUNNER',now:'PRE_RUNNER'});
-  const call=async(name,...args)=>{if(!ops||typeof ops[name]!=='function')runnerFail('PRE_RUNNER','OPS_INVALID');try{return await ops[name](...args);}catch(error){if(error?.rehearsal)throw error;runnerFail(operationClass[name]??'PRE_RUNNER','OPERATION_FAILED');}};
+  const call=async(name,...args)=>{if(!ops||typeof ops[name]!=='function')runnerFail('PRE_RUNNER','OPS_INVALID');try{return await ops[name](...args);}catch(error){if(error?.rehearsal)throw error;runnerFail(operationClass[name]??'PRE_RUNNER',operationFailureCode(name));}};
+  const snapshot=async stage=>{if(!ops||typeof ops.snapshot!=='function')runnerFail('PRE_RUNNER','OPS_INVALID');try{return await ops.snapshot({stage});}catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER',operationFailureCode('snapshot',stage));}};
   let cleanupAttempted=false;
   try{
     const runtime=await call('runtime');if(!exact(runtime,['verified','node','npm'])||runtime.verified!==true||runtime.node!=='24.20.0'||runtime.npm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');
-    const before=await call('snapshot');if(!snapshotValid(before))runnerFail('PRE_RUNNER','IDENTITY_INVALID');
+    const before=await snapshot('initial');if(!snapshotValid(before))runnerFail('PRE_RUNNER','IDENTITY_INVALID');
     const build=await call('build',before);if(!exact(build,['version','commit','tree','buildId','sourceSha256'])||build.version!=='0.1.0'||build.commit!==before.commit||build.tree!==before.tree||build.sourceSha256!==before.sourceSha256||!HASH.test(build.buildId))runnerFail('PRE_SOURCE','BUILD_IDENTITY_DRIFT');
     const focused=asCheck(await call('command','focused'));
     const quality={typecheck:asCheck(await call('command','typecheck')),unit:asCheck(await call('command','unit')),integration:asCheck(await call('command','integration')),ui:asCheck(await call('command','ui')),native:asCheck(await call('command','native'))};
@@ -243,7 +246,7 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
     const publication=await call('publication',{identity,assembly:assembled,before});if(!publication||publication.status!=='pass'||!Number.isSafeInteger(publication.contractTests)||publication.contractTests<1||publication.remoteMutations!==0||publication.fullVerifierInvocations!==1)runnerFail('PRE_SOURCE','PUBLICATION_INVALID');
     const scan=await call('scan');if(!scan||scan.status!=='pass'||scan.findings!==0||!HASH.test(scan.reportSha256))runnerFail('PRE_SOURCE','SENSITIVE_SCAN_INVALID');
     cleanupAttempted=true;if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');
-    const after=await call('snapshot');const remoteSnapshotMutations=['refsSha256','remotesSha256','receiptsSha256'].filter(key=>before[key]!==after[key]).length;if(remoteSnapshotMutations!==0)runnerFail('PRE_RUNNER','REMOTE_MUTATION');if(!sameSnapshot(before,after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');
+    const after=await snapshot('final');const remoteSnapshotMutations=['refsSha256','remotesSha256','receiptsSha256'].filter(key=>before[key]!==after[key]).length;if(remoteSnapshotMutations!==0)runnerFail('PRE_RUNNER','REMOTE_MUTATION');if(!sameSnapshot(before,after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');
     const base={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:build.sourceSha256,managedRuntime:runtime,focused,quality:{...quality,sensitiveScan:{status:'pass',findings:0,reportSha256:scan.reportSha256}},closures,prompt:{status:'pass',targetCount:prompt.targetCount,assetCount:prompt.assetCount,commandsBound:true,latestReferences:0,envelopeSha256:prompt.envelopeSha256},publication:{status:'pass',contractTests:publication.contractTests,remoteMutations:publication.remoteMutations,fullVerifierInvocations:publication.fullVerifierInvocations},failureHistory:[]};
     const value={...base,completedAt:await call('now')};
     try{validatePhase2Rehearsal(value);}catch{runnerFail('PRE_SOURCE','FINAL_VALIDATION_FAILED');}
@@ -256,10 +259,19 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
   }catch(error){if(!cleanupAttempted){cleanupAttempted=true;try{if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');}catch(cleanupError){if(cleanupError?.rehearsal)throw cleanupError;runnerFail('PRE_RUNNER','CLEANUP_FAILED');}}if(error?.rehearsal)throw error;runnerFail('PRE_SOURCE','UNEXPECTED');}
 }
 
+/** Normalize OS temporary-directory aliases before passing an owned root across module boundaries. */
+export function normalizePhase2RehearsalOwnedRoot(root){
+  try{
+    const normalized=realpathSync(root),stat=lstatSync(normalized);
+    if(typeof root!=='string'||!stat.isDirectory()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw new Error();
+    return normalized;
+  }catch(error){if(error?.message==='REHEARSAL_ROOT_INVALID')throw error;throw new Error('REHEARSAL_ROOT_INVALID');}
+}
+function createPhase2RehearsalOwnedRoot(){return normalizePhase2RehearsalOwnedRoot(realpathSync(mkdtempSync(join(tmpdir(),'autoed-r1-owned-'))));}
 /** Production execution is fixed: callers cannot supply command, target or coordinate overrides. */
 export function createProductionPhase2RehearsalOps({root=ROOT}={}){
   const git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',timeout:30000,maxBuffer:1024*1024}).trim();
-  const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node'),scanner=createCapturedOutputScanner(),ledger=[],owned=mkdtempSync(join(tmpdir(),'autoed-r1-owned-'));
+  const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node'),scanner=createCapturedOutputScanner(),ledger=[],owned=createPhase2RehearsalOwnedRoot();
   const receiptNames=['release/phase2-build-selection.json','release/phase2-test-report.json','release/phase2-beta-artifacts.json','release/phase2-publication.json','release/phase2-availability.json','release/phase2-install-prompt.md'];
   const receiptDigest=()=>canonicalSha256(receiptNames.map(name=>existsSync(join(root,name))?{name,sha256:canonicalSha256(readFileSync(join(root,name)))}:{name,missing:true}));
   const snapshot=()=>({commit:git(['rev-parse','HEAD']),tree:git(['write-tree']),sourceSha256:hashBuildInputs(root),refsSha256:canonicalSha256(git(['show-ref','--head'])),remotesSha256:canonicalSha256(git(['remote','-v'])),receiptsSha256:receiptDigest(),clean:git(['status','--porcelain'])==='' });
