@@ -103,7 +103,7 @@ updated: 2026-08-26
 
 **Release-repair routing:** beta.31、beta.38 与 beta.39 都是不可变失效历史，均不是当前候选；beta.39 是无 availability receipt 的 `POST_PUBLIC` 永久失效历史，不能重试、覆盖、删除或改标签。`active update candidate: none`。beta.40 尚未选择且未获准更新；只有全新无编号 R0/R1 通过后才可选择 beta.40。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
 
-**R1 recurrence status:** `6c2adad` 的全新无编号 R0/R1 在 managed runtime、unnumbered build、typecheck、unit 144/144 与 UI 34/34 后，complete integration Vitest 协调进程的 worker 退出逾五分钟仍未收束时停为 `PRE_RUNNER`。没有 attestation、候选选择或 beta 消耗。beta.40 尚未选择且未获准更新；必须先解决 runner 阻塞并完成新的完整 R0/R1，才可进入 R2。Windows、真实 L、02-15 与 Phase 3 继续 blocked。
+**R1 recurrence status:** `6c2adad` 的全新无编号 R0/R1 在 managed runtime、unnumbered build、typecheck、unit 144/144 与 UI 34/34 后停为 `PRE_RUNNER`。有界诊断证明 synthetic-process ledger 同时错误拒绝自己的精确六 token service argv 与全部有效 generated-root suffix；`3968624` 已在不放宽 ownership/cleanup 的前提下修复，managed typecheck、聚焦 unit 3/3 和可观察 integration 批次 8 files/109 tests 通过。精确完整 integration 观察器仍在 75 秒内未给出最终 files/tests 总数，故没有完整 R1 pass、attestation、候选选择或 beta 消耗。beta.40 尚未选择且未获准更新；必须先有界定位慢或阻塞的 integration 边界并完成新的完整 R0/R1，才可进入 R2。Windows、真实 L、02-15 与 Phase 3 继续 blocked。
 
 **Hard stop**: 采用 VALIDATION-STRATEGY 的 G3 live 矩阵及独立自动故障台账。换号/绑定不匹配、权限拒绝、网络中断、parser drift 和旧 Worker 并发反例必须有 S/I 证据，但不填写任何 L 格；真实登录/复用及绑定仍逐格实测，不要求故意制造学校错误或未授权第二个真实账号。只诊断批准范围内连接方案，不自动推进 P3。
 
@@ -235,7 +235,7 @@ updated: 2026-08-26
 
 **Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成（13/14）；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2有19/41份完成摘要。beta.31、beta.38 和 beta.39 均为不可变失效历史，均不是当前/活动候选；beta.39 在发布一次后，其唯一允许的匿名完整验证未产生 sanitized result 或 availability receipt，因此为不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史。`active update candidate: none`。beta.40 尚未选择、未获准更新，只有全新无编号 R0/R1 通过后才可选择；本状态同步不运行 R0/R1、不分配候选、不发布、不安装、不登录且不创建回执。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
 
-**R1 recurrence stop:** `6c2adad` 的完整 integration Vitest 协调进程在其 worker 退出后逾五分钟仍未收束，故这一次无编号 R0/R1 为 `PRE_RUNNER`，未写 attestation、未选择/消耗 beta，且不得进入 R2。先解决 runner 阻塞并完成新的完整 R0/R1；`active update candidate: none`，beta.40 仍未选择/未获准更新。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
+**R1 recurrence stop:** `6c2adad` 的无编号 R0/R1 为 `PRE_RUNNER`。`3968624` 已修复有证据的 synthetic-process strict-parser 缺陷，聚焦测试通过；但精确完整 integration 在 75 秒观察界限内没有最终总数，因此仍未写 attestation、未选择/消耗 beta，且不得进入 R2。先有界定位慢或阻塞文件并完成新的完整 R0/R1；`active update candidate: none`，beta.40 仍未选择/未获准更新。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
 
 ## Backlog
 
