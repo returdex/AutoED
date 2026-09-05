@@ -131,6 +131,15 @@ Use these entry points:
 Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
 <!-- GSD:workflow-end -->
 
+## Project-local GSD model routing
+
+- This routing applies to GSD work in this repository only. Do not modify global GSD workflow or agent files to enforce it.
+- Research, investigation, requirements analysis, architecture/design, planning, review, audit and verification use `gpt-5.6-sol` with `high` reasoning.
+- Implementation, coding, debugging that can mutate files, execution and concrete fixes use `gpt-5.6-terra` with `high` reasoning by default.
+- `gpt-5.6-luna` with `max` reasoning is allowed only for bounded, mechanical edits whose inputs, outputs and verification are already fully specified. Ambiguity, repeated failure or design judgment requires escalation to the applicable Sol or Terra route.
+- Orchestrators must explicitly apply both the model and reasoning effort when spawning GSD agents. If the runtime cannot honor both, stop before substantive work and report the mismatch; never silently use a weaker route.
+- Model routing does not enable auto-advance, broaden an approved plan, relax evidence requirements or bypass any human-action, update, login, UAT, release or platform gate.
+
 <!-- GSD:profile-start source:project policy -->
 ## Developer Profile
 
