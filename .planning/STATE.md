@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.39 R5 publication completed, but its one permitted anonymous verifier produced no availability receipt; return to a fresh unnumbered R0/R1 before beta.40
-last_updated: "2026-09-05T09:28:35.000Z"
+stopped_at: fresh unnumbered R0/R1 at 6c2adad stopped as PRE_RUNNER when complete integration Vitest did not finalize after its worker exited; no beta.40 selection or attestation
+last_updated: "2026-09-05T10:00:45.000Z"
 last_activity: 2026-09-05
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.39 as immutable invalidated history. `active update candidate: none`; beta.40 is not selected and its update is not authorized. Only a fresh unnumbered R0/R1 pass may precede beta.40 selection; this documentation sync does not run R0/R1. All update/login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.39 as immutable invalidated history. The fresh unnumbered R0/R1 recurrence at `6c2adad` is `PRE_RUNNER`: managed runtime/build/typecheck/unit/UI completed, but the complete integration Vitest coordinator did not finalize after its worker exited. No beta or attestation was written. `active update candidate: none`; beta.40 is not selected and its update is not authorized. Resolve the bounded runner failure and then obtain a complete fresh R0/R1 pass before any beta.40 selection. All update/login/live/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.39 R5 publication, then its one permitted anonymous verifier produced no sanitized result or availability receipt; 19 of 41 have completion summaries
+Plan: Post-02-14 release stabilization reached beta.39 R5 publication, then its one permitted anonymous verifier produced no sanitized result or availability receipt; the next fresh unnumbered R0/R1 stopped PRE_RUNNER before an attestation; 19 of 41 have completion summaries
 Status: beta.31, beta.37, beta.38 and beta.39 are immutable published-but-invalidated history; beta.39 is `POST_PUBLIC`, its publication receipt is historical only, and no availability receipt exists. `active update candidate: none`; beta.40 is not selected and its update is not authorized until a fresh unnumbered R0/R1 pass.
-Last activity: 2026-09-05 - Completed quick task 260905-qry: synchronized beta.39 invalidation, plan-summary counts, and unchanged human gates; no release, update, login, receipt, or candidate selection occurred
+Last activity: 2026-09-05 - Classified fresh R0/R1 integration coordinator hang as PRE_RUNNER; no release, update, login, receipt, attestation, or candidate selection occurred
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -128,6 +128,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: A fresh unnumbered R0/R1 after beta.38's public failure passed on commit `4ca8a81…`, tree `376a3b…`, build `2047d7ea…`: managed Node/npm, focused 45/45, typecheck, unit 144, integration 361, UI 34, native 24, dual-target closures 3930/3901 with 8 assets each, sensitive scan 0 and no remote mutation. Beta.39 was then selected exactly once with selection SHA-256 `9022b28e…` and its complete R3 report passed with test-report SHA-256 `dcb0e71b…`; R4/R5 remain pending.
 - [Release]: beta.39 completed R4 and was published once with 16 immutable assets. Its one permitted anonymous full verifier was invoked but the controller wait was interrupted before any sanitized verifier result or availability receipt was produced. Availability therefore cannot be attested; classify beta.39 as `POST_PUBLIC`, preserve the public release permanently, do not retry/overwrite/delete/relabel it, and return to a fresh unnumbered R0/R1 before selecting beta.40.
 - [Release]: beta.39 is permanently invalidated `POST_PUBLIC` history with no availability receipt. `active update candidate: none`; beta.40 is not selected and its update is not authorized. A fresh unnumbered R0/R1 pass is required before beta.40 can be selected, while 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked.
+- [Release]: The fresh unnumbered R0/R1 recurrence at `6c2adad` is `PRE_RUNNER`: after managed runtime, unnumbered build, typecheck, unit 144/144 and UI 34/34, the complete integration Vitest coordinator remained alive for more than five minutes after its worker exited and emitted no final result. — No beta was selected or consumed, no attestation was written, no source/test/tool change was made, and all Windows/live/02-15/Phase 3 gates remain blocked pending a bounded runner diagnosis and a later complete fresh R0/R1 pass.
 
 ### Pending Todos
 
@@ -179,8 +180,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-05T19:28:35+10:00
-Stopped at: beta.39 is permanently invalidated `POST_PUBLIC` history with no availability receipt; `active update candidate: none`, and beta.40 is not selected or authorized before a fresh unnumbered R0/R1 pass
+Last session: 2026-09-05T20:00:45+10:00
+Stopped at: fresh unnumbered R0/R1 at `6c2adad` stopped PRE_RUNNER because complete integration Vitest did not finalize after its worker exited; `active update candidate: none`, beta.40 is not selected or authorized, and no attestation exists
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
 Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 and beta.39 `POST_PUBLIC` failures are recorded in `.planning/phases/02-poc-live/02-38-BETA-38-INVALIDATION.md` and `.planning/phases/02-poc-live/02-38-BETA-39-INVALIDATION.md`. Beta.37 through beta.39 are immutable published-but-invalidated history; beta.39 has no availability receipt, `active update candidate: none`, beta.40 is not selected or authorized, and no human update prompt is authorized.

@@ -103,6 +103,8 @@ updated: 2026-08-26
 
 **Release-repair routing:** beta.31、beta.38 与 beta.39 都是不可变失效历史，均不是当前候选；beta.39 是无 availability receipt 的 `POST_PUBLIC` 永久失效历史，不能重试、覆盖、删除或改标签。`active update candidate: none`。beta.40 尚未选择且未获准更新；只有全新无编号 R0/R1 通过后才可选择 beta.40。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
 
+**R1 recurrence status:** `6c2adad` 的全新无编号 R0/R1 在 managed runtime、unnumbered build、typecheck、unit 144/144 与 UI 34/34 后，complete integration Vitest 协调进程的 worker 退出逾五分钟仍未收束时停为 `PRE_RUNNER`。没有 attestation、候选选择或 beta 消耗。beta.40 尚未选择且未获准更新；必须先解决 runner 阻塞并完成新的完整 R0/R1，才可进入 R2。Windows、真实 L、02-15 与 Phase 3 继续 blocked。
+
 **Hard stop**: 采用 VALIDATION-STRATEGY 的 G3 live 矩阵及独立自动故障台账。换号/绑定不匹配、权限拒绝、网络中断、parser drift 和旧 Worker 并发反例必须有 S/I 证据，但不填写任何 L 格；真实登录/复用及绑定仍逐格实测，不要求故意制造学校错误或未授权第二个真实账号。只诊断批准范围内连接方案，不自动推进 P3。
 
 ### Phase 3: Moodle 课程事实与首个实际 MCP 切片
@@ -223,7 +225,7 @@ updated: 2026-08-26
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.39 is immutable `POST_PUBLIC` history with no availability receipt; active update candidate: none; beta.40 is not selected or authorized; update/live/Windows gates remain blocked | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.39 is immutable `POST_PUBLIC` history with no availability receipt; fresh R0/R1 stopped `PRE_RUNNER` before attestation; active update candidate: none; beta.40 is not selected or authorized; update/live/Windows gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -232,6 +234,8 @@ updated: 2026-08-26
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
 **Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成（13/14）；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2有19/41份完成摘要。beta.31、beta.38 和 beta.39 均为不可变失效历史，均不是当前/活动候选；beta.39 在发布一次后，其唯一允许的匿名完整验证未产生 sanitized result 或 availability receipt，因此为不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史。`active update candidate: none`。beta.40 尚未选择、未获准更新，只有全新无编号 R0/R1 通过后才可选择；本状态同步不运行 R0/R1、不分配候选、不发布、不安装、不登录且不创建回执。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
+
+**R1 recurrence stop:** `6c2adad` 的完整 integration Vitest 协调进程在其 worker 退出后逾五分钟仍未收束，故这一次无编号 R0/R1 为 `PRE_RUNNER`，未写 attestation、未选择/消耗 beta，且不得进入 R2。先解决 runner 阻塞并完成新的完整 R0/R1；`active update candidate: none`，beta.40 仍未选择/未获准更新。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
 
 ## Backlog
 
