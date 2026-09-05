@@ -11,6 +11,7 @@ const SURFACES=new Set(['tracked','history','working_tree','captured_output','ow
 const PRIVATE_PATH=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
 const SENSITIVE=new RegExp(['gh'+'[pousr]_[A-Za-z0-9]{20,}','github_'+'pat_[A-Za-z0-9_]{20,}','-----BEGIN '+'(?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----','CANARY_'+'RELEASE_SECRET'].join('|'));
 const reports=new WeakSet();
+const evidence=new WeakMap();
 
 function fail(code){throw new Error(code);}
 function canonical(value){if(Array.isArray(value))return `[${value.map(canonical).join(',')}]`;if(value&&typeof value==='object')return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;return JSON.stringify(value);}
@@ -19,7 +20,7 @@ function validSurface(surface){return typeof surface==='string'&&SURFACES.has(su
 function safeRoot(root){try{if(!isAbsolute(root))return null;const actual=realpathSync(root),stat=lstatSync(actual);return stat.isDirectory()&&!stat.isSymbolicLink()?actual:null;}catch{return null;}}
 function safeRelative(value){return typeof value==='string'&&value.length>0&&value.length<=4096&&!value.includes('\\')&&!value.includes('\0')&&!isAbsolute(value)&&!value.split('/').some(part=>part===''||part==='.'||part==='..');}
 function childOf(root,path){const resolved=resolve(root,path);return relative(root,resolved)!==''&&!relative(root,resolved).startsWith('..')&&!isAbsolute(relative(root,resolved))?resolved:null;}
-function report(surface,{objects,bytes,findings}){const status=findings===0?'pass':'fail',body={status,surface,objects,bytes,findings};const result=Object.freeze({...body,reportSha256:sha(canonical(body))});reports.add(result);return result;}
+function report(surface,{objects,bytes,findings},contentSha256=''){const status=findings===0?'pass':'fail',body={status,surface,objects,bytes,findings};const result=Object.freeze({...body,reportSha256:sha(canonical({...body,contentSha256}))});reports.add(result);evidence.set(result,contentSha256);return result;}
 function emptyFailure(surface){return report(surface,{objects:0,bytes:0,findings:1});}
 
 /**
@@ -44,7 +45,7 @@ export function createSensitiveChunkScanner({surface,maxBytes=MAX_TOTAL_BYTES}={
     tail=window.subarray(Math.max(0,window.length-4096));
     return findings===0;
   };
-  const finish=()=>{if(closed)fail('SENSITIVE_SCAN_CLOSED');closed=true;digest.digest();return report(surface,{objects,bytes,findings});};
+  const finish=()=>{if(closed)fail('SENSITIVE_SCAN_CLOSED');closed=true;return report(surface,{objects,bytes,findings},digest.digest('hex'));};
   return Object.freeze({write,finish});
 }
 
@@ -89,7 +90,7 @@ export function scanReachableHistory(root,treeish='HEAD',{allowPath,isReviewedEx
   try{
     if(!actual||typeof treeish!=='string'||!/^[A-Za-z0-9._/-]{1,128}$/.test(treeish))return emptyFailure(surface);
     const output=execFileSync('git',['rev-list','--objects',treeish],{cwd:actual,encoding:'utf8',timeout:30000,maxBuffer:32*1024*1024});
-    let count=0,totalBytes=0;
+    let count=0,totalBytes=0;const digest=createHash('sha256');
     for(const sourceRow of output.split('\n').filter(Boolean)){
       const row=sourceRow.endsWith('\r')?sourceRow.slice(0,-1):sourceRow;
       const match=/^([a-f0-9]{40,64})(?: (.*))?$/.exec(row);if(!match)return emptyFailure(surface);
@@ -98,14 +99,14 @@ export function scanReachableHistory(root,treeish='HEAD',{allowPath,isReviewedEx
       if(!sourcePathAllowed(path,allowPath)||++count>MAX_OBJECTS)return emptyFailure(surface);
       let bytes;
       if(!scanBlob(actual,match[1],{surface,onObject:value=>{bytes=value;return true;}})||!bytes)return emptyFailure(surface);
-      totalBytes+=bytes.length;if(totalBytes>MAX_TOTAL_BYTES)return emptyFailure(surface);
+      totalBytes+=bytes.length;if(totalBytes>MAX_TOTAL_BYTES)return emptyFailure(surface);digest.update(bytes);
       const item=scanSensitiveBytes(bytes,{surface,maxBytes:MAX_OBJECT_BYTES});
       if(item.status==='fail'){
         if(typeof isReviewedException==='function'&&isReviewedException(match[1],path)===true)continue;
-        return report(surface,{objects:count,bytes:totalBytes,findings:1});
+        return report(surface,{objects:count,bytes:totalBytes,findings:1},digest.digest('hex'));
       }
     }
-    return report(surface,{objects:count,bytes:totalBytes,findings:0});
+    return report(surface,{objects:count,bytes:totalBytes,findings:0},digest.digest('hex'));
   }catch{return emptyFailure(surface);}
 }
 
@@ -144,10 +145,10 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,maxO
 export function combineSensitiveReports(input,{surfaces=['tracked','history','working_tree','captured_output']}={}){
   try{
     if(!Array.isArray(input)||!Array.isArray(surfaces)||new Set(surfaces).size!==surfaces.length||surfaces.length===0||surfaces.some(surface=>!validSurface(surface))||input.length!==surfaces.length)return emptyFailure('captured_output');
-    const bySurface=new Map();for(const item of input){if(!reports.has(item)||!item||Object.keys(item).sort().join(',')!=='bytes,findings,objects,reportSha256,status,surface'||!validSurface(item.surface)||bySurface.has(item.surface)||item.status!=='pass'||item.findings!==0||!Number.isSafeInteger(item.objects)||item.objects<0||!Number.isSafeInteger(item.bytes)||item.bytes<0||item.reportSha256!==sha(canonical({status:item.status,surface:item.surface,objects:item.objects,bytes:item.bytes,findings:item.findings})))return emptyFailure('captured_output');bySurface.set(item.surface,item);}
+    const bySurface=new Map();for(const item of input){const contentSha256=evidence.get(item);if(!reports.has(item)||!item||typeof contentSha256!=='string'||!HASH.test(contentSha256)||Object.keys(item).sort().join(',')!=='bytes,findings,objects,reportSha256,status,surface'||!validSurface(item.surface)||bySurface.has(item.surface)||item.status!=='pass'||item.findings!==0||!Number.isSafeInteger(item.objects)||item.objects<0||!Number.isSafeInteger(item.bytes)||item.bytes<0||item.reportSha256!==sha(canonical({status:item.status,surface:item.surface,objects:item.objects,bytes:item.bytes,findings:item.findings,contentSha256})))return emptyFailure('captured_output');bySurface.set(item.surface,item);}
     if(surfaces.some(surface=>!bySurface.has(surface)))return emptyFailure('captured_output');
     const objects=input.reduce((total,item)=>total+item.objects,0),bytes=input.reduce((total,item)=>total+item.bytes,0);if(!Number.isSafeInteger(objects)||!Number.isSafeInteger(bytes))return emptyFailure('captured_output');
-    return report('captured_output',{objects,bytes,findings:0});
+    return report('captured_output',{objects,bytes,findings:0},sha(canonical(input.map(item=>item.reportSha256).sort())));
   }catch{return emptyFailure('captured_output');}
 }
 
