@@ -1,14 +1,15 @@
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {lstatSync,readFileSync,readdirSync,realpathSync} from 'node:fs';
+import {lstatSync,readFileSync,realpathSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {dirname,join,relative,isAbsolute,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {PHASE2_CAPABILITIES,canonicalSha256,renderPhase2InstallPromptCore,validateBuildSelection,validatePhase2TestReport} from './phase2-gate.mjs';
 import {readPhase2RehearsalBinding} from './phase2-rehearsal.mjs';
 import {hashBuildInputs} from '../dev/runtime.mjs';
+import {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanReachableHistory as scanSensitiveReachableHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from './sensitive-scan.mjs';
 
-const repo=join(dirname(fileURLToPath(import.meta.url)),'../..'),allowedNames=new Set(['LICENSE','LICENSING.md']),allowedRoots=new Set(['dist','runtime','browser','public-manifest','bootstrap','docs']),sourceRoots=new Set(['.planning','apps','docs','packages','rebuild-2026-08-26','release','scripts','share','tests']),sourceFiles=new Set(['.gitignore','AGENTS.md','LICENSE','LICENSING.md','package-lock.json','package.json','playwright.config.ts','tsconfig.json','vitest.config.ts']),forbidden=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i,secret=new RegExp(['gh'+'[pousr]_[A-Za-z0-9]{20,}','github_'+'pat_[A-Za-z0-9_]{20,}','-----BEGIN '+'(?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----','CANARY_'+'RELEASE_SECRET'].join('|'));
+const repo=join(dirname(fileURLToPath(import.meta.url)),'../..'),allowedNames=new Set(['LICENSE','LICENSING.md']),allowedRoots=new Set(['dist','runtime','browser','public-manifest','bootstrap','docs']),sourceRoots=new Set(['.planning','apps','docs','packages','rebuild-2026-08-26','release','scripts','share','tests']),sourceFiles=new Set(['.gitignore','AGENTS.md','LICENSE','LICENSING.md','package-lock.json','package.json','playwright.config.ts','tsconfig.json','vitest.config.ts']);
 const reviewedFixtures=new Map([
   ['cef27bea75b9b60bd08288674cf66fcbe3e14518',{path:'scripts/release/preflight.mjs',reason:'reviewed-detector-source'}],
   ['90eaa763d659068307640c66381003243a47cc0c',{path:'tests/integration/release-gates.test.ts',reason:'reviewed-negative-fixture'}],
@@ -31,12 +32,17 @@ export function validatePrerequisites(value){
 }
 export function assertVersionAvailable(version,existing=[]){const match=/^0\.1\.0-beta\.(\d+)$/.exec(version);if(!match||!Number.isSafeInteger(Number(match[1]))||Number(match[1])<1)reject('VERSION_INVALID');const numbers=existing.map(x=>/^0\.1\.0-beta\.(\d+)$/.exec(x)).filter(Boolean).map(x=>Number(x[1]));if(existing.includes(version)||numbers.some(n=>n>=Number(match[1])))reject('VERSION_ALREADY_EXISTS');return true;}
 
-function scanBytes(bytes){if(bytes.length>64*1024*1024||secret.test(bytes.toString('utf8')))reject('SECRET_SCAN_REJECTED');}
-export function scanPublicPackage(root){try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error();if(!readFileSync(join(root,'LICENSE')).equals(readFileSync(join(repo,'LICENSE')))||!readFileSync(join(root,'LICENSING.md')).equals(readFileSync(join(repo,'LICENSING.md'))))reject('LICENSE_MISMATCH');let files=0;const walk=(directory,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){const rel=prefix+entry.name,path=join(directory,entry.name),stat=lstatSync(path);if(stat.isSymbolicLink()||forbidden.test(rel)||(!prefix&&!allowedNames.has(entry.name)&&!allowedRoots.has(entry.name)))reject('PUBLIC_PACKAGE_REJECTED');if(entry.isDirectory())walk(path,rel+'/');else if(entry.isFile()){if(++files>100000||stat.nlink!==1)reject('PUBLIC_PACKAGE_REJECTED');scanBytes(readFileSync(path));}else reject('PUBLIC_PACKAGE_REJECTED');}};walk(root);return{status:'pass',files};}catch(error){if(error instanceof Error&&['LICENSE_MISMATCH','PUBLIC_PACKAGE_REJECTED','SECRET_SCAN_REJECTED'].includes(error.message))throw error;reject('PUBLIC_PACKAGE_REJECTED');}}
+const sourcePathAllowed=path=>sourceFiles.has(path)||sourceRoots.has(path.split('/')[0]);
+const packagePathAllowed=path=>{const top=path.split('/')[0];return !path.includes('..')&&(path.includes('/')?allowedRoots.has(top):allowedNames.has(path)||allowedRoots.has(path));};
+/** Legacy release API: preserve its public error code while using the shared scanner. */
+export function scanPublicPackage(root){try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error();if(!readFileSync(join(root,'LICENSE')).equals(readFileSync(join(repo,'LICENSE')))||!readFileSync(join(root,'LICENSING.md')).equals(readFileSync(join(repo,'LICENSING.md'))))reject('LICENSE_MISMATCH');const result=scanOwnedTree(root,{surface:'public_package',allowPath:packagePathAllowed,maxObjects:100000});if(result.status!=='pass')reject('PUBLIC_PACKAGE_REJECTED');return result;}catch(error){if(error instanceof Error&&['LICENSE_MISMATCH','PUBLIC_PACKAGE_REJECTED'].includes(error.message))throw error;reject('PUBLIC_PACKAGE_REJECTED');}}
 
+/** Legacy release API: history faults remain SOURCE_HISTORY_REJECTED. */
 export function scanReachableHistory(root,treeish='HEAD'){
-  try{if(!isAbsolute(root)||realpathSync(root)!==root||!/^[A-Za-z0-9._/-]{1,128}$/.test(treeish))throw new Error();const rows=execFileSync('git',['rev-list','--objects',treeish],{cwd:root,encoding:'utf8',timeout:30000,maxBuffer:32*1024*1024}).trim().split('\n').filter(Boolean);let blobs=0,exceptions=0;for(const row of rows){const hash=row.slice(0,40),path=row.length>41?row.slice(41):'';if(!/^[a-f0-9]{40}$/.test(hash))throw new Error();if(execFileSync('git',['cat-file','-t',hash],{cwd:root,encoding:'utf8',timeout:5000}).trim()!=='blob')continue;const top=path.split('/')[0];if(!path||forbidden.test(path)||(!sourceFiles.has(path)&&!sourceRoots.has(top)))reject('SOURCE_HISTORY_REJECTED');if(++blobs>200000)reject('SOURCE_HISTORY_REJECTED');const size=Number(execFileSync('git',['cat-file','-s',hash],{cwd:root,encoding:'utf8',timeout:5000}).trim());if(!Number.isSafeInteger(size)||size<0||size>64*1024*1024)reject('SOURCE_HISTORY_REJECTED');const bytes=execFileSync('git',['cat-file','blob',hash],{cwd:root,timeout:5000,maxBuffer:64*1024*1024+1});try{scanBytes(bytes);}catch(error){if(error instanceof Error&&error.message==='SECRET_SCAN_REJECTED'&&isReviewedFixtureException(hash,path)){exceptions++;continue;}throw error;}}return{status:'pass',blobs,exceptions};}catch{reject('SOURCE_HISTORY_REJECTED');}
+  try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())reject('SOURCE_HISTORY_REJECTED');const result=scanSensitiveReachableHistory(root,treeish,{allowPath:sourcePathAllowed,isReviewedException:isReviewedFixtureException});if(result.status!=='pass')reject('SOURCE_HISTORY_REJECTED');return result;}catch(error){if(error instanceof Error&&error.message==='SOURCE_HISTORY_REJECTED')throw error;reject('SOURCE_HISTORY_REJECTED');}
 }
+
+export {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanSensitiveBytes,scanTrackedTree,scanWorkingTree};
 
 function shaFile(path){return digest(readFileSync(path));}
 export function identityOnly({root=repo,prerequisitesPath=join(repo,'release/prerequisites.json')}={}){

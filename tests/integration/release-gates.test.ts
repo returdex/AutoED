@@ -1,10 +1,11 @@
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,writeFileSync} from 'node:fs';
+import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
 import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory,validatePrerequisites} from '../../scripts/release/preflight.mjs';
+import {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanReachableHistory as scanSensitiveHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from '../../scripts/release/sensitive-scan.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
 import {RELEASE_FINGERPRINT} from '../../packages/installer/src/verify-manifest.js';
@@ -39,6 +40,22 @@ it('scans every reachable source-history blob and blocks a secret deleted from t
 
 it('permits safe shared test instructions in reachable history',()=>{
   const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-release-share-')));try{execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['config','user.name','returdex'],{cwd:root});execFileSync('git',['config','user.email','123+returdex@users.noreply.github.com'],{cwd:root});mkdirSync(join(root,'share'));writeFileSync(join(root,'share','macos-testing-guide.md'),'safe instructions');execFileSync('git',['add','share/macos-testing-guide.md'],{cwd:root});execFileSync('git',['commit','-qm','shared guide'],{cwd:root});expect(scanReachableHistory(root,'HEAD')).toMatchObject({status:'pass'});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('uses one sealed detector for each tracked, history, working-tree and captured-output surface',()=>{
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-sensitive-surfaces-'))),secret='ghp_'+'A'.repeat(36);try{execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['config','user.name','returdex'],{cwd:root});execFileSync('git',['config','user.email','123+returdex@users.noreply.github.com'],{cwd:root});writeFileSync(join(root,'tracked.txt'),secret);execFileSync('git',['add','tracked.txt'],{cwd:root});execFileSync('git',['commit','-qm','tracked canary'],{cwd:root});expect(scanTrackedTree(root)).toMatchObject({status:'fail',surface:'tracked',findings:1});expect(scanSensitiveHistory(root)).toMatchObject({status:'fail',surface:'history',findings:1});writeFileSync(join(root,'working.txt'),secret);expect(scanWorkingTree(root)).toMatchObject({status:'fail',surface:'working_tree',findings:1});const scanner=createSensitiveChunkScanner({surface:'captured_output'});scanner.write('ghp_');scanner.write('A'.repeat(36));expect(scanner.finish()).toMatchObject({status:'fail',surface:'captured_output',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('fails closed when a wrapper forges a clean report or lies about its surface',()=>{
+  const safe=(surface:string)=>scanSensitiveBytes('safe',{surface}),reports=['tracked','history','working_tree','captured_output'].map(safe);expect(combineSensitiveReports(reports)).toMatchObject({status:'pass',findings:0});const forged={status:'pass',surface:'tracked',objects:1,bytes:4,findings:0,reportSha256:sha('{"bytes":4,"findings":0,"objects":1,"status":"pass","surface":"tracked"}')};expect(combineSensitiveReports([forged,...reports.slice(1)])).toMatchObject({status:'fail',findings:1});const wrongSurface={...reports[0],surface:'history'};expect(combineSensitiveReports([wrongSurface,...reports.slice(1)])).toMatchObject({status:'fail',findings:1});expect(combineSensitiveReports(reports.slice(0,3))).toMatchObject({status:'fail',findings:1});expect(combineSensitiveReports([reports[0],reports[0],...reports.slice(2)])).toMatchObject({status:'fail',findings:1});expect(combineSensitiveReports([scanSensitiveBytes('safe',{surface:'tracked'}),scanSensitiveBytes('safe',{surface:'history'}),scanSensitiveBytes('safe',{surface:'working_tree'}),scanSensitiveBytes('ghp_'+'A'.repeat(36),{surface:'captured_output'})])).toMatchObject({status:'fail',findings:1});
+});
+
+it('permits only an exact reviewed history blob/path exception',()=>{
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-sensitive-reviewed-'))),secret='ghp_'+'A'.repeat(36);try{execFileSync('git',['init','-q'],{cwd:root});execFileSync('git',['config','user.name','returdex'],{cwd:root});execFileSync('git',['config','user.email','123+returdex@users.noreply.github.com'],{cwd:root});mkdirSync(join(root,'scripts/release'),{recursive:true});writeFileSync(join(root,'scripts/release/fixture.mjs'),secret);execFileSync('git',['add','.'],{cwd:root});execFileSync('git',['commit','-qm','reviewed fixture'],{cwd:root});const hash=execFileSync('git',['rev-parse','HEAD:scripts/release/fixture.mjs'],{cwd:root,encoding:'utf8'}).trim();expect(scanSensitiveHistory(root,'HEAD',{isReviewedException:(object:string,path:string)=>object===hash&&path==='scripts/release/fixture.mjs'})).toMatchObject({status:'pass',findings:0});expect(scanSensitiveHistory(root,'HEAD',{isReviewedException:(object:string,path:string)=>object===hash&&path==='scripts/release/other.mjs'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('keeps ignored runtime/Profile material out of the working-tree walk and rejects links/types in owned trees',()=>{
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-sensitive-tree-'))),secret='ghp_'+'A'.repeat(36);try{execFileSync('git',['init','-q'],{cwd:root});writeFileSync(join(root,'.gitignore'),'.runtime/\nProfile/\n');mkdirSync(join(root,'.runtime'));mkdirSync(join(root,'Profile'));writeFileSync(join(root,'.runtime','secret.txt'),secret);writeFileSync(join(root,'Profile','secret.txt'),secret);writeFileSync(join(root,'safe.txt'),'safe');expect(scanWorkingTree(root)).toMatchObject({status:'pass',findings:0});const owned=join(root,'owned');mkdirSync(owned);writeFileSync(join(owned,'safe.txt'),'safe');expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'pass',findings:0});symlinkSync(join(owned,'safe.txt'),join(owned,'linked.txt'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
 });
 
 it('creates no publish action without a Plan 13 receipt and requires anonymous full-byte availability',async()=>{
