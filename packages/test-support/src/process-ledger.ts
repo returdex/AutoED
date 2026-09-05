@@ -46,28 +46,38 @@ function regular(path: string, maxBytes: number): Buffer {
   return readFileSync(path);
 }
 
+export function hasSyntheticRootName(path: string): boolean {
+  return path.startsWith(syntheticRootPrefix) && /^[A-Za-z0-9]+$/.test(path.slice(syntheticRootPrefix.length));
+}
+
 function syntheticRoot(path: string): string {
-  if (!path.startsWith(syntheticRootPrefix) || !/^autoed-synthetic-[A-Za-z0-9]+$/.test(path.slice(syntheticRootPrefix.length))) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+  if (!hasSyntheticRootName(path)) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
   const stat = lstatSync(path);
   if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(path) !== path) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
   return path;
 }
 
+export function parseSyntheticServiceArgv(args: string[]) {
+  const [executable, entrypoint, flag, installationPath, rootPath, nonce] = args;
+  if (args.length !== 6 || !executable || !entrypoint || flag !== '--autoed-service' || !installationPath || !rootPath || !uuid.test(nonce ?? '')) {
+    fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+  }
+  return { executable, entrypoint, installationPath, rootPath, nonce };
+}
+
 function invocation(args: string[]) {
-  if (args.length !== 2 || !args[0] || !args[1]) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const service = /^(.*?)\s+--autoed-service\s+(\S+)\s+(\S+)\s+([0-9a-f-]{36})$/.exec(args.join(' '));
-  if (!service) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const installation = realpathSync(service[2]!);
-  const root = syntheticRoot(realpathSync(service[3]!));
+  const parsed = parseSyntheticServiceArgv(args);
+  const installation = realpathSync(parsed.installationPath);
+  const root = syntheticRoot(realpathSync(parsed.rootPath));
   if (installation !== realpathSync(join(root, 'installation'))) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const entrypoint = realpathSync(args[1]!);
+  const entrypoint = realpathSync(parsed.entrypoint);
   const entry = /\/installation\/program\/([a-f0-9]{64})\/dist\/apps\/(api|worker)\/src\/main\.js$/.exec(entrypoint);
   const buildId = entry?.[1];
   const role = entry?.[2] as 'api' | 'worker' | undefined;
-  if (!role || !buildId || !uuid.test(service[4]!)) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const executable = realpathSync(args[0]!);
+  if (!role || !buildId) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+  const executable = realpathSync(parsed.executable);
   if (executable !== realpathSync(join(root, 'installation/runtime/24.20.0/bin/node')) || entrypoint !== realpathSync(join(root, `installation/program/${buildId}/dist/apps/${role}/src/main.js`))) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  return { root, role, executable, entrypoint, nonce: service[4]! };
+  return { root, role, executable, entrypoint, nonce: parsed.nonce };
 }
 
 function validate(row: ProcessRow): SyntheticProcess | null {
