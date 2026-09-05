@@ -148,7 +148,7 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,maxO
   const actual=safeRoot(root);
   try{
     if(!actual||!validSurface(surface)||typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform)||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>MAX_TOTAL_BYTES)return emptyFailure(validSurface(surface)?surface:'owned_tree');
-    const scanner=createSensitiveChunkScanner({surface,maxBytes});let count=0;
+    const scanner=createSensitiveChunkScanner({surface,maxBytes});scanner.writePath(`platform/${platform}`);let count=0;
     const scanFile=(absolute,path)=>{const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>MAX_OBJECT_BYTES||realpathSync(absolute)!==absolute||++count>maxObjects)throw new Error();scanner.writePath(path);scanner.write(readFileSync(absolute));};
     const scanLink=(absolute,path)=>{
       if(platform!=='darwin-arm64')throw new Error();const target=readlinkSync(absolute);
