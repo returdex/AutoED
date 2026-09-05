@@ -26,13 +26,14 @@ const requireExecutedTests: Reporter = {
 
 export default defineConfig({
   test: {
+    allowOnly: false,
     // Runtime fixtures share one run-scoped ephemeral loopback port and stay serialized.
     // Separate contract assertions retain the production fixed-port requirement.
     fileParallelism: false,
     passWithNoTests: false,
     reporters: ['default', requireExecutedTests],
     projects: ['unit', 'integration', 'native'].map(name => ({
-      test: { name, include: [`tests/${name}/**/*.test.ts`], setupFiles: ['./tests/setup/synthetic-process-ledger.ts'], environment: 'node', testTimeout: 30_000, hookTimeout: 30_000, passWithNoTests: false },
+      test: { allowOnly: false, name, include: [`tests/${name}/**/*.test.ts`], setupFiles: ['./tests/setup/synthetic-process-ledger.ts'], environment: 'node', testTimeout: 30_000, hookTimeout: 30_000, passWithNoTests: false },
     })),
   },
 });

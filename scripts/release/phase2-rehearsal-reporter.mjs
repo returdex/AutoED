@@ -3,7 +3,7 @@ import {createHash} from 'node:crypto';
 const HASH=/^[a-f0-9]{64}$/;
 const VITEST_PURE_FILES=/^\s*Test Files\s+([1-9]\d*)\s+passed\s+\(\1\)\s*$/;
 const VITEST_PURE_TESTS=/^\s*Tests\s+([1-9]\d*)\s+passed\s+\(\1\)\s*$/;
-const VITEST_ADVERSE_SUMMARY=/^\s*(?:Test Files|Tests)\s+.*\b(?:failed|skipped|todo)\b/i;
+const VITEST_ADVERSE_SUMMARY=/^\s*(?:Test Files|Tests)\s+.*\b(?:failed|skipped|todo|flaky|interrupted)\b/i;
 const PLAYWRIGHT_PURE_PASSED=/^\s*([1-9]\d*)\s+passed(?:\s+\([^)]*\))?\s*$/;
 const PLAYWRIGHT_ADVERSE_SUMMARY=/^\s*[1-9]\d*\s+(?:failed|skipped|flaky|interrupted)(?:\s+\([^)]*\))?\s*$/i;
 const fail=code=>{throw new Error(code);};

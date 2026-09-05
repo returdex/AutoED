@@ -130,7 +130,7 @@ it('fixed rehearsal derives every attestation field from ordered raw ops and cle
 
 it('rehearsal reporter accepts title words but requires pure Vitest and Playwright terminal summaries',()=>{
   const commandSha256=hash('1');
-  expect(reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' ✓ tests/release/only-failed.test.ts > accepts only a failed-title label\n Test Files  2 passed (2)\n      Tests  4 passed (4)',commandSha256})).toMatchObject({runner:'vitest',passed:4});
+  expect(reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' ✓ tests/release/flaky-interrupted.test.ts > accepts flaky, interrupted and failed title labels\n Test Files  2 passed (2)\n      Tests  4 passed (4)',commandSha256})).toMatchObject({runner:'vitest',passed:4});
   expect(reportPhase2RehearsalCommand({runner:'playwright',exitCode:0,stdout:'  ✓ only / failed title\n  2 passed (1.2s)',commandSha256})).toMatchObject({runner:'playwright',passed:2});
 
   for(const stdout of [
@@ -138,6 +138,8 @@ it('rehearsal reporter accepts title words but requires pure Vitest and Playwrig
     ' Test Files  2 passed (2)\n Test Files  2 passed (2)\n      Tests  4 passed (4)',
     ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n      Tests  1 skipped (5)',
     ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n Test Files  1 failed (3)',
+    ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n      Tests  1 flaky (5)',
+    ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n Test Files  1 interrupted (3)',
   ])expect(()=>reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout,commandSha256})).toThrow('REPORT_MALFORMED');
 
   for(const stdout of [
@@ -147,6 +149,13 @@ it('rehearsal reporter accepts title words but requires pure Vitest and Playwrig
     '  2 passed (1.2s)\n  1 interrupted',
     '  2 passed (1.2s)\n  2 passed (1.2s)',
   ])expect(()=>reportPhase2RehearsalCommand({runner:'playwright',exitCode:0,stdout,commandSha256})).toThrow('REPORT_MALFORMED');
+});
+
+it('Vitest configuration explicitly rejects committed focused tests in every project',()=>{
+  const config=readFileSync(join(process.cwd(),'vitest.config.ts'),'utf8');
+  expect(config).toContain('test: {\n    allowOnly: false,');
+  expect(config).toContain('test: { allowOnly: false, name,');
+  expect(config.match(/\ballowOnly:\s*false\b/g)).toHaveLength(2);
 });
 
 it('rehearsal consumes only sealed 2x8 closure evidence and rejects forged or missing facts',async()=>{
