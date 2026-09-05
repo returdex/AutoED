@@ -23,6 +23,7 @@ function validSurface(surface){return typeof surface==='string'&&SURFACES.has(su
 function safeRoot(root){try{if(!isAbsolute(root))return null;const actual=realpathSync(root),stat=lstatSync(actual);return stat.isDirectory()&&!stat.isSymbolicLink()?actual:null;}catch{return null;}}
 function safeRelative(value){return typeof value==='string'&&value.length>0&&value.length<=4096&&!value.includes('\\')&&!value.includes('\0')&&!isAbsolute(value)&&!value.split('/').some(part=>part===''||part==='.'||part==='..');}
 function childOf(root,path){const resolved=resolve(root,path);return relative(root,resolved)!==''&&!relative(root,resolved).startsWith('..')&&!isAbsolute(relative(root,resolved))?resolved:null;}
+function insideRoot(root,path){const rel=relative(root,path);return rel!==''&&!rel.startsWith('..')&&!isAbsolute(rel);}
 function report(surface,{objects,bytes,findings},contentSha256=''){const status=findings===0?'pass':'fail',body={status,surface,objects,bytes,findings};const result=Object.freeze({...body,reportSha256:sha(canonical({...body,contentSha256}))});reports.add(result);evidence.set(result,contentSha256);return result;}
 function emptyFailure(surface){return report(surface,{objects:0,bytes:0,findings:1});}
 
@@ -142,35 +143,42 @@ export function scanWorkingTree(root,{allowPath}={}){
 }
 
 /**
- * Scans a caller-owned closure. macOS permits only relative file symlinks that
- * resolve inside this root; Windows and neutral closures reject every link.
+ * Scans a caller-owned closure. macOS permits only relative in-root file or
+ * directory symlinks; Windows and neutral closures reject every link.
  */
 /** @param {string} root @param {{surface?:string,allowPath?:(path:string)=>boolean,platform:'darwin-arm64'|'win32-x64'|'neutral',profile?:'closure'|'test',maxObjects?:number}} options */
 export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,profile='closure',maxObjects=100000}={}){
   const actual=safeRoot(root);
   try{
     const limits=CLOSURE_PROFILES[profile];if(!actual||!validSurface(surface)||typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform)||!limits||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS)return emptyFailure(validSurface(surface)?surface:'owned_tree');
-    const scanner=createSensitiveChunkScanner({surface,maxBytes:limits.maxTreeBytes});scanner.writePath(`platform/${platform}`);let count=0;const scanned=new Set();
+    const scanner=createSensitiveChunkScanner({surface,maxBytes:limits.maxTreeBytes});scanner.writePath(`platform/${platform}`);let count=0;const scannedFiles=new Set(),scannedDirectories=new Set([actual]);
+    const markObject=()=>{if(++count>maxObjects)throw new Error();scanner.write(Buffer.alloc(0));};
     const streamFile=(absolute,path,{recordPath=true}={})=>{
-      const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes||realpathSync(absolute)!==absolute||++count>maxObjects)throw new Error();
-      if(recordPath)scanner.writePath(`file/${path}`);if(scanned.has(absolute))return;scanned.add(absolute);
-      let fd;try{fd=openSync(absolute,'r');let offset=0,first=true;if(stat.size===0){scanner.write(Buffer.alloc(0));return;}while(offset<stat.size){const chunk=Buffer.allocUnsafe(Math.min(CLOSURE_CHUNK_BYTES,stat.size-offset)),read=readSync(fd,chunk,0,chunk.length,offset);if(!Number.isSafeInteger(read)||read<1)throw new Error();scanner.write(chunk.subarray(0,read),{object:first});first=false;offset+=read;}}finally{if(fd!==undefined)closeSync(fd);}
+      const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes||realpathSync(absolute)!==absolute)throw new Error();
+      if(recordPath){markObject();scanner.writePath(`file/${path}`);}if(scannedFiles.has(absolute))return;scannedFiles.add(absolute);
+      let fd;try{fd=openSync(absolute,'r');let offset=0;if(stat.size===0){scanner.write(Buffer.alloc(0),{object:false});return;}while(offset<stat.size){const chunk=Buffer.allocUnsafe(Math.min(CLOSURE_CHUNK_BYTES,stat.size-offset)),read=readSync(fd,chunk,0,chunk.length,offset);if(!Number.isSafeInteger(read)||read<1)throw new Error();scanner.write(chunk.subarray(0,read),{object:false});offset+=read;}}finally{if(fd!==undefined)closeSync(fd);}
     };
     const scanFile=(absolute,path)=>streamFile(absolute,path);
-    const scanLink=(absolute,path)=>{
+    const validateLink=(absolute,path)=>{
       if(platform!=='darwin-arm64')throw new Error();const target=readlinkSync(absolute);
       if(typeof target!=='string'||target.length===0||target.length>4096||target.includes('\\')||target.includes('\0')||isAbsolute(target))throw new Error();
-      const lexical=resolve(dirname(absolute),target),inside=childOf(actual,relative(actual,lexical));if(!inside||inside!==lexical)throw new Error();
-      const resolved=realpathSync(absolute);if(!childOf(actual,relative(actual,resolved))||resolved!==childOf(actual,relative(actual,resolved)))throw new Error();
+      const lexical=resolve(dirname(absolute),target);if(!insideRoot(actual,lexical))throw new Error();
+      const resolved=realpathSync(absolute);if(!insideRoot(actual,resolved))throw new Error();
       const resolvedPath=relative(actual,resolved);if(!safeRelative(resolvedPath)||!sourcePathAllowed(resolvedPath,allowPath))throw new Error();
-      const stat=statSync(absolute);if(!stat.isFile()||stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes)throw new Error();
-      scanner.writePath(`link/${path}`);scanner.writePath(`link-target/${target}`);scanner.writePath(`link-resolved/${resolvedPath}`);streamFile(resolved,resolvedPath,{recordPath:false});
+      markObject();scanner.writePath(`link/${path}`);scanner.writePath(`link-target/${target}`);scanner.writePath(`link-resolved/${resolvedPath}`);
+      return {resolved,resolvedPath};
     };
-    const walk=(directory,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){
+    const scanLink=(absolute,path)=>{
+      const {resolved,resolvedPath}=validateLink(absolute,path),stat=statSync(absolute);
+      if(stat.isFile()){if(stat.nlink!==1||stat.size<0||stat.size>limits.maxFileBytes)throw new Error();streamFile(resolved,resolvedPath,{recordPath:false});return;}
+      if(!stat.isDirectory()||insideRoot(resolved,absolute))throw new Error();
+      if(scannedDirectories.has(resolved))return;scannedDirectories.add(resolved);walk(resolved,resolvedPath,{alreadyScanned:true});
+    };
+    const walk=(directory,prefix='',{alreadyScanned=false}={})=>{if(!alreadyScanned){if(realpathSync(directory)!==directory)throw new Error();markObject();scanner.writePath(`directory/${prefix}`);if(scannedDirectories.has(directory))return;scannedDirectories.add(directory);}for(const entry of readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0)){
       const path=prefix?`${prefix}/${entry.name}`:entry.name,absolute=childOf(actual,path);if(!absolute||!safeRelative(path)||!sourcePathAllowed(path,allowPath))throw new Error();
       const stat=lstatSync(absolute);if(stat.isDirectory()&&realpathSync(absolute)===absolute)walk(absolute,path);else if(stat.isSymbolicLink())scanLink(absolute,path);else scanFile(absolute,path);
     }};
-    walk(actual);return scanner.finish();
+    walk(actual,'',{alreadyScanned:true});return scanner.finish();
   }catch{return emptyFailure(validSurface(surface)?surface:'owned_tree');}
 }
 
