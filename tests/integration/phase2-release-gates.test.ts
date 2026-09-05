@@ -128,6 +128,27 @@ it('fixed rehearsal derives every attestation field from ordered raw ops and cle
   expect(()=>reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' Tests  1 passed (1)',commandSha256:hash('1')})).toThrow('REPORT_MALFORMED');
 });
 
+it('rehearsal reporter accepts title words but requires pure Vitest and Playwright terminal summaries',()=>{
+  const commandSha256=hash('1');
+  expect(reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' ✓ tests/release/only-failed.test.ts > accepts only a failed-title label\n Test Files  2 passed (2)\n      Tests  4 passed (4)',commandSha256})).toMatchObject({runner:'vitest',passed:4});
+  expect(reportPhase2RehearsalCommand({runner:'playwright',exitCode:0,stdout:'  ✓ only / failed title\n  2 passed (1.2s)',commandSha256})).toMatchObject({runner:'playwright',passed:2});
+
+  for(const stdout of [
+    ' Test Files  2 passed (2)\n      Tests  4 passed (5)',
+    ' Test Files  2 passed (2)\n Test Files  2 passed (2)\n      Tests  4 passed (4)',
+    ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n      Tests  1 skipped (5)',
+    ' Test Files  2 passed (2)\n      Tests  4 passed (4)\n Test Files  1 failed (3)',
+  ])expect(()=>reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout,commandSha256})).toThrow('REPORT_MALFORMED');
+
+  for(const stdout of [
+    '  2 passed (1.2s)\n  1 failed',
+    '  2 passed (1.2s)\n  1 skipped',
+    '  2 passed (1.2s)\n  1 flaky',
+    '  2 passed (1.2s)\n  1 interrupted',
+    '  2 passed (1.2s)\n  2 passed (1.2s)',
+  ])expect(()=>reportPhase2RehearsalCommand({runner:'playwright',exitCode:0,stdout,commandSha256})).toThrow('REPORT_MALFORMED');
+});
+
 it('rehearsal consumes only sealed 2x8 closure evidence and rejects forged or missing facts',async()=>{
   const root=makeRoot(),source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
   const command={schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:hash('1')};

@@ -1,6 +1,11 @@
 import {createHash} from 'node:crypto';
 
 const HASH=/^[a-f0-9]{64}$/;
+const VITEST_PURE_FILES=/^\s*Test Files\s+([1-9]\d*)\s+passed\s+\(\1\)\s*$/;
+const VITEST_PURE_TESTS=/^\s*Tests\s+([1-9]\d*)\s+passed\s+\(\1\)\s*$/;
+const VITEST_ADVERSE_SUMMARY=/^\s*(?:Test Files|Tests)\s+.*\b(?:failed|skipped|todo)\b/i;
+const PLAYWRIGHT_PURE_PASSED=/^\s*([1-9]\d*)\s+passed(?:\s+\([^)]*\))?\s*$/;
+const PLAYWRIGHT_ADVERSE_SUMMARY=/^\s*[1-9]\d*\s+(?:failed|skipped|flaky|interrupted)(?:\s+\([^)]*\))?\s*$/i;
 const fail=code=>{throw new Error(code);};
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const text=value=>typeof value==='string'?value:Buffer.isBuffer(value)?value.toString('utf8'):'';
@@ -25,12 +30,12 @@ export function reportPhase2RehearsalCommand({runner,exitCode,signal=null,stdout
     }
     const lines=output.replace(/\r/g,'').split('\n');
     if(runner==='vitest'){
-      const files=lines.filter(line=>/^\s*Test Files\s+([1-9]\d*) passed \(\1\)\s*$/.test(line));const tests=lines.filter(line=>/^\s*Tests\s+([1-9]\d*) passed \(\1\)\s*$/.test(line));
-      if(files.length!==1||tests.length!==1||lines.some(line=>/\b(?:failed|skipped|todo|only)\b/i.test(line)))fail('REPORT_MALFORMED');
+      const files=lines.filter(line=>VITEST_PURE_FILES.test(line));const tests=lines.filter(line=>VITEST_PURE_TESTS.test(line));
+      if(files.length!==1||tests.length!==1||lines.some(line=>VITEST_ADVERSE_SUMMARY.test(line)))fail('REPORT_MALFORMED');
       return Object.freeze({schema:1,runner,status:'pass',passed:Number(/\d+/.exec(tests[0])[0]),failed:0,skipped:0,todo:0,commandSha256});
     }
-    const passed=lines.filter(line=>/^\s*([1-9]\d*) passed(?: \([^)]*\))?\s*$/.test(line));
-    if(passed.length!==1||lines.some(line=>/\b(?:failed|skipped|flaky|interrupted)\b/i.test(line)))fail('REPORT_MALFORMED');
+    const passed=lines.filter(line=>PLAYWRIGHT_PURE_PASSED.test(line));
+    if(passed.length!==1||lines.some(line=>PLAYWRIGHT_ADVERSE_SUMMARY.test(line)))fail('REPORT_MALFORMED');
     return Object.freeze({schema:1,runner,status:'pass',passed:Number(/\d+/.exec(passed[0])[0]),failed:0,skipped:0,todo:0,commandSha256});
   }catch(error){fail(/^REPORT_[A-Z_]+$/.test(error?.message??'')?error.message:'REPORT_INVALID');}
 }
