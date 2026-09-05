@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync,spawn} from 'node:child_process';
 import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,mkdtempSync,openSync,readFileSync,realpathSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -21,7 +21,7 @@ function passCheck(value){return exact(value,['status','commandSha256','tests','
 function closure(value,platform){return exact(value,['status','platform','files','assets','sensitiveFindings'])&&value.status==='pass'&&value.platform===platform&&Number.isSafeInteger(value.files)&&value.files>0&&value.assets===8&&value.sensitiveFindings===0;}
 export function validatePhase2Rehearsal(value){
   try{
-    if(!exact(value,['schema','status','kind','releaseCoordinate','commit','tree','buildId','sourceSha256','managedRuntime','focused','quality','closures','prompt','publication','failureHistory','completedAt'])||value.schema!==1||value.status!=='pass'||value.kind!=='unnumbered_release_rehearsal'||value.releaseCoordinate!==null||!GIT.test(value.commit)||!GIT.test(value.tree)||!HASH.test(value.buildId)||!HASH.test(value.sourceSha256)||!exact(value.managedRuntime,['verified','node','npm'])||value.managedRuntime.verified!==true||value.managedRuntime.node!=='24.20.0'||value.managedRuntime.npm!=='11.19.0'||!passCheck(value.focused)||!exact(value.quality,['typecheck','unit','integration','ui','native','sensitiveScan'])||['typecheck','unit','integration','ui','native'].some(name=>!passCheck(value.quality[name]))||!exact(value.quality.sensitiveScan,['status','findings','reportSha256'])||value.quality.sensitiveScan.status!=='pass'||value.quality.sensitiveScan.findings!==0||!HASH.test(value.quality.sensitiveScan.reportSha256)||!exact(value.closures,['macos','windows'])||!closure(value.closures.macos,'macos')||!closure(value.closures.windows,'windows')||!exact(value.prompt,['status','targetCount','assetCount','commandsBound','latestReferences'])||value.prompt.status!=='pass'||value.prompt.targetCount!==2||value.prompt.assetCount!==16||value.prompt.commandsBound!==true||value.prompt.latestReferences!==0||!exact(value.publication,['status','contractTests','remoteMutations','fullVerifierInvocations'])||value.publication.status!=='pass'||!Number.isSafeInteger(value.publication.contractTests)||value.publication.contractTests<1||value.publication.remoteMutations!==0||value.publication.fullVerifierInvocations!==1||!Array.isArray(value.failureHistory)||value.failureHistory.length>32||value.failureHistory.some(item=>!exact(item,['class','code'])||!['PRE_SOURCE','PRE_RUNNER'].includes(item.class)||!/^[A-Z0-9_]{1,96}$/.test(item.code))||!ISO(value.completedAt)||PRIVATE.test(canonical(value)))throw new Error();return Object.freeze(value);
+    if(!exact(value,['schema','status','kind','releaseCoordinate','commit','tree','buildId','sourceSha256','managedRuntime','focused','quality','closures','prompt','publication','failureHistory','completedAt'])||value.schema!==1||value.status!=='pass'||value.kind!=='unnumbered_release_rehearsal'||value.releaseCoordinate!==null||!GIT.test(value.commit)||!GIT.test(value.tree)||!HASH.test(value.buildId)||!HASH.test(value.sourceSha256)||!exact(value.managedRuntime,['verified','node','npm'])||value.managedRuntime.verified!==true||value.managedRuntime.node!=='24.20.0'||value.managedRuntime.npm!=='11.19.0'||!passCheck(value.focused)||!exact(value.quality,['typecheck','unit','integration','ui','native','sensitiveScan'])||['typecheck','unit','integration','ui','native'].some(name=>!passCheck(value.quality[name]))||!exact(value.quality.sensitiveScan,['status','findings','reportSha256'])||value.quality.sensitiveScan.status!=='pass'||value.quality.sensitiveScan.findings!==0||!HASH.test(value.quality.sensitiveScan.reportSha256)||!exact(value.closures,['macos','windows'])||!closure(value.closures.macos,'macos')||!closure(value.closures.windows,'windows')||!exact(value.prompt,['status','targetCount','assetCount','commandsBound','latestReferences','envelopeSha256'])||value.prompt.status!=='pass'||value.prompt.targetCount!==2||value.prompt.assetCount!==16||value.prompt.commandsBound!==true||value.prompt.latestReferences!==0||!HASH.test(value.prompt.envelopeSha256)||!exact(value.publication,['status','contractTests','remoteMutations','fullVerifierInvocations'])||value.publication.status!=='pass'||!Number.isSafeInteger(value.publication.contractTests)||value.publication.contractTests<1||value.publication.remoteMutations!==0||value.publication.fullVerifierInvocations!==1||!Array.isArray(value.failureHistory)||value.failureHistory.length>32||value.failureHistory.some(item=>!exact(item,['class','code'])||!['PRE_SOURCE','PRE_RUNNER'].includes(item.class)||!/^[A-Z0-9_]{1,96}$/.test(item.code))||!ISO(value.completedAt)||PRIVATE.test(canonical(value)))throw new Error();return Object.freeze(value);
   }catch{fail('PHASE2_REHEARSAL_INVALID');}
 }
 export function verifyPhase2RehearsalBinding(selection,value){
@@ -64,20 +64,119 @@ const PHASE2_REHEARSAL_ORDER=Object.freeze(['runtime','freeze','build','focused'
 const PUBLICATION_FIXTURE=Object.freeze({version:'0.1.0-beta.32',tag:'v0.1.0-beta.32',kind:'invalidated_historical_contract_fixture'});
 const PUBLICATION_CONTRACT_IDS=Object.freeze(['historical_noncandidate','actual_two_by_eight','absent_422_exact','public_consumed_monotonic','metadata_exact','sixteen_heads','verifier_once','no_side_effect','no_fixture_leak']);
 const PUBLICATION_FORBIDDEN=/\b(?:gh|curl|wget|fetch|publish|push|tag|remote\s+add)\b/i;
-const FIXED_COMMANDS=Object.freeze({focused:{runner:'vitest',ceiling:1200,args:['npm','run','test:integration','--','--run','tests/integration/process-lifecycle.test.ts','tests/integration/managed-cleanup.test.ts','tests/integration/two-build-upgrade.test.ts','tests/integration/upgrade-journal.test.ts','tests/integration/upgrade-recovery.test.ts']},typecheck:{runner:'rc',ceiling:120,args:['npm','run','typecheck']},unit:{runner:'vitest',ceiling:300,args:['npm','run','test:unit','--','--run']},integration:{runner:'vitest',ceiling:2100,args:['npm','run','test:integration','--','--run']},ui:{runner:'playwright',ceiling:600,args:['npm','run','test:ui']},native:{runner:'vitest',ceiling:600,args:['npm','run','test:native','--','--run']}});
-async function runFixedCommand(root,id,scanner,ledger){
-  const spec=FIXED_COMMANDS[id];if(!spec)runnerFail('PRE_RUNNER','COMMAND_ID_INVALID');const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node');if(!existsSync(node))runnerFail('PRE_RUNNER','MANAGED_NODE_MISSING');const args=['scripts/dev/runtime.mjs',...spec.args],sha=phase2RehearsalCommandSha256({program:'managed-node',args,env:{}}),chunks=[];let bytes=0,timeout=false;
-  if(!scanner||typeof scanner.write!=='function'||!Array.isArray(ledger))runnerFail('PRE_RUNNER','CAPTURE_INVALID');ledger.push(Object.freeze({id,commandSha256:sha}));
-  const result=await new Promise(resolve=>{let child;let killer;const end=(code,signal)=>{if(killer)clearTimeout(killer);clearTimeout(timer);resolve({code:code??1,signal});};const stop=()=>{try{process.kill(-child.pid,'SIGTERM');}catch{}killer=setTimeout(()=>{try{process.kill(-child.pid,'SIGKILL');}catch{}},5000);killer.unref();};try{child=spawn(node,args,{cwd:root,detached:true,stdio:['ignore','pipe','pipe']});}catch{return resolve({code:1,signal:'SPAWN'});}const take=chunk=>{bytes+=chunk.length;scanner.write(chunk);if(bytes<=64*1024*1024)chunks.push(chunk);if(bytes>64*1024*1024)stop();};child.stdout.on('data',take);child.stderr.on('data',take);const timer=setTimeout(()=>{timeout=true;stop();},spec.ceiling*1000);child.once('close',end);child.once('error',()=>end(1,'ERROR'));});
-  if(timeout||bytes>64*1024*1024)runnerFail('PRE_RUNNER',timeout?'COMMAND_TIMEOUT':'COMMAND_OUTPUT_LIMIT');try{return reportPhase2RehearsalCommand({runner:spec.runner,exitCode:result.code,signal:result.signal,stdout:Buffer.concat(chunks),commandSha256:sha});}catch{runnerFail('PRE_RUNNER','COMMAND_REPORT_INVALID');}
+const FIXED_COMMANDS=Object.freeze({
+  focused:{ceiling:1200,steps:Object.freeze([
+    Object.freeze({name:'process-lifecycle',runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run','tests/integration/process-lifecycle.test.ts','tests/integration/managed-cleanup.test.ts','tests/integration/two-build-upgrade.test.ts','tests/integration/upgrade-journal.test.ts','tests/integration/upgrade-recovery.test.ts'])}),
+    Object.freeze({name:'historical-process-ledger',runner:'vitest',args:Object.freeze(['npm','run','test:unit','--','--run','tests/unit/process-ledger.test.ts'])}),
+  ])},
+  typecheck:{ceiling:120,steps:Object.freeze([Object.freeze({name:'typecheck',runner:'rc',args:Object.freeze(['npm','run','typecheck'])})])},
+  unit:{ceiling:300,steps:Object.freeze([Object.freeze({name:'unit',runner:'vitest',args:Object.freeze(['npm','run','test:unit','--','--run'])})])},
+  integration:{ceiling:2100,steps:Object.freeze([Object.freeze({name:'integration',runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run'])})])},
+  ui:{ceiling:600,steps:Object.freeze([Object.freeze({name:'ui',runner:'playwright',args:Object.freeze(['npm','run','test:ui'])})])},
+  native:{ceiling:600,steps:Object.freeze([Object.freeze({name:'native',runner:'vitest',args:Object.freeze(['npm','run','test:native','--','--run'])})])},
+});
+const MAX_CAPTURE_BYTES=64*1024*1024,PROCESS_GROUP_GRACE_MS=5000;
+const digestBytes=value=>createHash('sha256').update(value).digest('hex');
+const pgidExists=(pid,kill=process.kill)=>{try{kill(-pid,0);return true;}catch(error){return error?.code==='ESRCH'?false:null;}};
+const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+
+/**
+ * The sole detached-child adapter for R1 runtime checks, builds, and fixed
+ * suites. It is deliberately bufferless apart from the bounded report copy:
+ * stdout and stderr enter the same sensitive scanner in arrival order.
+ * @param {{program:string,args:string[],cwd:string,timeoutMs:number,scanner:{write:(value:Buffer)=>unknown},outputLimit?:number,kill?:typeof process.kill,spawnImpl?:typeof spawn}} options
+ */
+export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outputLimit=MAX_CAPTURE_BYTES,kill=process.kill,spawnImpl=spawn}={}){
+  if(typeof program!=='string'||!Array.isArray(args)||args.some(value=>typeof value!=='string')||typeof cwd!=='string'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||!scanner||typeof scanner.write!=='function'||!Number.isSafeInteger(outputLimit)||outputLimit<1||outputLimit>MAX_CAPTURE_BYTES||typeof kill!=='function'||typeof spawnImpl!=='function')runnerFail('PRE_RUNNER','SPAWN_ARGUMENT_INVALID');
+  let child,timeoutTimer=null,killTimer=null,stopReason=null,bytes=0,spawnError=false,closed=false;
+  const chunks=[];
+  const clearTimers=()=>{if(timeoutTimer){clearTimeout(timeoutTimer);timeoutTimer=null;}if(killTimer){clearTimeout(killTimer);killTimer=null;}};
+  const terminate=reason=>{
+    if(stopReason!==null||!child?.pid)return;
+    stopReason=reason;
+    try{kill(-child.pid,'SIGTERM');}catch(error){if(error?.code!=='ESRCH')spawnError=true;}
+    killTimer=setTimeout(()=>{try{kill(-child.pid,'SIGKILL');}catch(error){if(error?.code!=='ESRCH')spawnError=true;}},PROCESS_GROUP_GRACE_MS);
+    killTimer.unref?.();
+  };
+  let result;
+  try{
+    child=spawnImpl(program,args,{cwd,detached:true,stdio:['ignore','pipe','pipe']});
+    if(!child||!Number.isSafeInteger(child.pid)||!child.stdout||!child.stderr)runnerFail('PRE_RUNNER','SPAWN_FAILED');
+    const take=chunk=>{const value=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);bytes+=value.length;scanner.write(value);if(bytes<=outputLimit)chunks.push(value);if(bytes>outputLimit)terminate('output');};
+    child.stdout.on('data',take);child.stderr.on('data',take);
+    const close=await new Promise(resolve=>{child.once('close',(code,signal)=>resolve({code:code??1,signal:signal??null}));child.once('error',()=>{spawnError=true;});timeoutTimer=setTimeout(()=>terminate('timeout'),timeoutMs);timeoutTimer.unref?.();});
+    closed=true;result=close;
+    // A parent can close while an owned descendant retains the process group.
+    // Keep the group scoped to this child and prove it has disappeared.
+    if(pgidExists(child.pid,kill)===true)terminate(stopReason??'descendant');
+    const deadline=Date.now()+PROCESS_GROUP_GRACE_MS+1000;
+    while(pgidExists(child.pid,kill)===true&&Date.now()<deadline)await delay(25);
+    if(pgidExists(child.pid,kill)!==false)runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
+  }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER','SPAWN_FAILED');
+  }finally{clearTimers();}
+  if(!closed||spawnError)runnerFail('PRE_RUNNER','SPAWN_FAILED');
+  if(stopReason==='timeout')runnerFail('PRE_RUNNER','COMMAND_TIMEOUT');
+  if(stopReason==='output')runnerFail('PRE_RUNNER','COMMAND_OUTPUT_LIMIT');
+  return Object.freeze({exitCode:result.code,signal:result.signal,stdout:Buffer.concat(chunks)});
 }
-const REHEARSAL_FAILURE=/^(?:PHASE2_REHEARSAL|REPORT)_[A-Z0-9_]+$/;
+function commandDigestArgs(spec){return ['scripts/dev/runtime.mjs',...spec.steps.flatMap(step=>['--phase2-fixed-step',step.name,...step.args])];}
+async function runFixedCommand(root,id,scanner,ledger){
+  const spec=FIXED_COMMANDS[id];if(!spec)runnerFail('PRE_RUNNER','COMMAND_ID_INVALID');const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node');if(!existsSync(node))runnerFail('PRE_RUNNER','MANAGED_NODE_MISSING');
+  if(!Array.isArray(ledger))runnerFail('PRE_RUNNER','CAPTURE_INVALID');const commandSha256=phase2RehearsalCommandSha256({program:'managed-node',args:commandDigestArgs(spec),env:{}});ledger.push(Object.freeze({id,commandSha256}));let passed=0;
+  for(const step of spec.steps){const child=await runPhase2Detached({program:node,args:['scripts/dev/runtime.mjs',...step.args],cwd:root,timeoutMs:spec.ceiling*1000,scanner});let report;try{report=reportPhase2RehearsalCommand({runner:step.runner,exitCode:child.exitCode,signal:child.signal,stdout:child.stdout,commandSha256});}catch{runnerFail('PRE_SOURCE','COMMAND_REPORT_INVALID');}passed+=report.passed;}
+  return Object.freeze({schema:1,runner:spec.steps.length===1?spec.steps[0].runner:'vitest',status:'pass',passed,failed:0,skipped:0,todo:0,commandSha256});
+}
 function runnerFail(kind,code){const error=new Error(`PHASE2_REHEARSAL_FAILED class=${kind} code=${code}`);error.rehearsal=true;throw error;}
+export function requirePhase2ProcessSuccess(result,failureClass){
+  if(!['PRE_RUNNER','PRE_SOURCE'].includes(failureClass))runnerFail('PRE_RUNNER','CAPTURE_CLASS_INVALID');
+  if(!result||result.exitCode!==0||result.signal)runnerFail(failureClass,'COMMAND_PROCESS_FAILED');
+  return result;
+}
 function sameSnapshot(a,b){return exact(a,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','clean'])&&exact(b,Object.keys(a))&&canonical(a)===canonical(b);}
 function snapshotValid(value){return exact(value,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','clean'])&&GIT.test(value.commit)&&GIT.test(value.tree)&&[value.sourceSha256,value.refsSha256,value.remotesSha256,value.receiptsSha256].every(item=>HASH.test(item))&&value.clean===true;}
 function commandFact(value){return value&&value.status==='pass'&&HASH.test(value.commandSha256)&&Number.isSafeInteger(value.passed)&&value.passed>0&&value.failed===0&&value.skipped===0&&value.todo===0;}
 function asCheck(value){if(!commandFact(value))runnerFail('PRE_RUNNER','COMMAND_REPORT_INVALID');return {status:'pass',commandSha256:value.commandSha256,tests:value.passed,skipped:0,todo:0};}
-function closureFact(value,platform){if(!value||value.target!==platform||!Array.isArray(value.assets)||value.assets.length!==8||new Set(value.assets.map(asset=>asset.name)).size!==8||value.assets.some(asset=>!Number.isSafeInteger(asset.bytes)||asset.bytes<1||!HASH.test(asset.sha256))){runnerFail('PRE_SOURCE','CLOSURE_INVALID');}return {status:'pass',platform:platform==='darwin-arm64'?'macos':'windows',files:value.assets.reduce((total,asset)=>total+(Array.isArray(asset.files)?asset.files.length:1),0),assets:value.assets.length,sensitiveFindings:0};}
+const REQUIRED_ASSET_ROLES=Object.freeze(['bootstrap','browser','capability','installer','manifest','node','program','signature']);
+const PROMPT_BANNED=/(?:https?:\/\/|\bbeta(?:[.-]|\b)|\blatest\b|\bupdate\b|\binstall\b|\blogin\b)/i;
+function validScan(value,surface){return exact(value,['status','surface','objects','bytes','findings','reportSha256'])&&value.status==='pass'&&value.surface===surface&&Number.isSafeInteger(value.objects)&&value.objects>=0&&Number.isSafeInteger(value.bytes)&&value.bytes>=0&&value.findings===0&&HASH.test(value.reportSha256);}
+function ownedTargetRoot(root){try{const resolved=resolve(root),stat=lstatSync(resolved);return typeof root==='string'&&resolved===root&&realpathSync(resolved)===resolved&&stat.isDirectory()&&!stat.isSymbolicLink()?resolved:null;}catch{return null;}}
+function strictAssets(value,root){
+  const owned=ownedTargetRoot(root);
+  return !!owned&&Array.isArray(value)&&value.length===REQUIRED_ASSET_ROLES.length&&new Set(value.map(asset=>asset?.role)).size===REQUIRED_ASSET_ROLES.length&&value.every(asset=>{
+    try{
+      if(!exact(asset,['name','path','role','sha256','bytes'])||typeof asset.name!=='string'||asset.name.length<1||asset.name.length>512||asset.name.includes('/')||asset.name.includes('\\')||PROMPT_BANNED.test(asset.name)||!REQUIRED_ASSET_ROLES.includes(asset.role)||!Number.isSafeInteger(asset.bytes)||asset.bytes<1||!HASH.test(asset.sha256)||typeof asset.path!=='string')return false;
+      const path=resolve(asset.path),stat=lstatSync(path);
+      return path===asset.path&&path.startsWith(owned+'/')&&!stat.isSymbolicLink()&&stat.isFile()&&realpathSync(path)===path&&stat.size===asset.bytes&&digestBytes(readFileSync(path))===asset.sha256;
+    }catch{return false;}
+  });
+}
+function closureFact(value,platform){
+  const evidence=value?.evidence;
+  if(!value||value.target!==platform||!strictAssets(value.assets,value.root)||!exact(evidence,['deliveryFiles','memberCount','capabilityClosureSha256','sensitive'])||!Number.isSafeInteger(evidence.deliveryFiles)||evidence.deliveryFiles<1||evidence.memberCount!==16||!HASH.test(evidence.capabilityClosureSha256)||!exact(evidence.sensitive,['delivery','outer'])||!validScan(evidence.sensitive.delivery,'owned_tree')||!validScan(evidence.sensitive.outer,'public_package'))runnerFail('PRE_SOURCE','CLOSURE_INVALID');
+  return Object.freeze({status:'pass',platform:platform==='darwin-arm64'?'macos':'windows',files:evidence.deliveryFiles,assets:value.assets.length,sensitiveFindings:evidence.sensitive.delivery.findings+evidence.sensitive.outer.findings});
+}
+function promptTargets(assembly){
+  if(!assembly||!Array.isArray(assembly.targets)||assembly.targets.length!==2)runnerFail('PRE_SOURCE','PROMPT_INVALID');
+  const targets=assembly.targets.map(target=>{if(!target||!['darwin-arm64','win32-x64'].includes(target.target)||!strictAssets(target.assets,target.root))runnerFail('PRE_SOURCE','PROMPT_INVALID');return Object.freeze({target:target.target,roles:Object.freeze(REQUIRED_ASSET_ROLES.map(role=>{const asset=target.assets.find(item=>item.role===role);return Object.freeze({role,name:asset.name,bytes:asset.bytes,sha256:asset.sha256});}))});}).sort((a,b)=>a.target.localeCompare(b.target));
+  if(targets[0]?.target!=='darwin-arm64'||targets[1]?.target!=='win32-x64'||canonical(targets).match(PROMPT_BANNED))runnerFail('PRE_SOURCE','PROMPT_INVALID');
+  return Object.freeze(targets);
+}
+/** A coordinate-free, non-executing description of the two exact 8-role closures. */
+export function renderPhase2RehearsalPromptEnvelope({core,assembly}={}){
+  if(typeof core!=='string'||core.length<1)runnerFail('PRE_SOURCE','PROMPT_INVALID');
+  const targets=promptTargets(assembly),targetDigest=canonicalSha256(targets),value=Object.freeze({schema:1,kind:'phase2-rehearsal-prompt-envelope',coreSha256:digestBytes(Buffer.from(core)),targets,targetDigest});
+  if(PROMPT_BANNED.test(canonical(value)))runnerFail('PRE_SOURCE','PROMPT_INVALID');
+  return canonical(value);
+}
+/** Independently parses and reconstructs the envelope; success is the only commandsBound source. */
+export function verifyPhase2RehearsalPromptEnvelope(envelope,{core,assembly}={}){
+  try{
+    if(typeof envelope!=='string'||typeof core!=='string'||PROMPT_BANNED.test(envelope))throw new Error();
+    const parsed=JSON.parse(envelope),targets=promptTargets(assembly);
+    if(!exact(parsed,['schema','kind','coreSha256','targets','targetDigest'])||parsed.schema!==1||parsed.kind!=='phase2-rehearsal-prompt-envelope'||parsed.coreSha256!==digestBytes(Buffer.from(core))||parsed.targetDigest!==canonicalSha256(targets)||canonical(parsed.targets)!==canonical(targets)||canonical(parsed)!==envelope)throw new Error();
+    return Object.freeze({status:'pass',targetCount:targets.length,assetCount:targets.reduce((sum,target)=>sum+target.roles.length,0),envelopeSha256:digestBytes(Buffer.from(envelope))});
+  }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_SOURCE','PROMPT_INVALID');}
+}
 function publicationFail(code='PUBLICATION_CONTRACT_INVALID'){runnerFail('PRE_SOURCE',code);}
 function publicationAsset(asset,id){if(!asset||typeof asset.name!=='string'||!Number.isSafeInteger(asset.bytes)||asset.bytes<1||!HASH.test(asset.sha256)||typeof asset.role!=='string')publicationFail();return Object.freeze({id,name:asset.name,bytes:asset.bytes,sha256:asset.sha256,url:`https://github.com/returdex/AutoED/releases/download/${PUBLICATION_FIXTURE.tag}/${encodeURIComponent(asset.name)}`});}
 function publicationTarget(target,startId){
@@ -128,7 +227,8 @@ export async function exercisePhase2PublicationContract({identity,assembly,now,c
  * conditions; the attestation is assembled here from validated raw facts.
  */
 export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
-  const call=async(name,...args)=>{if(!ops||typeof ops[name]!=='function')runnerFail('PRE_RUNNER','OPS_INVALID');return await ops[name](...args);};
+  const operationClass=Object.freeze({runtime:'PRE_RUNNER',snapshot:'PRE_RUNNER',build:'PRE_SOURCE',command:'PRE_SOURCE',assembly:'PRE_SOURCE',prompt:'PRE_SOURCE',publication:'PRE_SOURCE',scan:'PRE_SOURCE',cleanup:'PRE_RUNNER',now:'PRE_RUNNER'});
+  const call=async(name,...args)=>{if(!ops||typeof ops[name]!=='function')runnerFail('PRE_RUNNER','OPS_INVALID');try{return await ops[name](...args);}catch(error){if(error?.rehearsal)throw error;runnerFail(operationClass[name]??'PRE_RUNNER','OPERATION_FAILED');}};
   let cleanupAttempted=false;
   try{
     const runtime=await call('runtime');if(!exact(runtime,['verified','node','npm'])||runtime.verified!==true||runtime.node!=='24.20.0'||runtime.npm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');
@@ -138,17 +238,22 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
     const quality={typecheck:asCheck(await call('command','typecheck')),unit:asCheck(await call('command','unit')),integration:asCheck(await call('command','integration')),ui:asCheck(await call('command','ui')),native:asCheck(await call('command','native'))};
     const qualitySha256=canonicalSha256(quality),identity={releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:build.sourceSha256,qualitySha256};
     const assembled=await call('assembly',identity);if(!assembled||assembled.status!=='pass'||assembled.releaseCoordinate!==null||assembled.signerExited!==true||!Array.isArray(assembled.targets)||assembled.targets.length!==2)runnerFail('PRE_SOURCE','ASSEMBLY_INVALID');
-    const mac=assembled.targets.find(item=>item.target==='darwin-arm64'),win=assembled.targets.find(item=>item.target==='win32-x64');const closures={macos:closureFact(mac,'darwin-arm64'),windows:closureFact(win,'win32-x64')};
-    const core=renderPhase2RehearsalInstallPromptCore(identity);const prompt=await call('prompt',{identity,core,assembly:assembled});if(!prompt||prompt.core!==core||prompt.targetCount!==2||prompt.assetCount!==16||prompt.commandsBound!==true||prompt.latestReferences!==0)runnerFail('PRE_SOURCE','PROMPT_INVALID');
+    const mac=assembled.targets.find(item=>item.target==='darwin-arm64'),win=assembled.targets.find(item=>item.target==='win32-x64');const closures={macos:closureFact(mac,'darwin-arm64'),windows:closureFact(win,'win32-x64')};if(mac.evidence.capabilityClosureSha256!==win.evidence.capabilityClosureSha256)runnerFail('PRE_SOURCE','CLOSURE_INVALID');
+    const core=renderPhase2RehearsalInstallPromptCore(identity),promptEnvelope=await call('prompt',{identity,core,assembly:assembled}),prompt=verifyPhase2RehearsalPromptEnvelope(promptEnvelope,{core,assembly:assembled});
     const publication=await call('publication',{identity,assembly:assembled,before});if(!publication||publication.status!=='pass'||!Number.isSafeInteger(publication.contractTests)||publication.contractTests<1||publication.remoteMutations!==0||publication.fullVerifierInvocations!==1)runnerFail('PRE_SOURCE','PUBLICATION_INVALID');
     const scan=await call('scan');if(!scan||scan.status!=='pass'||scan.findings!==0||!HASH.test(scan.reportSha256))runnerFail('PRE_SOURCE','SENSITIVE_SCAN_INVALID');
     cleanupAttempted=true;if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');
     const after=await call('snapshot');const remoteSnapshotMutations=['refsSha256','remotesSha256','receiptsSha256'].filter(key=>before[key]!==after[key]).length;if(remoteSnapshotMutations!==0)runnerFail('PRE_RUNNER','REMOTE_MUTATION');if(!sameSnapshot(before,after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');
-    const base={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:build.sourceSha256,managedRuntime:runtime,focused,quality:{...quality,sensitiveScan:{status:'pass',findings:0,reportSha256:scan.reportSha256}},closures,prompt:{status:'pass',targetCount:prompt.targetCount,assetCount:prompt.assetCount,commandsBound:prompt.commandsBound,latestReferences:prompt.latestReferences},publication:{status:'pass',contractTests:publication.contractTests,remoteMutations:publication.remoteMutations,fullVerifierInvocations:publication.fullVerifierInvocations},failureHistory:[]};
+    const base={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:build.sourceSha256,managedRuntime:runtime,focused,quality:{...quality,sensitiveScan:{status:'pass',findings:0,reportSha256:scan.reportSha256}},closures,prompt:{status:'pass',targetCount:prompt.targetCount,assetCount:prompt.assetCount,commandsBound:true,latestReferences:0,envelopeSha256:prompt.envelopeSha256},publication:{status:'pass',contractTests:publication.contractTests,remoteMutations:publication.remoteMutations,fullVerifierInvocations:publication.fullVerifierInvocations},failureHistory:[]};
     const value={...base,completedAt:await call('now')};
-    validatePhase2Rehearsal(value);
-    const path=join(root,'.planning/release-rehearsals',`${value.commit}-${value.buildId}.json`);return writePhase2Rehearsal(path,value,{root});
-  }catch(error){if(!cleanupAttempted){cleanupAttempted=true;try{if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');}catch(cleanupError){if(cleanupError?.rehearsal)throw cleanupError;runnerFail('PRE_RUNNER','CLEANUP_FAILED');}}if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER',REHEARSAL_FAILURE.test(error?.message??'')?error.message:'UNEXPECTED');}
+    try{validatePhase2Rehearsal(value);}catch{runnerFail('PRE_SOURCE','FINAL_VALIDATION_FAILED');}
+    const path=join(root,'.planning/release-rehearsals',`${value.commit}-${value.buildId}.json`);if(existsSync(path))runnerFail('PRE_SOURCE','ATTESTATION_OUTPUT_EXISTS');
+    try{return writePhase2Rehearsal(path,value,{root});}catch(error){
+      if(error?.message==='PHASE2_REHEARSAL_OUTPUT_EXISTS')runnerFail('PRE_SOURCE','ATTESTATION_OUTPUT_EXISTS');
+      if(error?.message==='PHASE2_REHEARSAL_BUILD_INVALID')runnerFail('PRE_SOURCE','FINAL_SOURCE_DRIFT');
+      runnerFail('PRE_RUNNER','ATTESTATION_WRITE_FAILED');
+    }
+  }catch(error){if(!cleanupAttempted){cleanupAttempted=true;try{if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');}catch(cleanupError){if(cleanupError?.rehearsal)throw cleanupError;runnerFail('PRE_RUNNER','CLEANUP_FAILED');}}if(error?.rehearsal)throw error;runnerFail('PRE_SOURCE','UNEXPECTED');}
 }
 
 /** Production execution is fixed: callers cannot supply command, target or coordinate overrides. */
@@ -158,10 +263,10 @@ export function createProductionPhase2RehearsalOps({root=ROOT}={}){
   const receiptNames=['release/phase2-build-selection.json','release/phase2-test-report.json','release/phase2-beta-artifacts.json','release/phase2-publication.json','release/phase2-availability.json','release/phase2-install-prompt.md'];
   const receiptDigest=()=>canonicalSha256(receiptNames.map(name=>existsSync(join(root,name))?{name,sha256:canonicalSha256(readFileSync(join(root,name)))}:{name,missing:true}));
   const snapshot=()=>({commit:git(['rev-parse','HEAD']),tree:git(['write-tree']),sourceSha256:hashBuildInputs(root),refsSha256:canonicalSha256(git(['show-ref','--head'])),remotesSha256:canonicalSha256(git(['remote','-v'])),receiptsSha256:receiptDigest(),clean:git(['status','--porcelain'])==='' });
-  const capture=(program,args,timeout=300000)=>{const output=execFileSync(program,args,{cwd:root,encoding:'buffer',timeout,maxBuffer:64*1024*1024});scanner.write(output);return output;};
+  const capture=async(program,args,timeout=300000,failureClass='PRE_RUNNER')=>requirePhase2ProcessSuccess(await runPhase2Detached({program,args,cwd:root,timeoutMs:timeout,scanner}),failureClass).stdout;
   // Actual long commands deliberately live behind the internal fixed command
   // adapter; direct callers never receive a program/argument escape hatch.
-  return Object.freeze({runtime:async()=>{if(!existsSync(node)||realpathSync(process.execPath)!==realpathSync(node))runnerFail('PRE_RUNNER','HOST_RUNTIME');capture(node,['scripts/dev/runtime.mjs','--check']);const actualNode=capture(node,['-p','process.versions.node']).toString().trim(),npmCli=process.platform==='win32'?join(dirname(node),'node_modules/npm/bin/npm-cli.js'):join(dirname(dirname(node)),'lib/node_modules/npm/bin/npm-cli.js'),actualNpm=capture(node,[npmCli,'--version']).toString().trim();if(actualNode!=='24.20.0'||actualNpm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');return {verified:true,node:actualNode,npm:actualNpm};},snapshot,build:async before=>{capture(node,['scripts/dev/runtime.mjs','npm','run','build'],120000);const identity=JSON.parse(readFileSync(join(root,'build/identity.json'),'utf8'));return {version:identity.version,commit:identity.commit,tree:identity.tree,buildId:identity.buildId,sourceSha256:before.sourceSha256};},command:async id=>runFixedCommand(root,id,scanner,ledger),assembly:async identity=>assembleManagedUpdaterRehearsalPair({projectRoot:root,temporaryRoot:join(owned,'assembly'),identity}),prompt:async({identity,core,assembly})=>({core,targetCount:assembly.targets.length,assetCount:assembly.targets.reduce((n,item)=>n+item.assets.length,0),commandsBound:!/(?:https?:|latest|update)/i.test(core),latestReferences:(core.match(/latest/gi)??[]).length}),publication:async({identity,assembly})=>exercisePhase2PublicationContract({identity,assembly,now:new Date().toISOString(),commandLedger:ledger.map(item=>item.id)}),scan:async()=>{const captured=scanner.finish(),reports=[scanTrackedTree(root,'HEAD'),scanReachableHistory(root,'HEAD'),scanWorkingTree(root),captured];const combined=combineSensitiveReports(reports);return {status:combined.status,findings:combined.findings,reportSha256:combined.reportSha256};},cleanup:async()=>{try{rmSync(owned,{recursive:true,force:false,maxRetries:1});return !existsSync(owned);}catch{return false;}},now:async()=>new Date().toISOString()});
+  return Object.freeze({runtime:async()=>{if(!existsSync(node)||realpathSync(process.execPath)!==realpathSync(node))runnerFail('PRE_RUNNER','HOST_RUNTIME');await capture(node,['scripts/dev/runtime.mjs','--check']);const actualNode=(await capture(node,['-p','process.versions.node'])).toString().trim(),npmCli=process.platform==='win32'?join(dirname(node),'node_modules/npm/bin/npm-cli.js'):join(dirname(dirname(node)),'lib/node_modules/npm/bin/npm-cli.js'),actualNpm=(await capture(node,[npmCli,'--version'])).toString().trim();if(actualNode!=='24.20.0'||actualNpm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');return {verified:true,node:actualNode,npm:actualNpm};},snapshot,build:async before=>{await capture(node,['scripts/dev/runtime.mjs','npm','run','build'],120000,'PRE_SOURCE');const identity=JSON.parse(readFileSync(join(root,'build/identity.json'),'utf8'));return {version:identity.version,commit:identity.commit,tree:identity.tree,buildId:identity.buildId,sourceSha256:before.sourceSha256};},command:async id=>runFixedCommand(root,id,scanner,ledger),assembly:async identity=>assembleManagedUpdaterRehearsalPair({projectRoot:root,temporaryRoot:join(owned,'assembly'),identity}),prompt:async({core,assembly})=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async({identity,assembly})=>exercisePhase2PublicationContract({identity,assembly,now:new Date().toISOString(),commandLedger:ledger.map(item=>item.id)}),scan:async()=>{const captured=scanner.finish(),reports=[scanTrackedTree(root,'HEAD'),scanReachableHistory(root,'HEAD'),scanWorkingTree(root),captured];const combined=combineSensitiveReports(reports);return {status:combined.status,findings:combined.findings,reportSha256:combined.reportSha256};},cleanup:async()=>{try{rmSync(owned,{recursive:true,force:false,maxRetries:1});return !existsSync(owned);}catch{return false;}},now:async()=>new Date().toISOString()});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===SCRIPT_PATH){const args=process.argv.slice(2);if(args.length!==1||args[0]!=='--run'){process.stderr.write('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=ARGUMENT_INVALID\n');process.exitCode=1;}else runPhase2Rehearsal({root:ROOT,ops:createProductionPhase2RehearsalOps({root:ROOT})}).then(result=>process.stdout.write(canonical(result)+'\n')).catch(error=>{const message=typeof error?.message==='string'&&error.message.startsWith('PHASE2_REHEARSAL_FAILED class=')?error.message:'PHASE2_REHEARSAL_FAILED class=PRE_SOURCE code=UNEXPECTED';process.stderr.write(message+'\n');process.exitCode=1;});}
