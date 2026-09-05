@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {assembleTarget,auditDelivery} from '../../scripts/build/assemble.mjs';
 import {inspectNativeBinary} from '../../scripts/build/native-artifacts.mjs';
+import {renderPhase2RehearsalInstallPromptCore} from '../../scripts/release/phase2-gate.mjs';
 import matrix from '../../scripts/build/platform-matrix.json' with {type:'json'};
 
 function fixture(target:'darwin-arm64'|'win32-x64'){
@@ -31,4 +32,9 @@ it('refuses final assembly until the self-contained diagnostics runner is presen
 });
 it('pins actual lockfile platform package names and keeps Windows execution evidence not_run',()=>{
   expect(matrix.targets['darwin-arm64'].keyringPackage.name).toBe('@napi-rs/keyring-darwin-arm64');expect(matrix.targets['win32-x64'].keyringPackage).toMatchObject({name:'@napi-rs/keyring-win32-x64-msvc',integrity:expect.stringMatching(/^sha512-/)});expect(matrix.targets['win32-x64'].actualNative).toEqual({osVersion:null,status:'not_run'});expect(matrix.components['better-sqlite3']).toMatchObject({version:'13.0.3',integrity:expect.stringMatching(/^sha512-/)});
+});
+it('renders a release-coordinate-free rehearsal prompt core bound to exact source and quality digests',()=>{
+  const value={releaseCoordinate:null,commit:'a'.repeat(40),tree:'b'.repeat(40),buildId:'c'.repeat(64),sourceSha256:'d'.repeat(64),qualitySha256:'e'.repeat(64)},core=renderPhase2RehearsalInstallPromptCore(value);
+  expect(core).toContain('Release coordinate: null');expect(core).toContain(value.qualitySha256);expect(core).not.toMatch(/https?:\/\/|beta\.|github\.com|latest/);
+  expect(()=>renderPhase2RehearsalInstallPromptCore({...value,releaseCoordinate:'0.1.0-beta.40'})).toThrow('PHASE2_REHEARSAL_PROMPT_INVALID');
 });

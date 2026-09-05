@@ -144,6 +144,29 @@ Expected post-update state: API healthy, Worker healthy, paired UI ready, actual
 `;
 }
 
+/**
+ * R1 uses a deliberately separate, non-actionable prompt core.  It binds the
+ * local closure proof without smuggling a candidate coordinate or an updater
+ * command into a rehearsal artifact.
+ */
+export function renderPhase2RehearsalInstallPromptCore(value){
+  if(!exact(value,['releaseCoordinate','commit','tree','buildId','sourceSha256','qualitySha256'])||value.releaseCoordinate!==null||!GIT_HASH.test(value.commit)||!GIT_HASH.test(value.tree)||!HASH.test(value.buildId)||!HASH.test(value.sourceSha256)||!HASH.test(value.qualitySha256))fail('PHASE2_REHEARSAL_PROMPT_INVALID');
+  const text=`# AutoED Phase 2 local rehearsal prompt core
+
+Contract: phase2-rehearsal-prompt-core-v1
+Release coordinate: null
+Commit: ${value.commit}
+Tree: ${value.tree}
+Build ID: ${value.buildId}
+Source SHA-256: ${value.sourceSha256}
+Quality SHA-256: ${value.qualitySha256}
+
+This is a local, non-installing and non-publishing rehearsal closure. Verify only the named local regular files, the temporary rehearsal trust key, manifest signatures, target identities, dependency closure, archive members, and this exact core. It contains no remote address, release label, credential-store reference, installation command, receipt pathname, publication authority, login authority, source-access authority, or live-evidence authority.
+`;
+  if(/https?:|github|tag|latest|keychain|update|attestation/i.test(text))fail('PHASE2_REHEARSAL_PROMPT_INVALID');
+  return text;
+}
+
 export function verifyPhase2SourceBinding({selection:rawSelection,testReport:rawReport,current}){
   const selection=validateBuildSelection(rawSelection),testReport=validatePhase2TestReport(rawReport,selection);
   if(!exact(current,['commit','tree','buildId','sourceSha256'])||current.commit!==selection.commit||current.tree!==selection.tree||current.buildId!==selection.buildId||current.sourceSha256!==selection.sourceSha256)fail('PHASE2_SOURCE_DRIFT');

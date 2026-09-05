@@ -5,7 +5,7 @@ import {isIPv4} from 'node:net';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import {gunzipSync,inflateRawSync,crc32} from 'node:zlib';
 import {posix,join} from 'node:path';
-import {lstatSync,realpathSync,readdirSync,statfsSync,openSync,closeSync,fsyncSync,writeFileSync,mkdirSync,symlinkSync,chmodSync,readFileSync,readlinkSync,writeSync,fstatSync,unlinkSync} from 'node:fs';
+import {lstatSync,realpathSync,readdirSync,statfsSync,openSync,closeSync,fsyncSync,writeFileSync,mkdirSync,symlinkSync,chmodSync,readFileSync,readlinkSync,writeSync,fstatSync,unlinkSync,existsSync} from 'node:fs';
 export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024*1024*1024,unpackedBytes:8*1024*1024*1024,tarUnpackedBytes:512*1024*1024,files:100000,links:256,artifacts:8});
 export type ArchiveFile={path:string;sha256:string;bytes:number;type?:'file'|undefined;executable?:boolean|undefined}|{path:string;sha256:string;bytes:number;type:'symlink';target:string};
 const digest=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
@@ -82,6 +82,30 @@ export function verifyBootstrapManifest(bytes:Buffer,signature:Buffer,trust:{pub
   const tests=object(m.tests,['synthetic','integration','macosNative','windowsNative','human']);if(Object.values(tests).some(v=>!['pass','fail','not_run','human_needed'].includes(v as string)))throw new Error('MANIFEST_INVALID');
   const installers=artifacts.filter(a=>a.role==='installer');if(installers.length!==1)throw new Error('INSTALLER_ARTIFACT_REQUIRED');return {artifact:installers[0]!,manifestHash:digest(bytes)};
 }
+/**
+ * Rehearsal manifests deliberately have no transport fields.  This is a local
+ * closure proof, not a second (less restrictive) production download path.
+ */
+export function verifyRehearsalBootstrapManifest(bytes:Buffer,signature:Buffer,trust:{publicKey:string;fingerprint:string},target:{os:string;arch:string;version:string}){
+  const key=createPublicKey(trust.publicKey);if(key.asymmetricKeyType!=='ed25519'||digest(key.export({type:'spki',format:'der'}))!==trust.fingerprint)throw new Error('TRUST_ROOT_INVALID');
+  if(bytes.length>LIMITS.manifestBytes||signature.length!==64||!verify(null,bytes,key,signature))throw new Error('SIGNATURE_INVALID');
+  const object=(v:unknown,keys:string[])=>{if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).sort().join(',')!==keys.sort().join(','))throw new Error('MANIFEST_INVALID');return v as Record<string,unknown>;};
+  const m=object(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),['schema','product','build','target','dependencies','artifacts','dependencySources','tests']);
+  const b=object(m.build,['version','buildId','commit','tree','dependencyHash','protocol','schemaMin','schemaMax','capabilities']);
+  if(m.schema!==1||m.product!=='autoed-rebuild'||typeof b.version!=='string'||!/^0\.\d+\.\d+$/.test(b.version)||b.protocol!==1||b.schemaMin!==1||b.schemaMax!==1||!Array.isArray(b.capabilities)||b.capabilities.length<1||b.capabilities.length>2||b.capabilities.some(c=>!['echo','digest'].includes(c)))throw new Error('MANIFEST_INVALID');
+  for(const field of ['buildId','dependencyHash'])if(typeof b[field]!=='string'||!/^[a-f0-9]{64}$/.test(b[field]))throw new Error('MANIFEST_INVALID');
+  for(const field of ['commit','tree'])if(typeof b[field]!=='string'||!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(b[field]))throw new Error('MANIFEST_INVALID');
+  const t=object(m.target,['os','arch','minVersion']);if(t.os!==target.os||t.arch!==target.arch||!['darwin:arm64','win32:x64'].includes(target.os+':'+target.arch)||typeof t.minVersion!=='string'||!/^\d+\.\d+\.\d+$/.test(t.minVersion)||!/^\d+\.\d+\.\d+$/.test(target.version))throw new Error('INCOMPATIBLE');
+  const current=target.version.split('.').map(Number),minimum=t.minVersion.split('.').map(Number);for(let i=0;i<3;i++){if(current[i]!<minimum[i]!)throw new Error('INCOMPATIBLE');if(current[i]!>minimum[i]!)break;}
+  const dependencies=object(m.dependencies,['node','playwright','browserRevision','browserVersion']);if(dependencies.node!=='24.20.0'||dependencies.playwright!=='1.62.1'||dependencies.browserRevision!=='1234'||dependencies.browserVersion!=='151.0.7922.34')throw new Error('INCOMPATIBLE');
+  if(!Array.isArray(m.artifacts)||m.artifacts.length!==4||!Array.isArray(m.dependencySources)||m.dependencySources.length<1||m.dependencySources.length>1000)throw new Error('MANIFEST_INVALID');
+  const names=new Set<string>(),roles=new Set<string>();let count=0,total=0;
+  const artifacts=m.artifacts.map(value=>{const a=object(value,['name','role','sha256','bytes','format','unpackedBytes','files']) as unknown as ArchiveDescriptor&{name:string};validateArchiveDescriptor(a,target.os);if(typeof a.name!=='string'||!safeArtifactPath(a.name)||a.name.includes('/')||names.has(a.name.toLowerCase())||roles.has(a.role))throw new Error('MANIFEST_INVALID');names.add(a.name.toLowerCase());roles.add(a.role);count+=a.files.length;total+=a.unpackedBytes;return a;});
+  if(count>LIMITS.files||total>LIMITS.unpackedBytes||roles.size!==4||!['installer','program','node','browser'].every(role=>roles.has(role)))throw new Error('MANIFEST_INVALID');
+  for(const source of m.dependencySources){const s=object(source,['name','version','integrity']);if(typeof s.name!=='string'||!s.name.length||s.name.length>128||typeof s.version!=='string'||!s.version.length||s.version.length>64||typeof s.integrity!=='string'||!/^(?:sha256-[a-f0-9]{64}|sha512-[A-Za-z0-9+/]+={0,2})$/.test(s.integrity))throw new Error('MANIFEST_INVALID');}
+  const tests=object(m.tests,['synthetic','integration','macosNative','windowsNative','human']);if(Object.values(tests).some(v=>!['pass','fail','not_run','human_needed'].includes(v as string)))throw new Error('MANIFEST_INVALID');
+  return {artifact:artifacts.find(a=>a.role==='installer')!,manifestHash:digest(bytes),artifacts};
+}
 const sha=digest;
 function disk(root:string,bytes:number){const stat=statfsSync(root,{bigint:true});if(stat.bavail*stat.bsize<BigInt(bytes)+16n*1024n*1024n)throw new Error('INSUFFICIENT_DISK');}
 export function extractArchive(artifact:ArchiveDescriptor,bytes:Buffer,root:string,targetOS:string,permissions:{verify:(path:string)=>unknown;protect:(path:string)=>unknown}){
@@ -134,6 +158,18 @@ export async function prepareBootstrapInstaller(config:{publicKey:string;fingerp
   for(const [name,data]of [['release-manifest.json',bytes],['release-manifest.sig',signature]] as const){const path=join(root,name),fd=openSync(path,'wx',0o600);try{permissions.protect(path);writeFileSync(fd,data);fsyncSync(fd);}finally{closeSync(fd);}}
   return {entry:join(directory,entry),manifestPath:join(root,'release-manifest.json'),signaturePath:join(root,'release-manifest.sig'),manifestHash};
 }
+function rehearsalFile(root:string,name:string){
+  if(typeof name!=='string'||!safeArtifactPath(name)||name.includes('/'))throw new Error('REHEARSAL_PATH_DENIED');const path=join(root,name),st=lstatSync(path);
+  if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||realpathSync(path)!==path)throw new Error('REHEARSAL_PATH_DENIED');return path;
+}
+/** Local-only rehearsal preparation. It has no transport argument and never installs. */
+export function prepareRehearsalBootstrapInstaller(config:{publicKey:string;fingerprint:string;manifestName:string;signatureName:string},root:string,target:{os:string;arch:string;version:string},permissions:{verify:(path:string)=>unknown;protect:(path:string)=>unknown}){
+  if(realpathSync(root)!==root||!lstatSync(root).isDirectory()||lstatSync(root).isSymbolicLink())throw new Error('UNSAFE_STAGING');permissions.verify(root);
+  const manifestPath=rehearsalFile(root,config.manifestName),signaturePath=rehearsalFile(root,config.signatureName),bytes=readFileSync(manifestPath),signature=readFileSync(signaturePath),checked=verifyRehearsalBootstrapManifest(bytes,signature,config,target),archivePath=rehearsalFile(root,(JSON.parse(bytes.toString('utf8')).artifacts as {name:string;role:string}[]).find(a=>a.role==='installer')!.name);
+  const expected=checked.artifact;if(readFileSync(archivePath).length!==expected.bytes||digest(readFileSync(archivePath))!==expected.sha256)throw new Error('ARTIFACT_INTEGRITY');
+  const directory=join(root,'verified-rehearsal-installer');if(existsSync(directory))throw new Error('STAGING_NOT_EMPTY');mkdirSync(directory,{mode:0o700});permissions.protect(directory);extractArchive(expected,readFileSync(archivePath),directory,target.os,permissions);
+  const entry='dist/packages/installer/src/install.js';if(!expected.files.some(f=>f.path===entry&&f.type!=='symlink'))throw new Error('INSTALLER_ENTRY_MISSING');return {entry:join(directory,entry),manifestPath,signaturePath,manifestHash:checked.manifestHash};
+}
 /** Build-time only: callers supply this repository's freshly compiled modules, never downloaded code. */
 export function renderBootstrapPayload(coreJavaScript:string,permissionsJavaScript:string,config:{publicKey:string;fingerprint:string;manifestURL:string;signatureURL:string}){
   assertDownloadURL(config.manifestURL);assertDownloadURL(config.signatureURL);
@@ -152,6 +188,13 @@ const version=process.platform==='darwin'?execFileSync('/usr/bin/sw_vers',['-pro
 const prepared=await core.prepareBootstrapInstaller(${JSON.stringify(config)},root,{os:process.platform,arch:process.arch,version},{verify:permissions.verifyProtectedPath,protect:permissions.protectPath});
 execFileSync(process.execPath,[prepared.entry,'--preview','--manifest',prepared.manifestPath,'--signature',prepared.signaturePath,...(selectedRoot?['--root',selectedRoot]:[])],{cwd:root,env:process.env,stdio:'inherit',timeout:300000});
 `;
+  return {source,sha256:digest(Buffer.from(source)),moduleHashes:modules.map(m=>({name:m.name,sha256:m.sha256}))};
+}
+/** A non-installing local bootstrap payload used exclusively by R1 closure tests. */
+export function renderRehearsalBootstrapPayload(coreJavaScript:string,permissionsJavaScript:string,config:{publicKey:string;fingerprint:string;manifestName:string;signatureName:string}){
+  if(!safeArtifactPath(config.manifestName)||config.manifestName.includes('/')||!safeArtifactPath(config.signatureName)||config.signatureName.includes('/'))throw new Error('REHEARSAL_PATH_DENIED');
+  const modules=[['archive-core.mjs',coreJavaScript],['permissions.mjs',permissionsJavaScript]].map(([name,source])=>({name:name!,bytes:Buffer.from(source!).toString('base64'),sha256:digest(Buffer.from(source!))}));
+  const source=`import {writeFileSync,openSync,closeSync,fsyncSync,realpathSync,lstatSync} from 'node:fs';\nimport {createHash} from 'node:crypto';\nimport {join} from 'node:path';\nimport {pathToFileURL} from 'node:url';\nconst root=process.argv[2];\nif(!root||realpathSync(root)!==root||!lstatSync(root).isDirectory()||lstatSync(root).isSymbolicLink())throw new Error('UNSAFE_STAGING');\nfor(const module of ${JSON.stringify(modules)}){const bytes=Buffer.from(module.bytes,'base64');if(createHash('sha256').update(bytes).digest('hex')!==module.sha256)throw new Error('BOOTSTRAP_CORE_INTEGRITY');const fd=openSync(join(root,module.name),'wx',0o600);try{writeFileSync(fd,bytes);fsyncSync(fd);}finally{closeSync(fd);}}\nconst permissions=await import(pathToFileURL(join(root,'permissions.mjs')).href);permissions.verifyProtectedPath(root);for(const name of ['archive-core.mjs','permissions.mjs'])permissions.protectPath(join(root,name));\nconst core=await import(pathToFileURL(join(root,'archive-core.mjs')).href);\nawait core.prepareRehearsalBootstrapInstaller(${JSON.stringify(config)},root,{os:process.platform,arch:process.arch,version:'99.0.0'},{verify:permissions.verifyProtectedPath,protect:permissions.protectPath});\n`;
   return {source,sha256:digest(Buffer.from(source)),moduleHashes:modules.map(m=>({name:m.name,sha256:m.sha256}))};
 }
 /** Injected transport is for trusted synthetic composition only, never CLI/config/tool input. */
