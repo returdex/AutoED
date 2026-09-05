@@ -14,6 +14,7 @@ const SURFACES=new Set(['tracked','history','working_tree','captured_output','ow
 const PRIVATE_PATH=/(?:^|\/)(?:Profile|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
 const SENSITIVE=new RegExp(['gh'+'[pousr]_[A-Za-z0-9]{20,}','github_'+'pat_[A-Za-z0-9_]{20,}','-----BEGIN '+'(?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----','CANARY_'+'RELEASE_SECRET'].join('|'));
 const reports=new WeakSet();
+const ownedReports=new WeakSet();
 const evidence=new WeakMap();
 
 function fail(code){throw new Error(code);}
@@ -179,7 +180,7 @@ export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,prof
       const path=prefix?`${prefix}/${entry.name}`:entry.name,absolute=childOf(actual,path);if(!absolute||!safeRelative(path)||!sourcePathAllowed(path,allowPath))throw new Error();
       const stat=lstatSync(absolute);if(stat.isDirectory()&&realpathSync(absolute)===absolute)walk(absolute,path);else if(stat.isSymbolicLink())scanLink(absolute,path);else scanFile(absolute,path);
     }};
-    walk(actual,'',{alreadyScanned:true});return scanner.finish();
+    walk(actual,'',{alreadyScanned:true});const result=scanner.finish();ownedReports.add(result);return result;
   }catch{return emptyFailure(validSurface(surface)?surface:'owned_tree');}
 }
 
@@ -191,6 +192,17 @@ export function combineSensitiveReports(input,{surfaces=['tracked','history','wo
     const objects=input.reduce((total,item)=>total+item.objects,0),bytes=input.reduce((total,item)=>total+item.bytes,0);if(!Number.isSafeInteger(objects)||!Number.isSafeInteger(bytes))return emptyFailure('captured_output');
     return report('captured_output',{objects,bytes,findings:0},sha(canonical(input.map(item=>item.reportSha256).sort())));
   }catch{return emptyFailure('captured_output');}
+}
+
+/** Combines distinct, in-process bounded owned-tree scans without weakening any child limit. */
+export function combineOwnedTreeReports(input,{surface='owned_tree'}={}){
+  const failed=()=>emptyFailure(validSurface(surface)?surface:'owned_tree');
+  try{
+    if(!validSurface(surface)||!Array.isArray(input)||input.length===0||new Set(input).size!==input.length)return failed();
+    let objects=0,bytes=0;const children=[];
+    for(const item of input){const contentSha256=evidence.get(item);if(!ownedReports.has(item)||!reports.has(item)||!item||typeof contentSha256!=='string'||!HASH.test(contentSha256)||Object.keys(item).sort().join(',')!=='bytes,findings,objects,reportSha256,status,surface'||item.surface!==surface||item.status!=='pass'||item.findings!==0||!Number.isSafeInteger(item.objects)||item.objects<0||!Number.isSafeInteger(item.bytes)||item.bytes<0||item.reportSha256!==sha(canonical({status:item.status,surface:item.surface,objects:item.objects,bytes:item.bytes,findings:item.findings,contentSha256})))return failed();objects+=item.objects;bytes+=item.bytes;if(!Number.isSafeInteger(objects)||!Number.isSafeInteger(bytes))return failed();children.push({reportSha256:item.reportSha256,contentSha256});}
+    const result=report(surface,{objects,bytes,findings:0},sha(canonical(children.sort((left,right)=>canonical(left).localeCompare(canonical(right))))));ownedReports.add(result);return result;
+  }catch{return failed();}
 }
 
 export const SENSITIVE_SCAN_LIMITS=Object.freeze({maxObjectBytes:MAX_OBJECT_BYTES,maxObjects:MAX_OBJECTS,maxTotalBytes:MAX_TOTAL_BYTES,maxCapturedOutputBytes:MAX_CAPTURED_OUTPUT_BYTES});
