@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: awaiting_human_verify
 trigger: "Fresh unnumbered R0/R1 at 6c2adad stopped PRE_RUNNER because complete managed integration Vitest did not finalize after its only worker exited."
 created: 2026-09-05T10:05:49Z
-updated: 2026-09-05T10:36:23Z
+updated: 2026-09-05T11:51:34Z
 ---
 
 # Debug Session: R1 Vitest coordinator hang
@@ -24,10 +24,10 @@ updated: 2026-09-05T10:36:23Z
 
 ## Current Focus
 
-- hypothesis: H7 is supported only to the limited extent that the exact suite has not finalized by 75 seconds while three owned group members remain; this observation does not identify the blocking test file or prove a post-suite coordinator leak.
-- test: the single permitted exact managed integration observer has completed; no retry is authorized in this bounded task.
-- expecting: not applicable; no trustworthy final Vitest count was emitted before the fixed observation limit.
-- next_action: stop this bounded investigation. Treat the full-suite result as unavailable/PRE_RUNNER, preserve the repaired ledger regressions and successful focused evidence, and require a separate authorized diagnosis before any fresh R0/R1 attempt.
+- hypothesis: Confirmed — the apparent coordinator hang was an inadequate observation deadline in a serialized suite with expensive synthetic fixture construction, compounded initially by two strict synthetic-process ledger parser defects already fixed in `3968624`.
+- test: The single authorized exact full integration observer has completed with final totals, exit 0, and a clean dedicated-group exit.
+- expecting: Controller/human review may accept this as bounded runner diagnostic evidence only. It does not run R0/R1, create an attestation, select a beta, or advance any gate.
+- next_action: Preserve this record and report the exact final result to the controller; await any required human verification without further test, release, update, source, or live action.
 
 reasoning_checkpoint:
   hypothesis: "The ledger cannot reclaim stale generated synthetic services because it has two contradictory parsers: it rejects the six-token ps argv as two tokens and then rejects every valid synthetic-root suffix by requiring the prefix twice."
@@ -40,6 +40,66 @@ reasoning_checkpoint:
   blind_spots: "The lost five-minute observation cannot be replayed from its original process; this repair proves and addresses the current deterministic cleanup blocker but does not alone prove a historical coordinator handle leak."
 
 ## Evidence
+
+- timestamp: 2026-09-05T11:51:34Z
+  observation: The one authorized exact `node scripts/dev/runtime.mjs npm run test:integration -- --run` observer completed in 1,036.593 seconds (17:16.593), below its 1,800-second finite ceiling. Vitest emitted final totals of 32/32 files and 362/362 tests; the command exited 0 and its dedicated owned group was absent after exit.
+  implication: Complete automated integration coverage is now trustworthy. This verifies the bounded runner diagnosis but is not an R1 pass, rehearsal attestation, release action, beta selection, update, login, source access, or live evidence.
+
+- timestamp: 2026-09-05T11:51:19Z
+  observation: A third non-invasive snapshot found the exact full-suite managed-runtime child still active at 16:53 of the 30:00 derived ceiling. It remains the sole owned test group by controlled session history.
+  implication: The single authorized full-suite observer remains under its documented bound. No intermediate output was inspected or disclosed, and no signal was sent.
+
+- timestamp: 2026-09-05T11:45:37Z
+  observation: A second non-invasive snapshot found the exact full-suite managed-runtime child still active at 11:11 of the 30:00 derived ceiling. It is the sole remaining owned test group by this session's controlled execution history; all preceding dedicated groups were confirmed gone.
+  implication: The single authorized full-suite observer remains in scope and under its limit. No intermediate test output was read or disclosed, and no signal was sent.
+
+- timestamp: 2026-09-05T11:38:55Z
+  observation: A non-invasive owned-group snapshot found the exact full-suite managed-runtime child still active in its dedicated PGID after 04:29 of the 30:00 ceiling. The in-memory observer intentionally exposes no partial file count before the final Vitest summary.
+  implication: The run remains within its derived limit and has not produced acceptable progress evidence or a terminal result. No signal was sent and no other process was inspected.
+
+- timestamp: 2026-09-05T11:34:26Z
+  observation: The integration project sets `fileParallelism: false`, so file work is serialized. Recorded observed durations total at least 1,164.527 seconds: the eight recovery scenarios 579.559, managed-cleanup 215.008, two-build-upgrade 188.136, upgrade-journal 46.163, worker 13.681, and the first two eight-file slices 121.980 seconds. Eleven additional files completed with final totals but their component durations were recorded only in aggregate summaries.
+  implication: The one full-suite observer uses a finite 1,800-second ceiling: the 1,164.527-second measured lower bound plus 635.473 seconds of explicit allowance for those eleven completed-file durations, single-run fixture variance, final reporting, and teardown. This does not alter Vitest's configured test/hook timeouts or accept an incomplete run.
+
+- timestamp: 2026-09-05T11:33:12Z
+  observation: The exact unfiltered `worker.test.ts` run passed 1/1 file and 3/3 tests in 13.681 seconds under its configured 30-second allowance plus 60 seconds of observer headroom. It emitted the required final total, exited 0, and its dedicated owned group was absent after exit.
+  implication: The authorized whole-file worker evidence is complete. The next and only remaining test action is one derived-ceiling execution of the exact full integration command.
+
+- timestamp: 2026-09-05T11:32:46Z
+  observation: The out-of-scope unfiltered upgrade-recovery observer was cancelled after 106.526 seconds by SIGTERM to its verified dedicated process group (PGID 53528) only. It produced no final totals; the owned group was confirmed absent immediately afterwards.
+  implication: This is scope-cancelled and unaccepted, neither a pass nor a test defect. No exact unfiltered upgrade-recovery result is used in subsequent ceiling derivation.
+
+- timestamp: 2026-09-05T11:30:24Z
+  observation: The `runs the actual compiled CLI through the complete verified upgrade engine` scenario passed 1/1 in 107.994 seconds under its declared 300-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit. All eight named upgrade-recovery scenarios are now individually green.
+  implication: Their measured serial duration is 579.559 seconds: 51.126, 42.213, 51.647, 51.917, 52.159, 214.463, 8.040, and 107.994 seconds. The exact-file observer will use a derived 720-second ceiling, adding 140.441 seconds for variance plus reporter/teardown, rather than reusing the inadequate 540-second cutoff.
+
+- timestamp: 2026-09-05T11:27:55Z
+  observation: The `reports first-install failure without inventing a rollback or deleting data and credentials` scenario passed 1/1 in 8.040 seconds under its configured 30-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: Seven of eight upgrade-recovery scenarios are individually healthy. Only the last compiled-CLI scenario remains before the whole-file rerun authorized by the checkpoint response.
+
+- timestamp: 2026-09-05T11:27:39Z
+  observation: The integration project config specifies `testTimeout: 30_000` and `hookTimeout: 30_000`; only explicit per-test values above those defaults apply to the remaining unannotated first-install scenario.
+  implication: A 90-second observer ceiling preserves the configured test allowance and adds explicit finite setup/reporting/teardown headroom without weakening any test timeout.
+
+- timestamp: 2026-09-05T11:27:24Z
+  observation: The six-fixture `stops for human recovery when writes, schema, snapshot, signature, host or process ownership are not proved` fault matrix passed 1/1 in 214.463 seconds under its declared 480-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: Six serial recovery fixtures are healthy but consume substantial bounded time. Combined with the five preceding single-fixture successes, this directly confirms aggregate fixture duration as the explanation for the consumed 540-second whole-file observer.
+
+- timestamp: 2026-09-05T11:23:03Z
+  observation: The `resumes an exact old-active rollback boundary after interruption without trusting mixed state` scenario passed 1/1 in 52.159 seconds under its declared 240-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: The fifth of eight upgrade-recovery scenarios is individually healthy. The remaining fault-matrix scenario is the only one that creates six serial fixtures, making it the strongest direct aggregate-duration measurement.
+
+- timestamp: 2026-09-05T11:21:44Z
+  observation: The `renews an expired exclusive recovery lease before rollback selfcheck` scenario passed 1/1 in 51.917 seconds under its declared 180-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: The fourth of eight upgrade-recovery scenarios is individually healthy; no in-scenario lifecycle failure has appeared in the continued bounded sweep.
+
+- timestamp: 2026-09-05T11:20:32Z
+  observation: The `resumes the feature-verified target and preserves archives and profile data` scenario passed 1/1 in 51.647 seconds under its declared 180-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: The third of eight upgrade-recovery scenarios is individually healthy; no in-scenario lifecycle failure has appeared in the continued bounded sweep.
+
+- timestamp: 2026-09-05T11:19:14Z
+  observation: The `dispatches an exact cleaned-intent continuation before preview or download` scenario passed 1/1 in 42.213 seconds under its declared 180-second allowance plus 60 seconds of observer headroom. It emitted a final 1-file total, exited 0, and its dedicated owned group was absent after exit.
+  implication: The second of eight upgrade-recovery scenarios is individually healthy; the former 540-second exact-file ceiling remains consistent with aggregate serial fixture cost rather than a demonstrated lifecycle hang.
 
 - timestamp: 2026-09-05T10:05:49Z
   observation: R0/build/typecheck/unit 144/144/UI 34/34 completed; integration produced no final result, so native/closures/prompt/lifecycle/sensitive gates were not accepted and no attestation was written.
@@ -94,6 +154,48 @@ reasoning_checkpoint:
 - timestamp: 2026-09-05T10:36:23Z
   observation: The one permitted fresh detached observer ran the exact managed integration command for 75 seconds. It emitted no final Vitest file or test totals, timed out, and received SIGTERM only in its owned process group. Three group members were present at cleanup initiation; zero remained after SIGTERM.
   implication: The exact full integration command has no trustworthy completion count within the bound, but there is no lasting owned-group process leak. This is PRE_RUNNER verification limitation/failure evidence, not an R1 pass; the bounded task must stop without retrying or advancing any gate.
+- timestamp: 2026-09-05T10:49:00Z
+  observation: Per-file managed-runtime runs of artifact-assembly, auth-api, auth-persistence, auth-security-matrix, auth-worker, bootstrap, browser-provider and build-identity all exited 0 with final 1-file totals. They completed 109 tests cumulatively in 39.75 seconds; every dedicated owned group was absent after completion.
+  implication: The alphabetical prefix through build-identity is neither individually blocked nor leaving a durable owned process. Continue boundary isolation with the next deterministic slice.
+- timestamp: 2026-09-05T10:52:00Z
+  observation: The next eight individually managed integration files (cli through live-checkpoint-workflows) all exited 0 with final 1-file totals: 65 tests cumulatively in 82.23 seconds. client-wiring completed 8 tests in 45.803 seconds, its owned group was gone, and no test in the slice timed out or omitted final totals.
+  implication: H8 is strongly supported: 16 normal serialized file runs already total about 122 seconds, so a 75-second full-suite observer cannot distinguish a slow legitimate suite from a lifecycle hang. Complete per-file observation before selecting the derived full-suite ceiling.
+- timestamp: 2026-09-05T10:55:00Z
+  observation: In the third per-file slice, local-auth, manifest-verification, pairing, phase2-live-gate, phase2-release-gates, process-lifecycle and profile-ownership each exited 0 with final totals (78 tests cumulatively). managed-cleanup emitted no final totals within 65.118 seconds and was SIGTERM-scoped only to its dedicated group; the group was absent afterwards.
+  implication: H9 is a concrete file-level lifecycle candidate. The timeout is not a durable orphaned process, and the next action is to find the in-file/hook boundary rather than infer a full-suite pass.
+- timestamp: 2026-09-05T11:00:00Z
+  observation: The first named managed-cleanup recovery-fixture scenario passed as 1/1 test in 42.599 seconds under a 210-second owned-group ceiling. It emitted a final 1-file total and its dedicated group was absent after exit.
+  implication: H9 is refuted as stated. The previous 65-second file ceiling is not evidence of a blocked first scenario; test the remaining scenarios to establish whether the full file is normally longer than that ceiling.
+- timestamp: 2026-09-05T11:04:00Z
+  observation: The five parameterized managed-cleanup cleanup-pending cases passed as 5/5 tests in 181.085 seconds under a 210-second owned-group ceiling. They emitted a final 1-file total and the dedicated owned group was absent after exit.
+  implication: H10 is confirmed for the first two portions of the file: the test's explicit 180-second allowance reflects real bounded work. A 65-second per-file observer necessarily creates a false timeout; measure the last scenario, then use a derived finite full-file ceiling.
+- timestamp: 2026-09-05T11:05:00Z
+  observation: The remaining managed-cleanup host-inventory scenario passed as 1/1 test in 3.300 seconds under a 60-second owned-group ceiling and its dedicated group was absent after exit.
+  implication: All seven named scenarios are independently green. Their 226.984-second sum yields a derived 270-second exact-file ceiling with 43.016 seconds of explicit setup/teardown headroom.
+- timestamp: 2026-09-05T11:09:00Z
+  observation: The exact managed-cleanup run passed 1/1 file and 7/7 tests in 215.008 seconds under its derived 270-second ceiling; its owned group was absent after exit.
+  implication: H10 is confirmed. The prior 65-second timeout was a false observer boundary caused by normal bounded cleanup coverage, not a test-runner lifecycle defect. Complete the remaining files with ceilings based on declared test bounds before deriving the exact-suite limit.
+- timestamp: 2026-09-05T11:11:00Z
+  observation: Per-file managed-runtime runs of release-gates, release-trust, source-adapters and static-assets all exited 0 with final 1-file totals (77 tests cumulatively) within their 90-second default-bound ceiling. Every dedicated owned group was absent after completion.
+  implication: 28/32 exact integration files are now independently observed green. The remaining four declare 180- to 480-second test allowances, so their finite observers must respect those existing bounds rather than recreate the invalid 65-second cutoff.
+- timestamp: 2026-09-05T11:15:00Z
+  observation: The exact two-build-upgrade run passed 1/1 file and 9/9 tests in 188.136 seconds under its 540-second ceiling (declared 300-second bounds plus reporting headroom). It emitted a final total and its dedicated owned group was absent after exit.
+  implication: 29/32 exact integration files are independently observed green. No high-bound file has exposed a lifecycle leak; continue individual observation of the remaining declared-bound files.
+- timestamp: 2026-09-05T11:17:00Z
+  observation: The exact upgrade-journal run passed 1/1 file and 6/6 tests in 46.163 seconds under its 240-second ceiling. It emitted a final total and its dedicated owned group was absent after exit.
+  implication: 30/32 exact integration files are independently observed green. Continue with the single 480-second-bound file before the final worker file.
+- timestamp: 2026-09-05T11:27:00Z
+  observation: The one exact managed upgrade-recovery observer ran for its derived 540-second limit (declared 480-second test allowance plus 60 seconds). It emitted no final Vitest file/test totals, was SIGTERM-scoped only to its dedicated group at the ceiling, and the group was absent afterwards.
+  implication: The exact file result is unaccepted. This is not evidence of an enduring process leak; isolate named scenarios next without retrying the exact file or advancing any R0/R1/release gate.
+- timestamp: 2026-09-05T11:31:00Z
+  observation: Static inspection finds eight named upgrade-recovery scenarios and 13 independent `createRecoveryFixture()` calls: seven standard scenarios create one fixture and the fault-matrix scenario creates six. Fixture setup compiles two synthetic releases through bounded TypeScript subprocesses before recovery assertions.
+  implication: A 540-second file-wide ceiling may be below ordinary serialized fixture construction alone. This supports, but does not yet prove, the aggregate-duration branch of H11; begin scenario-level observation.
+- timestamp: 2026-09-05T11:33:00Z
+  observation: The first named upgrade-recovery scenario passed as 1/1 in 51.126 seconds under a 240-second ceiling and its dedicated owned group was absent after exit.
+  implication: H11's aggregate branch is strongly supported. The test's 13 fixture constructions have a comparable lower-bound setup cost above 664 seconds before remaining recovery work, so the consumed 540-second exact-file cutoff cannot establish a runner lifecycle hang.
+- timestamp: 2026-09-05T11:34:00Z
+  observation: A filtered worker run passed 1/1 file and 3/3 tests in 11.157 seconds under its 90-second ceiling with a final total and no remaining owned group. Across the exact-file sweep, 31 files emitted final totals and clean exits; only the consumed upgrade-recovery exact observer lacks a final total.
+  implication: The bounded evidence rules out a general Vitest coordinator leak and identifies the observer-bound computation as inadequate for serial fixture-heavy coverage. A new derived full-suite observation would be a separately authorized action, not an R1 pass or release action.
 
 ## Eliminated
 
@@ -101,12 +203,14 @@ reasoning_checkpoint:
   reason: no candidate was selected, no public mutation occurred, and the failure happened inside unnumbered R1.
 - hypothesis: H1 — the managed runtime wrapper returned early while a real coordinator retained a resource after test workers finished
   reason: the exact managed command exited nonzero within 10 seconds; no coordinator survived the bounded owned-process observation.
+- hypothesis: H9 — managed-cleanup.test.ts has a runner/test lifecycle fault
+  reason: its first named 180-second recovery-fixture scenario passed with a final result in 42.599 seconds and clean owned-group exit; the 65-second file cutoff could include normal remaining scenarios.
 
 ## Resolution
 
 - root_cause: The synthetic process ledger has two contradictory identity parsers: it supplied a full six-token command to a two-token helper, and its root-name check repeated the already-stripped `autoed-synthetic-` prefix. Consequently, an otherwise strictly owned stale synthetic process could never reach owner-gated cleanup.
 - fix: Replaced the contradictory command parser with an exact six-token grammar and corrected the root-name predicate to validate only the generated suffix. Both regressions reject extra command arguments and malformed/extra-prefixed root names.
-- verification: Managed typecheck passed; process-ledger regression passed 3/3; one observable managed integration batch passed 8/8 files and 109/109 tests. The one permitted fresh exact managed integration observer timed out after 75 seconds with no final file/test totals; its three-member owned group was gone after scoped SIGTERM. This remains PRE_RUNNER failure/limitation evidence and is not accepted as a full-suite pass.
+- verification: Managed typecheck passed; process-ledger regression passed 3/3; per-file observation produced final totals and clean owned-group exits for 31/32 integration files. The formerly suspicious managed-cleanup file passed 1/1 file and 7/7 tests in 215.008 seconds under a derived ceiling. All eight named upgrade-recovery scenarios passed independently with final totals and clean groups; their 579.559-second serial duration demonstrated why the earlier 540-second exact-file observer was inadequate. The required exact unfiltered worker run passed 1/1 file and 3/3 tests in 13.681 seconds. Finally, the one authorized exact full integration command passed 32/32 files and 362/362 tests in 1,036.593 seconds under a documented 1,800-second ceiling (1,164.527 seconds recorded lower bound + 635.473 seconds explicit headroom), exited 0, and left no owned group. This is bounded automated runner diagnostic evidence, not an R1/rehearsal pass.
 - files_changed:
   - packages/test-support/src/process-ledger.ts
   - tests/unit/process-ledger.test.ts
