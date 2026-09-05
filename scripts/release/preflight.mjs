@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {PHASE2_CAPABILITIES,canonicalSha256,renderPhase2InstallPromptCore,validateBuildSelection,validatePhase2TestReport} from './phase2-gate.mjs';
 import {readPhase2RehearsalBinding} from './phase2-rehearsal.mjs';
 import {hashBuildInputs} from '../dev/runtime.mjs';
-import {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanReachableHistory as scanSensitiveReachableHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from './sensitive-scan.mjs';
+import {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanReachableHistory as scanSensitiveReachableHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from './sensitive-scan.mjs';
 
 const repo=join(dirname(fileURLToPath(import.meta.url)),'../..'),allowedNames=new Set(['LICENSE','LICENSING.md']),allowedRoots=new Set(['dist','runtime','browser','public-manifest','bootstrap','docs']),sourceRoots=new Set(['.planning','apps','docs','packages','rebuild-2026-08-26','release','scripts','share','tests']),sourceFiles=new Set(['.gitignore','AGENTS.md','LICENSE','LICENSING.md','package-lock.json','package.json','playwright.config.ts','tsconfig.json','vitest.config.ts']);
 const reviewedFixtures=new Map([
@@ -35,14 +35,14 @@ export function assertVersionAvailable(version,existing=[]){const match=/^0\.1\.
 const sourcePathAllowed=path=>sourceFiles.has(path)||sourceRoots.has(path.split('/')[0]);
 const packagePathAllowed=path=>{const top=path.split('/')[0];return !path.includes('..')&&(path.includes('/')?allowedRoots.has(top):allowedNames.has(path)||allowedRoots.has(path));};
 /** Legacy release API: preserve its public error code while using the shared scanner. */
-export function scanPublicPackage(root){try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error();if(!readFileSync(join(root,'LICENSE')).equals(readFileSync(join(repo,'LICENSE')))||!readFileSync(join(root,'LICENSING.md')).equals(readFileSync(join(repo,'LICENSING.md'))))reject('LICENSE_MISMATCH');const result=scanOwnedTree(root,{surface:'public_package',allowPath:packagePathAllowed,maxObjects:100000});if(result.status!=='pass')reject('PUBLIC_PACKAGE_REJECTED');return result;}catch(error){if(error instanceof Error&&['LICENSE_MISMATCH','PUBLIC_PACKAGE_REJECTED'].includes(error.message))throw error;reject('PUBLIC_PACKAGE_REJECTED');}}
+export function scanPublicPackage(root){try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error();if(!readFileSync(join(root,'LICENSE')).equals(readFileSync(join(repo,'LICENSE')))||!readFileSync(join(root,'LICENSING.md')).equals(readFileSync(join(repo,'LICENSING.md'))))reject('LICENSE_MISMATCH');const result=scanOwnedTree(root,{surface:'public_package',platform:'neutral',allowPath:packagePathAllowed,maxObjects:100000});if(result.status!=='pass')reject('PUBLIC_PACKAGE_REJECTED');return result;}catch(error){if(error instanceof Error&&['LICENSE_MISMATCH','PUBLIC_PACKAGE_REJECTED'].includes(error.message))throw error;reject('PUBLIC_PACKAGE_REJECTED');}}
 
 /** Legacy release API: history faults remain SOURCE_HISTORY_REJECTED. */
 export function scanReachableHistory(root,treeish='HEAD'){
   try{if(!isAbsolute(root)||realpathSync(root)!==root||!lstatSync(root).isDirectory())reject('SOURCE_HISTORY_REJECTED');const result=scanSensitiveReachableHistory(root,treeish,{allowPath:sourcePathAllowed,isReviewedException:isReviewedFixtureException});if(result.status!=='pass')reject('SOURCE_HISTORY_REJECTED');return result;}catch(error){if(error instanceof Error&&error.message==='SOURCE_HISTORY_REJECTED')throw error;reject('SOURCE_HISTORY_REJECTED');}
 }
 
-export {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanSensitiveBytes,scanTrackedTree,scanWorkingTree};
+export {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanSensitiveBytes,scanTrackedTree,scanWorkingTree};
 
 function shaFile(path){return digest(readFileSync(path));}
 export function identityOnly({root=repo,prerequisitesPath=join(repo,'release/prerequisites.json')}={}){

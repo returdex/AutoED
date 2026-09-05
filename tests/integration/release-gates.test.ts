@@ -1,11 +1,11 @@
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
+import {cpSync,mkdtempSync,mkdirSync,readFileSync,realpathSync,rmSync,symlinkSync,unlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {expect,it} from 'vitest';
 import {assertReleaseIdentity,assertVersionAvailable,isReviewedFixtureException,scanPublicPackage,scanReachableHistory,validatePrerequisites} from '../../scripts/release/preflight.mjs';
-import {combineSensitiveReports,createSensitiveChunkScanner,scanOwnedTree,scanReachableHistory as scanSensitiveHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from '../../scripts/release/sensitive-scan.mjs';
+import {combineSensitiveReports,createCapturedOutputScanner,createSensitiveChunkScanner,scanCapturedOutput,scanOwnedTree,scanReachableHistory as scanSensitiveHistory,scanSensitiveBytes,scanTrackedTree,scanWorkingTree} from '../../scripts/release/sensitive-scan.mjs';
 import {createPublishPlan} from '../../scripts/release/publish.mjs';
 import {verifyPublicAvailability} from '../../scripts/release/verify-availability.mjs';
 import {RELEASE_FINGERPRINT} from '../../packages/installer/src/verify-manifest.js';
@@ -56,6 +56,14 @@ it('permits only an exact reviewed history blob/path exception',()=>{
 
 it('keeps ignored runtime/Profile material out of the working-tree walk and rejects links/types in owned trees',()=>{
   const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-sensitive-tree-'))),secret='ghp_'+'A'.repeat(36);try{execFileSync('git',['init','-q'],{cwd:root});writeFileSync(join(root,'.gitignore'),'.runtime/\nProfile/\n');mkdirSync(join(root,'.runtime'));mkdirSync(join(root,'Profile'));writeFileSync(join(root,'.runtime','secret.txt'),secret);writeFileSync(join(root,'Profile','secret.txt'),secret);writeFileSync(join(root,'safe.txt'),'safe');expect(scanWorkingTree(root)).toMatchObject({status:'pass',findings:0});const owned=join(root,'owned');mkdirSync(owned);writeFileSync(join(owned,'safe.txt'),'safe');expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'pass',findings:0});symlinkSync(join(owned,'safe.txt'),join(owned,'linked.txt'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('permits only an in-root macOS closure link and rejects escaping, absolute, looping and Windows links',()=>{
+  const root=realpathSync(mkdtempSync(join(tmpdir(),'autoed-closure-links-'))),owned=join(root,'owned');try{mkdirSync(join(owned,'lib'),{recursive:true});mkdirSync(join(owned,'bin'));writeFileSync(join(owned,'lib','safe.txt'),'safe');symlinkSync('../lib/safe.txt',join(owned,'bin','safe-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'pass',findings:0});expect(scanOwnedTree(realpathSync(owned),{platform:'win32-x64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','safe-link'));writeFileSync(join(root,'outside.txt'),'safe');symlinkSync('../../outside.txt',join(owned,'bin','escape-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','escape-link'));symlinkSync(join(owned,'lib','safe.txt'),join(owned,'bin','absolute-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});unlinkSync(join(owned,'bin','absolute-link'));symlinkSync('loop-link',join(owned,'bin','loop-link'));expect(scanOwnedTree(realpathSync(owned),{platform:'darwin-arm64'})).toMatchObject({status:'fail',findings:1});}finally{rmSync(root,{recursive:true,force:true});}
+});
+
+it('requires one long-lived captured-output stream and fails closed for empty or round-tripped capture reports',()=>{
+  const safe=createCapturedOutputScanner();safe.write('build output\n');safe.write('command output\n');const safeReport=safe.finish();expect(safeReport).toMatchObject({status:'pass',surface:'captured_output',objects:2});expect(()=>safe.finish()).toThrow('SENSITIVE_SCAN_CLOSED');const canary=createCapturedOutputScanner();canary.write('build: ghp_');canary.write('A'.repeat(36));expect(canary.finish()).toMatchObject({status:'fail',surface:'captured_output',findings:1});expect(createCapturedOutputScanner().finish()).toMatchObject({status:'fail',surface:'captured_output',findings:1});expect(scanCapturedOutput([])).toMatchObject({status:'fail',surface:'captured_output',findings:1});const reports=[scanSensitiveBytes('safe',{surface:'tracked'}),scanSensitiveBytes('safe',{surface:'history'}),scanSensitiveBytes('safe',{surface:'working_tree'}),safeReport];expect(combineSensitiveReports(reports)).toMatchObject({status:'pass',findings:0});expect(combineSensitiveReports([...reports.slice(0,3),JSON.parse(JSON.stringify(safeReport))])).toMatchObject({status:'fail',findings:1});expect(combineSensitiveReports([...reports.slice(0,3),scanCapturedOutput([])])).toMatchObject({status:'fail',findings:1});
 });
 
 it('creates no publish action without a Plan 13 receipt and requires anonymous full-byte availability',async()=>{

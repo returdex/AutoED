@@ -1,11 +1,12 @@
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {lstatSync,readdirSync,readFileSync,realpathSync} from 'node:fs';
-import {isAbsolute,join,relative,resolve} from 'node:path';
+import {lstatSync,readdirSync,readFileSync,realpathSync,readlinkSync,statSync} from 'node:fs';
+import {dirname,isAbsolute,join,relative,resolve} from 'node:path';
 
 const MAX_OBJECT_BYTES=64*1024*1024;
 const MAX_OBJECTS=200000;
 const MAX_TOTAL_BYTES=512*1024*1024;
+const MAX_CAPTURED_OUTPUT_BYTES=64*1024*1024;
 const HASH=/^[a-f0-9]{40,64}$/;
 const SURFACES=new Set(['tracked','history','working_tree','captured_output','owned_tree','public_package']);
 const PRIVATE_PATH=/(?:^|\/)(?:Profile|Cookies?|.*\.sqlite(?:-wal|-shm)?|\.env(?:\..*)?|logs?|private[-_]?keys?|private[-_]?fixtures?)(?:\/|$)/i;
@@ -28,26 +29,38 @@ function emptyFailure(surface){return report(surface,{objects:0,bytes:0,findings
  * overlap keeps token detection correct when a secret crosses a stream chunk.
  */
 /** @param {{surface:string,maxBytes?:number}} options */
-export function createSensitiveChunkScanner({surface,maxBytes=MAX_TOTAL_BYTES}={}){
-  if(!validSurface(surface)||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>MAX_TOTAL_BYTES)fail('SENSITIVE_SCAN_INVALID');
-  let bytes=0,objects=0,findings=0,closed=false,tail=Buffer.alloc(0);
+export function createSensitiveChunkScanner({surface,maxBytes=surface==='captured_output'?MAX_CAPTURED_OUTPUT_BYTES:MAX_TOTAL_BYTES}={}){
+  const ceiling=surface==='captured_output'?MAX_CAPTURED_OUTPUT_BYTES:MAX_TOTAL_BYTES;
+  if(!validSurface(surface)||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>ceiling)fail('SENSITIVE_SCAN_INVALID');
+  let bytes=0,objects=0,findings=0,closed=false,overflow=false,tail=Buffer.alloc(0);
   const digest=createHash('sha256');
   const write=value=>{
     if(closed)fail('SENSITIVE_SCAN_CLOSED');
     const chunk=Buffer.isBuffer(value)?value:typeof value==='string'?Buffer.from(value):null;
     if(!chunk){findings=1;return false;}
+    if(overflow)return false;
     objects++;
+    if(chunk.length>maxBytes-bytes){bytes=maxBytes+1;findings=1;overflow=true;tail=Buffer.alloc(0);return false;}
     bytes+=chunk.length;
     digest.update(chunk);
-    if(bytes>maxBytes){findings=1;tail=Buffer.alloc(0);return false;}
     const window=tail.length?Buffer.concat([tail,chunk]):chunk;
     if(SENSITIVE.test(window.toString('utf8')))findings=1;
     tail=window.subarray(Math.max(0,window.length-4096));
     return findings===0;
   };
-  const finish=()=>{if(closed)fail('SENSITIVE_SCAN_CLOSED');closed=true;return report(surface,{objects,bytes,findings},digest.digest('hex'));};
-  return Object.freeze({write,finish});
+  const writePath=value=>{
+    if(closed)fail('SENSITIVE_SCAN_CLOSED');
+    if(typeof value!=='string'||value.length===0||value.length>4096){findings=1;return false;}
+    digest.update(Buffer.from(`path\0${value}`));
+    if(PRIVATE_PATH.test(value)||SENSITIVE.test(value)){findings=1;return false;}
+    return findings===0;
+  };
+  const finish=()=>{if(closed)fail('SENSITIVE_SCAN_CLOSED');closed=true;if(surface==='captured_output'&&objects===0)findings=1;return report(surface,{objects,bytes,findings},digest.digest('hex'));};
+  return Object.freeze({write,writePath,finish});
 }
+
+/** A single 64 MiB capture stream may span build output and every fixed command. */
+export function createCapturedOutputScanner({maxBytes=MAX_CAPTURED_OUTPUT_BYTES}={}){return createSensitiveChunkScanner({surface:'captured_output',maxBytes});}
 
 /** @param {Buffer|string} bytes @param {{surface?:string,maxBytes?:number}} [options] */
 export function scanSensitiveBytes(bytes,{surface='captured_output',maxBytes=MAX_OBJECT_BYTES}={}){
@@ -55,7 +68,7 @@ export function scanSensitiveBytes(bytes,{surface='captured_output',maxBytes=MAX
 }
 
 export function scanCapturedOutput(chunks,{maxBytes=8*1024*1024}={}){
-  try{if(!chunks||typeof chunks[Symbol.iterator]!=='function')return emptyFailure('captured_output');const scanner=createSensitiveChunkScanner({surface:'captured_output',maxBytes});for(const chunk of chunks)scanner.write(chunk);return scanner.finish();}catch{return emptyFailure('captured_output');}
+  try{if(!chunks||typeof chunks[Symbol.iterator]!=='function')return emptyFailure('captured_output');const scanner=createCapturedOutputScanner({maxBytes});let seen=false;for(const chunk of chunks){seen=true;scanner.write(chunk);}return seen?scanner.finish():emptyFailure('captured_output');}catch{return emptyFailure('captured_output');}
 }
 
 function scanBlob(root,hash,{surface,onObject}){
@@ -126,17 +139,29 @@ export function scanWorkingTree(root,{allowPath}={}){
   }catch{return emptyFailure(surface);}
 }
 
-/** Scans a caller-owned output directory after rejecting links and special files. */
-/** @param {string} root @param {{surface?:string,allowPath?:(path:string)=>boolean,platform?:string,maxObjects?:number,maxBytes?:number}} [options] */
+/**
+ * Scans a caller-owned closure. macOS permits only relative file symlinks that
+ * resolve inside this root; Windows and neutral closures reject every link.
+ */
+/** @param {string} root @param {{surface?:string,allowPath?:(path:string)=>boolean,platform:'darwin-arm64'|'win32-x64'|'neutral',maxObjects?:number,maxBytes?:number}} options */
 export function scanOwnedTree(root,{surface='owned_tree',allowPath,platform,maxObjects=100000,maxBytes=MAX_TOTAL_BYTES}={}){
   const actual=safeRoot(root);
   try{
-    if(!actual||!validSurface(surface)||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>MAX_TOTAL_BYTES||(platform!==undefined&&(typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform))))return emptyFailure(validSurface(surface)?surface:'owned_tree');
+    if(!actual||!validSurface(surface)||typeof platform!=='string'||!/^(?:darwin-arm64|win32-x64|neutral)$/.test(platform)||!Number.isSafeInteger(maxObjects)||maxObjects<1||maxObjects>MAX_OBJECTS||!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>MAX_TOTAL_BYTES)return emptyFailure(validSurface(surface)?surface:'owned_tree');
     const scanner=createSensitiveChunkScanner({surface,maxBytes});let count=0;
+    const scanFile=(absolute,path)=>{const stat=lstatSync(absolute);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<0||stat.size>MAX_OBJECT_BYTES||realpathSync(absolute)!==absolute||++count>maxObjects)throw new Error();scanner.writePath(path);scanner.write(readFileSync(absolute));};
+    const scanLink=(absolute,path)=>{
+      if(platform!=='darwin-arm64')throw new Error();const target=readlinkSync(absolute);
+      if(typeof target!=='string'||target.length===0||target.length>4096||target.includes('\\')||target.includes('\0')||isAbsolute(target))throw new Error();
+      const lexical=resolve(dirname(absolute),target),inside=childOf(actual,relative(actual,lexical));if(!inside||inside!==lexical)throw new Error();
+      const resolved=realpathSync(absolute);if(!childOf(actual,relative(actual,resolved))||resolved!==childOf(actual,relative(actual,resolved)))throw new Error();
+      const resolvedPath=relative(actual,resolved);if(!safeRelative(resolvedPath)||!sourcePathAllowed(resolvedPath,allowPath))throw new Error();
+      const stat=statSync(absolute);if(!stat.isFile()||stat.nlink!==1||stat.size<0||stat.size>MAX_OBJECT_BYTES||++count>maxObjects)throw new Error();
+      scanner.writePath(path);scanner.writePath(target);scanner.writePath(resolvedPath);scanner.write(readFileSync(resolved));
+    };
     const walk=(directory,prefix='')=>{for(const entry of readdirSync(directory,{withFileTypes:true})){
       const path=prefix?`${prefix}/${entry.name}`:entry.name,absolute=childOf(actual,path);if(!absolute||!safeRelative(path)||!sourcePathAllowed(path,allowPath))throw new Error();
-      const stat=lstatSync(absolute);if(stat.isSymbolicLink()||realpathSync(absolute)!==absolute)throw new Error();
-      if(stat.isDirectory())walk(absolute,path);else if(stat.isFile()&&stat.nlink===1&&stat.size>=0&&stat.size<=MAX_OBJECT_BYTES){if(++count>maxObjects)throw new Error();scanner.write(readFileSync(absolute));}else throw new Error();
+      const stat=lstatSync(absolute);if(stat.isDirectory()&&realpathSync(absolute)===absolute)walk(absolute,path);else if(stat.isSymbolicLink())scanLink(absolute,path);else scanFile(absolute,path);
     }};
     walk(actual);return scanner.finish();
   }catch{return emptyFailure(validSurface(surface)?surface:'owned_tree');}
@@ -152,4 +177,4 @@ export function combineSensitiveReports(input,{surfaces=['tracked','history','wo
   }catch{return emptyFailure('captured_output');}
 }
 
-export const SENSITIVE_SCAN_LIMITS=Object.freeze({maxObjectBytes:MAX_OBJECT_BYTES,maxObjects:MAX_OBJECTS,maxTotalBytes:MAX_TOTAL_BYTES});
+export const SENSITIVE_SCAN_LIMITS=Object.freeze({maxObjectBytes:MAX_OBJECT_BYTES,maxObjects:MAX_OBJECTS,maxTotalBytes:MAX_TOTAL_BYTES,maxCapturedOutputBytes:MAX_CAPTURED_OUTPUT_BYTES});
