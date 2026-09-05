@@ -101,7 +101,7 @@ updated: 2026-08-26
 
 **Cross-cutting plan constraints**: Every human update/login/MFA/restart/cross-day/reauth step remains a non-auto checkpoint; L evidence is written only by the paired server from real user action, while repo-side gates are read-only or create strict sanitized handoffs; macOS evidence cannot fill Windows cells; Phase 1/2 remain incomplete and Phase 3 remains blocked until the declared dual-platform requiredness registry passes. Prompt-driven update execution is isolated from the repository controller: the user starts a local projectless Codex task on the same host/account with the exact verified prompt, personally controls OS/restart actions, and returns only strict sanitized results. An AutoED project task's inherited-gate refusal is `UPDATE_TASK_CONTEXT_INVALID`, not product evidence.
 
-**Release-repair routing:** beta.31 是当前02-14的 grandfathered exact release。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
+**Release-repair routing:** beta.31、beta.38 与 beta.39 都是不可变失效历史，均不是当前候选；beta.39 是无 availability receipt 的 `POST_PUBLIC` 永久失效历史，不能重试、覆盖、删除或改标签。`active update candidate: none`。beta.40 尚未选择且未获准更新；只有全新无编号 R0/R1 通过后才可选择 beta.40。任何后续 live 计划发现 signed capability/source 缺陷时都先停止并进入 `RELEASE-STABILIZATION` 的 R0/R1；不得现场 patch，也不得立即预留下一 beta。只有 rehearsal 通过后才进入候选锁定/完整门禁/签名/发布链。
 
 **Hard stop**: 采用 VALIDATION-STRATEGY 的 G3 live 矩阵及独立自动故障台账。换号/绑定不匹配、权限拒绝、网络中断、parser drift 和旧 Worker 并发反例必须有 S/I 证据，但不填写任何 L 格；真实登录/复用及绑定仍逐格实测，不要求故意制造学校错误或未授权第二个真实账号。只诊断批准范围内连接方案，不自动推进 P3。
 
@@ -223,7 +223,7 @@ updated: 2026-08-26
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. 契约、原生骨架与最小 beta 安装升级 | 13/14 | Human UAT | - |
-| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.31 published and anonymously availability-proven; update/live/Windows gates remain blocked | - |
+| 2. 双来源原生登录 POC 与 live 硬门禁 | 19/41 | In progress — beta.39 is immutable `POST_PUBLIC` history with no availability receipt; active update candidate: none; beta.40 is not selected or authorized; update/live/Windows gates remain blocked | - |
 | 3. Moodle 课程事实与首个实际 MCP 切片 | 0/TBD | Not started | - |
 | 4. EdStem 线程与双源课程绑定 | 0/TBD | Not started | - |
 | 5. 文件 manifest、全文与受控原件交付 | 0/TBD | Not started | - |
@@ -231,7 +231,7 @@ updated: 2026-08-26
 | 7. 完整管理 UI、CLI、MCP 与 Skill | 0/TBD | Not started | - |
 | 8. 跨平台交付、备份恢复与安全切换 | 0/TBD | Not started | - |
 
-**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2已有19份完成摘要；02-38已针对有界匿名readiness gate后的production source完整重跑并选择`0.1.0-beta.31`，typecheck及unit `143/143`、integration `352/352`、UI `34/34`、macOS native `24/24`、零禁用测试及四表面敏感扫描均通过；02-39完成全新双目标组装和受保护Keychain签名；02-13随后通过22项发布门禁与只读预检，只用隔离returdex身份创建release `380751233`及两个精确asset，并在有界metadata/HEAD readiness之后以首次且唯一完整匿名下载验证hash、签名、fingerprint、license、prompt及16-member/27-capability闭包。`0.1.0-beta.25`、`0.1.0-beta.29`和`0.1.0-beta.30`保持不可变公开历史且均已永久失效，未重试、删除或覆盖。下一步02-14必须硬停止并等待用户实际更新反馈；尚未更新、登录或写入任何L证据，Windows仍`not_run / human_needed`，44个真实L cell仍缺失，Phase3继续blocked。
+**Current stop:** Phase 1全部14份PLAN已获批，01-01至01-13已完成（13/14）；01-14为部分通过，Windows及明确未观察项继续保持`not_run / human_needed`。Phase 2有19/41份完成摘要。beta.31、beta.38 和 beta.39 均为不可变失效历史，均不是当前/活动候选；beta.39 在发布一次后，其唯一允许的匿名完整验证未产生 sanitized result 或 availability receipt，因此为不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史。`active update candidate: none`。beta.40 尚未选择、未获准更新，只有全新无编号 R0/R1 通过后才可选择；本状态同步不运行 R0/R1、不分配候选、不发布、不安装、不登录且不创建回执。真实 L evidence 仍 pending；02-15 与 Phase 3 继续 blocked。
 
 ## Backlog
 
