@@ -29,7 +29,7 @@ import {
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {readPhase2RehearsalBinding,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {exercisePhase2PublicationContract,readPhase2RehearsalBinding,runPhase2Rehearsal,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 
 const roots:string[]=[];
@@ -105,6 +105,12 @@ it('post-beta31 selection requires one unnumbered rehearsal attestation digest',
   expect(()=>validateBuildSelection(future)).toThrow('PHASE2_SELECTION_INVALID');
   expect(validateBuildSelection({...future,rehearsalSha256:hash('e')})).toMatchObject({version:'0.1.0-beta.32',rehearsalSha256:hash('e')});
   expect(()=>validateBuildSelection({...legacy,rehearsalSha256:hash('e')})).toThrow('PHASE2_SELECTION_INVALID');
+});
+
+it('local publication contract derives 2x8 evidence without network, candidate leakage, or side effects',async()=>{
+  const identity={releaseCoordinate:null,commit:commit('a'),tree:commit('b'),buildId:hash('c'),sourceSha256:hash('d'),qualitySha256:hash('e')},roles=['capability','bootstrap','manifest','signature','installer','program','node','browser'],assembly={status:'pass',releaseCoordinate:null,targets:['darwin-arm64','win32-x64'].map(target=>({target,assets:roles.map((role,index)=>({name:`${target}-${role}`,bytes:index+1,sha256:sha(`${target}:${role}`),role}))}))};
+  const originalFetch=globalThis.fetch;let fetches=0;(globalThis as any).fetch=(..._args:any[])=>{fetches++;throw new Error('NETWORK_FORBIDDEN');};
+  try{const targets:any[]=assembly.targets;const result:any=await exercisePhase2PublicationContract({identity,assembly,now});expect(result).toEqual({status:'pass',contractTests:9,remoteMutations:0,fullVerifierInvocations:1});expect(JSON.stringify(result)).not.toMatch(/beta\.32|github|https?:|3200/);expect(fetches).toBe(0);await expect(exercisePhase2PublicationContract({identity,assembly:{...assembly,targets:[{...targets[0],assets:targets[0].assets.slice(1)},targets[1]]},now})).rejects.toThrow('PUBLICATION_CONTRACT_INVALID');await expect(exercisePhase2PublicationContract({identity,assembly,now,commandLedger:['curl'] as string[]})).rejects.toThrow('PUBLICATION_SIDE_EFFECT');for(const availabilityDeps of [{verifyAvailability:async()=>({status:'pass',invocations:0})},{verifyAvailability:async()=>({status:'pass',invocations:2})},{fetchReadinessMetadata:async(_options:any,local:any)=>({status:200,value:{...local.metadata,buildId:hash('f')}})},{headAsset:async(asset:any)=>({status:200,finalUrl:`https://release-assets.githubusercontent.com/${asset.id}`,headers:new Map([['content-length','0']])})}])await expect(exercisePhase2PublicationContract({identity,assembly,now,availabilityDeps})).rejects.toThrow('PUBLICATION_CONTRACT_INVALID');}finally{(globalThis as any).fetch=originalFetch;}
 });
 
 it('fixed rehearsal derives every attestation field from ordered raw ops and cleans before writing',async()=>{
