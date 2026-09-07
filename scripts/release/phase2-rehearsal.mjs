@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync,spawn} from 'node:child_process';
-import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,mkdtempSync,openSync,readFileSync,realpathSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
+import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,mkdtempSync,openSync,readFileSync,readdirSync,realpathSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename,dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -17,6 +17,7 @@ import {verifyPhase2AvailabilityAfterReadiness} from './verify-availability.mjs'
 
 const scanReachableHistory=(root,treeish='HEAD')=>scanSensitiveReachableHistory(root,treeish,{isReviewedException:isReviewedFixtureException});
 const SCRIPT_PATH=fileURLToPath(import.meta.url),ROOT=resolve(dirname(SCRIPT_PATH),'../..'),HASH=/^[a-f0-9]{64}$/,GIT=/^[a-f0-9]{40}$/,ISO=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&/(?:Z|[+-]\d\d:\d\d)$/.test(value),PRIVATE=/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----|\/(?:Users|home)\/|Profile|Cookies?|password|mfa|authorization)/i;
+export const INTEGRATION_TEST_FILES=Object.freeze(readdirSync(join(ROOT,'tests/integration')).filter(name=>name.endsWith('.test.ts')).sort().map(name=>`tests/integration/${name}`));
 function fail(code){throw new Error(code);}
 function exact(value,keys){return value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===[...keys].sort().join(',');}
 function passCheck(value){return exact(value,['status','commandSha256','tests','skipped','todo'])&&value.status==='pass'&&HASH.test(value.commandSha256)&&Number.isSafeInteger(value.tests)&&value.tests>0&&value.skipped===0&&value.todo===0;}
@@ -73,7 +74,7 @@ export const FIXED_COMMANDS=Object.freeze({
   ])},
   typecheck:{ceiling:120,steps:Object.freeze([Object.freeze({name:'typecheck',runner:'rc',args:Object.freeze(['npm','run','typecheck'])})])},
   unit:{ceiling:300,steps:Object.freeze([Object.freeze({name:'unit',runner:'vitest',args:Object.freeze(['npm','run','test:unit','--','--run'])})])},
-  integration:{ceiling:2100,steps:Object.freeze([Object.freeze({name:'integration',runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run'])})])},
+  integration:{ceiling:1200,steps:Object.freeze(INTEGRATION_TEST_FILES.map(path=>Object.freeze({name:`integration-${basename(path,'.test.ts')}`,runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run',path])})))},
   ui:{ceiling:600,steps:Object.freeze([Object.freeze({name:'ui',runner:'playwright',args:Object.freeze(['npm','run','test:ui'])})])},
   native:{ceiling:600,steps:Object.freeze([Object.freeze({name:'native',runner:'vitest',args:Object.freeze(['npm','run','test:native','--','--run'])})])},
 });

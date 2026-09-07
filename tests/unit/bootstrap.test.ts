@@ -1,13 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { spawnSync } from 'node:child_process';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
+  it('reuses a regular local artifact without a network fetch', async () => {
+    const root=mkdtempSync(join(tmpdir(),'autoed-runtime-cache-')),path=join(root,'artifact');writeFileSync(path,'verified-cache');let fetched=0;
+    try{await expect(cachedArtifact(path,async()=>{fetched++;return Buffer.from('network');})).resolves.toEqual(Buffer.from('verified-cache'));expect(fetched).toBe(0);}finally{rmSync(root,{recursive:true,force:true});}
+  });
   it('runs actual Node 24 and exact installed dependencies', () => {
     expect(process.version).toBe('v24.20.0');
     const pkg = checkPackage();

@@ -70,6 +70,13 @@ async function download(url, destination, maxBytes = 150 * 1024 * 1024) {
   return bytes;
 }
 
+export async function cachedArtifact(path, fetchArtifact) {
+  assertRegularFile(path);
+  if (existsSync(path)) return readFileSync(path);
+  if (typeof fetchArtifact !== 'function') throw new Error('Missing cached artifact');
+  return fetchArtifact();
+}
+
 function run(executable, args, options = {}) {
   const result = spawnSync(executable, args, { cwd: ROOT, stdio: 'inherit', ...options });
   if (result.error || result.status !== 0) throw new Error(`Subprocess failed (${result.status ?? 'spawn'}): ${executable}`);
@@ -148,17 +155,18 @@ export async function bootstrap() {
   const openpgp = await loadVerifier();
   const checksumPath = join(TOOLCHAIN, 'SHASUMS256.txt');
   const signaturePath = join(TOOLCHAIN, 'SHASUMS256.txt.sig');
-  const checksums = await download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt`, checksumPath, 100_000);
-  const signature = await download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt.sig`, signaturePath, 100_000);
+  const checksums = await cachedArtifact(checksumPath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt`, checksumPath, 100_000));
+  const signature = await cachedArtifact(signaturePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt.sig`, signaturePath, 100_000));
   const keys = [];
   for (const fingerprint of RELEASE_FINGERPRINTS) {
-    const bytes = await download(`https://raw.githubusercontent.com/nodejs/release-keys/${KEY_REVISION}/keys/${fingerprint}.asc`, join(TOOLCHAIN, `${fingerprint}.asc`), 100_000);
+    const keyPath = join(TOOLCHAIN, `${fingerprint}.asc`);
+    const bytes = await cachedArtifact(keyPath, () => download(`https://raw.githubusercontent.com/nodejs/release-keys/${KEY_REVISION}/keys/${fingerprint}.asc`, keyPath, 100_000));
     keys.push(bytes.toString('utf8'));
   }
   const signer = await verifySignedChecksums(openpgp, checksums, signature, keys);
   const archivePath = join(TOOLCHAIN, filename);
   assertRegularFile(archivePath);
-  const archive = existsSync(archivePath) ? readFileSync(archivePath) : await download(`https://nodejs.org/dist/v${NODE_VERSION}/${filename}`, archivePath);
+  const archive = await cachedArtifact(archivePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/${filename}`, archivePath));
   verifyArchive(checksums, filename, archive);
   assertExtractionTree(nodeRoot, true);
   // Re-extract authenticated bytes even on reuse; a cached node executable is not trusted.

@@ -57,6 +57,14 @@ function syntheticRoot(path: string): string {
   return path;
 }
 
+export function classifySyntheticServicePaths(rootPath: string, entrypointPath: string, executablePath: string) {
+  const root=syntheticRoot(realpathSync(rootPath)),entrypoint=realpathSync(entrypointPath),executable=realpathSync(executablePath);
+  const installed=/\/installation\/program\/([a-f0-9]{64})\/dist\/apps\/(api|worker)\/src\/main\.js$/.exec(entrypoint);
+  if(installed){const buildId=installed[1]!,role=installed[2]! as 'api'|'worker';if(entrypoint!==realpathSync(join(root,`installation/program/${buildId}/dist/apps/${role}/src/main.js`))||executable!==realpathSync(join(root,'installation/runtime/24.20.0/bin/node')))fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');return {root,role,entrypoint,executable,layout:'installed' as const,buildId};}
+  for(const role of ['api','worker'] as const){const candidate=join(root,`compiled/apps/${role}/src/main.js`);if(existsSync(candidate)&&entrypoint===realpathSync(candidate)&&executable===realpathSync(process.execPath))return {root,role,entrypoint,executable,layout:'compiled' as const,buildId:null};}
+  return fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+}
+
 export function parseSyntheticServiceArgv(args: string[]) {
   const [executable, entrypoint, flag, installationPath, rootPath, nonce] = args;
   if (args.length !== 6 || !executable || !entrypoint || flag !== '--autoed-service' || !installationPath || !rootPath || !uuid.test(nonce ?? '')) {
@@ -70,14 +78,7 @@ function invocation(args: string[]) {
   const installation = realpathSync(parsed.installationPath);
   const root = syntheticRoot(realpathSync(parsed.rootPath));
   if (installation !== realpathSync(join(root, 'installation'))) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const entrypoint = realpathSync(parsed.entrypoint);
-  const entry = /\/installation\/program\/([a-f0-9]{64})\/dist\/apps\/(api|worker)\/src\/main\.js$/.exec(entrypoint);
-  const buildId = entry?.[1];
-  const role = entry?.[2] as 'api' | 'worker' | undefined;
-  if (!role || !buildId) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  const executable = realpathSync(parsed.executable);
-  if (executable !== realpathSync(join(root, 'installation/runtime/24.20.0/bin/node')) || entrypoint !== realpathSync(join(root, `installation/program/${buildId}/dist/apps/${role}/src/main.js`))) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
-  return { root, role, executable, entrypoint, nonce: parsed.nonce };
+  return {...classifySyntheticServicePaths(root,parsed.entrypoint,parsed.executable),nonce:parsed.nonce};
 }
 
 function validate(row: ProcessRow): SyntheticProcess | null {
@@ -91,7 +92,8 @@ function validate(row: ProcessRow): SyntheticProcess | null {
   const marker = JSON.parse(regular(`${parsed.root}.synthetic-run.json`, 4096).toString('utf8')) as { schema?: unknown; root?: unknown; runId?: unknown; owner?: { pid?: unknown; osStartIdentity?: unknown; executable?: unknown } };
   if (marker.schema !== 1 || marker.root !== parsed.root || typeof marker.runId !== 'string' || !uuid.test(marker.runId) || !Number.isSafeInteger(marker.owner?.pid) || typeof marker.owner?.osStartIdentity !== 'string' || marker.owner?.executable !== realpathSync(process.execPath)) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
   const receipt = JSON.parse(regular(join(installation, `runtime/${parsed.role}.json`), 16384).toString('utf8')) as { pid?: unknown; role?: unknown; nonce?: unknown; osStartIdentity?: unknown; executable?: unknown; entrypoint?: unknown; buildId?: unknown };
-  if (receipt.pid !== row.pid || receipt.role !== parsed.role || receipt.nonce !== parsed.nonce || receipt.osStartIdentity !== row.start || receipt.executable !== parsed.executable || receipt.entrypoint !== parsed.entrypoint || typeof receipt.buildId !== 'string' || !hash.test(receipt.buildId)) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+  if (receipt.pid !== row.pid || receipt.role !== parsed.role || receipt.nonce !== parsed.nonce || receipt.osStartIdentity !== row.start || receipt.executable !== parsed.executable || receipt.entrypoint !== parsed.entrypoint || typeof receipt.buildId !== 'string' || !hash.test(receipt.buildId) || parsed.buildId!==null&&receipt.buildId!==parsed.buildId) fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');
+  if(parsed.layout==='compiled'){const identity=JSON.parse(regular(join(parsed.root,'compiled/build/identity.json'),32768).toString('utf8')) as {buildId?:unknown;entries?:unknown};if(identity.buildId!==receipt.buildId||!Array.isArray(identity.entries)||!identity.entries.includes(parsed.role))fail('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');}
   return { pid: row.pid, root: parsed.root, role: parsed.role, osStartIdentity: row.start, executable: parsed.executable, entrypoint: parsed.entrypoint, runId: marker.runId, ownerPid: marker.owner!.pid as number, ownerStartIdentity: marker.owner!.osStartIdentity as string };
 }
 

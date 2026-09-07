@@ -4,7 +4,7 @@ import {chmodSync,existsSync,lstatSync,mkdirSync,readFileSync,renameSync,writeFi
 import {homedir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {checkPackage,NODE_VERSION,TOOLCHAIN} from '../dev/runtime.mjs';
+import {checkPackage,NODE_VERSION,RELEASE_FINGERPRINTS,TOOLCHAIN} from '../dev/runtime.mjs';
 import {phase2IdentityOnly} from './preflight.mjs';
 import {selfcheckTrust} from './trust.mjs';
 
@@ -14,6 +14,7 @@ const expected=Object.freeze({owner:'returdex',repository:'returdex/AutoED',repo
 function fail(){throw new Error('RELEASE_ENVIRONMENT_INVALID');}
 function protectedDirectory(path){const stat=lstatSync(path);if(!stat.isDirectory()||stat.isSymbolicLink()||stat.uid!==process.getuid()||(stat.mode&0o077)!==0)fail();}
 function requiredPaths(root){return[
+  join(TOOLCHAIN,'verification.json'),join(TOOLCHAIN,`node-v${NODE_VERSION}-darwin-arm64.tar.gz`),join(TOOLCHAIN,'SHASUMS256.txt'),join(TOOLCHAIN,'SHASUMS256.txt.sig'),join(TOOLCHAIN,'verifier/openpgp-6.3.1.tgz'),...RELEASE_FINGERPRINTS.map(fingerprint=>join(TOOLCHAIN,`${fingerprint}.asc`)),
   join(root,'.runtime/delivery-cache/node-darwin-arm64.tar.gz'),join(root,'.runtime/delivery-cache/node-win-x64.zip'),
   join(root,'.runtime/delivery-cache/chrome-mac-arm64.zip'),join(root,'.runtime/delivery-cache/chrome-win64.zip'),
   join(root,'.runtime/delivery-cache/keyring-win32-x64-msvc-1.3.0.tgz'),

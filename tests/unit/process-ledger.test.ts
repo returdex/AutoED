@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest';
-import { realpathSync } from 'node:fs';
+import { mkdirSync,mkdtempSync,realpathSync,rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { sep } from 'node:path';
-import { hasSyntheticRootName, parseSyntheticServiceArgv, readSyntheticProcessLedger } from '../../packages/test-support/src/process-ledger.js';
+import { join,sep } from 'node:path';
+import { classifySyntheticServicePaths,hasSyntheticRootName, parseSyntheticServiceArgv, readSyntheticProcessLedger } from '../../packages/test-support/src/process-ledger.js';
 
 it('accepts only the exact full synthetic service argv grammar', () => {
   const argv = [
@@ -29,6 +29,11 @@ it('accepts only the generated alphanumeric synthetic root suffix', () => {
   expect(hasSyntheticRootName(`${prefix}Abc123`)).toBe(true);
   expect(hasSyntheticRootName(`${prefix}Abc-123`)).toBe(false);
   expect(hasSyntheticRootName(`${prefix}autoed-synthetic-Abc123`)).toBe(false);
+});
+
+it('recognizes the exact native-fixture compiled service layout without accepting siblings',()=>{
+  const root=realpathSync(mkdtempSync(join(realpathSync(tmpdir()),'autoed-synthetic-'))),entrypoint=join(root,'compiled/apps/api/src/main.js');mkdirSync(join(root,'installation'),{recursive:true});mkdirSync(join(root,'compiled/apps/api/src'),{recursive:true});writeFileSync(entrypoint,'');
+  try{expect(classifySyntheticServicePaths(root,entrypoint,process.execPath)).toMatchObject({root,role:'api',layout:'compiled',buildId:null});const sibling=join(root,'compiled/apps/api/src/other.js');writeFileSync(sibling,'');expect(()=>classifySyntheticServicePaths(root,sibling,process.execPath)).toThrow('SYNTHETIC_PROCESS_OWNERSHIP_UNCONFIRMED');}finally{rmSync(root,{recursive:true,force:true});}
 });
 
 it('does not inspect or report the persistent user installation service as synthetic', () => {
