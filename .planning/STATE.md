@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: PRE_RUNNER after 3968624 fixed strict synthetic-process parsing but exact full integration still produced no final totals within the bounded observer; no beta.40 selection or attestation
-last_updated: "2026-09-05T10:00:45.000Z"
-last_activity: 2026-09-05
+stopped_at: R0 repair after beta.40 POST_PUBLIC target-proof failure; durable R4/environment correction implemented, fresh unnumbered R1 pending
+last_updated: "2026-09-07T13:00:00+10:00"
+last_activity: 2026-09-07
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.39 as immutable invalidated history. The fresh unnumbered R0/R1 recurrence is still `PRE_RUNNER`: `3968624` fixed the proven strict synthetic-process argv/root parser defects and focused tests pass, but the exact full integration observer produced no final totals within 75 seconds. No full R1 pass, beta or attestation exists. `active update candidate: none`; beta.40 is not selected and its update is not authorized. Identify the slow or blocked integration boundary, then obtain a complete fresh R0/R1 pass before any beta.40 selection. All update/login/live/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.40 as immutable invalidated history. Beta.40 completed R2–R4 and was published once, then its one permitted full verifier failed at `target-proof/macos/archive_or_signature` with no availability receipt. Local diagnosis proved both target archives contain closure bytes whose raw digest differs from the canonical-object digest bound by the temporary R4 script. A durable R4/environment correction is implemented and awaiting a fresh exact-source unnumbered R1. `active update candidate: none`; no later beta is selected or authorized. All update/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.39 R5 publication, then its one permitted anonymous verifier produced no sanitized result or availability receipt; the next fresh unnumbered R0/R1 stopped PRE_RUNNER before an attestation; 19 of 41 have completion summaries
-Status: beta.31, beta.37, beta.38 and beta.39 are immutable published-but-invalidated history; beta.39 is `POST_PUBLIC`, its publication receipt is historical only, and no availability receipt exists. `active update candidate: none`; beta.40 is not selected and its update is not authorized until a fresh unnumbered R0/R1 pass.
-Last activity: 2026-09-05 - Fixed strict synthetic-process parsing in 3968624; focused tests pass but full integration totals remain unobserved, so PRE_RUNNER and all release/live gates remain blocked
+Plan: Post-02-14 release stabilization reached beta.40 R5, which failed its single anonymous full verifier at target proof; release-tool repair is in R0 with fresh unnumbered R1 pending; 19 of 41 have completion summaries
+Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.40 is `POST_PUBLIC` with no availability receipt. `active update candidate: none`; no later beta may be selected until a fresh unnumbered R0/R1 passes.
+Last activity: 2026-09-07 - Proved beta.40 closure byte/digest mismatch, added durable environment and R4 orchestration with pre-publication R5-equivalent target proof, and confirmed current managed runtime, isolated GitHub identity and keyring selfcheck pass
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -127,8 +127,9 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.38 was published once with its exact selected commit/build and 16 immutable assets; bounded anonymous readiness passed, but the single permitted full verifier failed at `phase=target-proof`, `asset=macos`, `reason=archive_or_signature` with `PHASE2_AVAILABILITY_FAILED`. No availability receipt was written. This is `POST_PUBLIC`: preserve the public release permanently, do not retry/overwrite/delete/relabel it, and return to a fresh unnumbered R0/R1 before selecting beta.39.
 - [Release]: A fresh unnumbered R0/R1 after beta.38's public failure passed on commit `4ca8a81…`, tree `376a3b…`, build `2047d7ea…`: managed Node/npm, focused 45/45, typecheck, unit 144, integration 361, UI 34, native 24, dual-target closures 3930/3901 with 8 assets each, sensitive scan 0 and no remote mutation. Beta.39 was then selected exactly once with selection SHA-256 `9022b28e…` and its complete R3 report passed with test-report SHA-256 `dcb0e71b…`; R4/R5 remain pending.
 - [Release]: beta.39 completed R4 and was published once with 16 immutable assets. Its one permitted anonymous full verifier was invoked but the controller wait was interrupted before any sanitized verifier result or availability receipt was produced. Availability therefore cannot be attested; classify beta.39 as `POST_PUBLIC`, preserve the public release permanently, do not retry/overwrite/delete/relabel it, and return to a fresh unnumbered R0/R1 before selecting beta.40.
-- [Release]: beta.39 is permanently invalidated `POST_PUBLIC` history with no availability receipt. `active update candidate: none`; beta.40 is not selected and its update is not authorized. A fresh unnumbered R0/R1 pass is required before beta.40 can be selected, while 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked.
+- [Release]: beta.39 is permanently invalidated `POST_PUBLIC` history with no availability receipt. Its then-required next step was a fresh unnumbered R0/R1 before beta.40; beta.40 later proceeded and is separately recorded below. 01-14 and Windows remained `not_run / human_needed`, real L evidence pending, and 02-15/Phase 3 blocked.
 - [Release]: The fresh unnumbered R0/R1 recurrence at `6c2adad` stopped `PRE_RUNNER`. Bounded diagnosis proved contradictory synthetic-process argv/root parsers; `3968624` fixes both while preserving strict ownership and cleanup, and managed typecheck, unit 3/3 plus one observable integration batch 8 files/109 tests pass. The exact full integration observer still produced no final totals within 75 seconds, so no complete R1 pass, beta selection/consumption or attestation exists. — Identify the slow or blocked integration boundary and then run a complete fresh R0/R1; all Windows/live/02-15/Phase 3 gates remain blocked.
+- [Release]: beta.40 completed R2–R4 and was published once with 16 immutable assets, but its one permitted full anonymous verifier failed at `target-proof/macos/archive_or_signature` and wrote no availability receipt. Both local target archives reproduce the same raw closure-digest failure: a temporary R4 script wrote ordinary JSON bytes but signed the canonical-object digest. — Classify beta.40 as `POST_PUBLIC`, preserve it permanently, replace ad-hoc R4 with a repository-owned command that performs the exact R5 proof before publication, and return to a fresh unnumbered R0/R1 before any later candidate.
 
 ### Pending Todos
 
@@ -156,7 +157,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；随后按策略回到R0/R1并选择了beta.38，beta.38也已记录为公开后失效。
 - 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
 - 2026-09-03 beta.38 在新的精确树上完成 R0/R1、R2 选择和 R3 自动质量报告：selection/build/test-report 均通过严格绑定；尚未进入签名、发布、更新或登录。
-- 2026-09-03/04 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后 beta.39 完成新的 R0/R1、R2、R3、R4 并发布，但匿名校验未产生 sanitized result 或 availability receipt。beta.39 是不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史；`active update candidate: none`，beta.40 尚未选择且未获准更新，只有新的无编号 R0/R1 通过后才可选择。01-14 与 Windows 仍 `not_run / human_needed`，真实 L evidence 仍 pending，02-15 与 Phase 3 仍 blocked。
+- 2026-09-03/04 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后 beta.39 完成新的 R0/R1、R2、R3、R4 并发布，但匿名校验未产生 sanitized result 或 availability receipt。beta.39 是不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史；其后 beta.40 的独立生命周期另见 2026-09-07 记录。01-14 与 Windows 仍 `not_run / human_needed`，真实 L evidence 仍 pending，02-15 与 Phase 3 仍 blocked。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
 ### Quick Tasks Completed
@@ -181,7 +182,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-05T20:00:45+10:00
-Stopped at: PRE_RUNNER after `3968624` fixed strict synthetic-process parsing but exact full integration still produced no final totals within the bounded observer; `active update candidate: none`, beta.40 is not selected or authorized, and no attestation exists
+Stopped at: R0 repair after beta.40 `POST_PUBLIC` target-proof failure; durable R4/environment correction implemented, `active update candidate: none`, fresh unnumbered R1 pending
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 and beta.39 `POST_PUBLIC` failures are recorded in `.planning/phases/02-poc-live/02-38-BETA-38-INVALIDATION.md` and `.planning/phases/02-poc-live/02-38-BETA-39-INVALIDATION.md`. Beta.37 through beta.39 are immutable published-but-invalidated history; beta.39 has no availability receipt, `active update candidate: none`, beta.40 is not selected or authorized, and no human update prompt is authorized.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.40 `POST_PUBLIC` failures are recorded by their immutable invalidation documents. Beta.37 through beta.40 are immutable published-but-invalidated history; beta.40 has no availability receipt, `active update candidate: none`, no later candidate or human update prompt is authorized.
