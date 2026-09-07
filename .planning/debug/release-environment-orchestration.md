@@ -2,7 +2,7 @@
 status: verifying
 trigger: "反复出现缺少文件、签名失败、GitHub 多账号身份错误，并要求把非秘密配置和依赖持久化、将重复签名授权收敛为一次确认"
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-08
 ---
 
 # Release environment and orchestration recurrence
@@ -17,11 +17,11 @@ updated: 2026-09-07
 
 ## Current Focus
 
-- hypothesis: 发布流程缺少仓库内唯一编排入口，导致执行任务重复发明临时 runner；beta.40 的直接失败由 closure 原始字节摘要与 canonical 摘要不一致造成。
-- test: 对 beta.40 本地不可变资产逐项复现 R5 target-proof，输出首个固定失败边界；比较 R4 临时脚本和 R5 校验器的摘要语义。
-- expecting: macOS 与 Windows 均在 capability closure 原始字节摘要绑定处失败，其他签名/成员检查尚未进入。
+- hypothesis: 正式 R4 虽已统一序列化和预检，却复用了无编号 R1 的基础版本构建；build ID 不包含发行显示版本，因此旧 `0.1.0` 编译身份可进入候选签名阶段。
+- test: 让正式 R4 在任何输出之前以固定 `AUTOED_RELEASE_VERSION` 重建，并对 version/commit/tree/build ID 做精确绑定；用回归测试拒绝基础版本或任一身份漂移。
+- expecting: 后续候选只能从携带精确 prerelease 版本的编译入口和清单组装；版本或身份漂移在写入/签名前以固定错误码停止。
 - next_action: 在修复提交上完成新的无编号 R0/R1；通过前不选择后续 beta。
-- reasoning_checkpoint: beta.40 已发布且唯一完整 verifier 已消耗；禁止重试、覆盖、删除或重新标记。
+- reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`；beta.41 已生成签名资产并按 `POST_ARTIFACT` 消耗。两者均禁止重试、重签、覆盖、删除或重新标记；beta.42 只能在新 R1 通过并获得明确授权后选择。
 
 ## Evidence
 
@@ -53,6 +53,10 @@ updated: 2026-09-07
   observation: 完整清单隔离后的 R1 在 focused 阶段返回旧的笼统 `COMMAND_REPORT_INVALID`；旧 runner 将非零测试退出和真正的输出解析失败压成同一码且不记录步骤。`two-build-upgrade` 随后独立 9/9 通过，真实 reporter 对固定输出 44/44 正确解析。runner 现将固定步骤名分别绑定到 `COMMAND_PROCESS_FAILED_*` 或 `COMMAND_REPORT_INVALID_*`，不输出原始内容。
 - timestamp: 2026-09-08
   observation: 两个受管 runtime 并发启动时，一个进程在 verifier 目录重展开期间观察到 source-map 暂时缺失，另一个通过；文件随后恢复。根因是认证缓存可复用后仍会重验并原地展开，但 bootstrap 没有跨进程写互斥。新增带随机 owner token、PID 存活检查、崩溃回收和固定超时的本地锁，串行化 verifier/Node 展开；它不保存秘密，也不放宽每次密码学验证。
+- timestamp: 2026-09-08
+  observation: fresh unnumbered R1 在 `eaef25d…` 完整通过；beta.41 R2/R3 通过并签出 16 个本地资产，但正式 R4 的预发布 R5 proof 在两个 updater manifest 上同时拒绝 `build.version=0.1.0`，期望值为 `0.1.0-beta.41`。Ed25519、closure、license、四组件 hash/URL、隔离 GitHub 身份和 keyring 均通过；远端没有 beta.41 tag/release/asset。
+- timestamp: 2026-09-08
+  observation: 正式 R4 现在在创建输出目录前调用唯一 build 脚本并固定传入所选 prerelease 版本，随后严格校验 version/commit/tree/build ID；组装器也独立重复该校验。回归测试 45/45、artifact assembly 9/9 和 managed typecheck 通过。
 
 ## Eliminated
 
@@ -63,7 +67,7 @@ updated: 2026-09-07
 
 ## Resolution
 
-- root_cause: R4 缺少仓库内单一编排入口，执行任务以临时脚本重建流程；该脚本对 closure 文件和摘要使用了两种 JSON 序列化。身份与签名检查也未集中在长耗时组装之前，因此默认账号和钥匙串提示被误判为反复出现的新故障。
-- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证；跨进程 owner lock 串行化原地展开，避免并发看到半写目录。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。每个步骤的非零退出和报告解析失败具有不同且固定的步骤级错误码。
-- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；五个 focused 文件独立 31/31 pass；managed typecheck pass；bootstrap 15/15（含并发串行化与崩溃 owner 回收）、ledger 4/4、release gate 44/44 pass；两个真实并发 bootstrap 均完成签名、指纹、归档和依赖检查，无半展开文件或 synthetic service 残留。完整新 R1 尚待最终修复提交后运行。
-- files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, .planning/debug/release-environment-orchestration.md]
+- root_cause: 第一层问题是 R4 曾缺少仓库内单一编排入口，临时脚本对 closure 文件和摘要使用了两种 JSON 序列化。统一入口后暴露第二层问题：正式 R4 直接复用了无编号 R1 的基础版本构建，而 build ID 不包含发行显示版本，导致 `0.1.0` 编译身份通过 commit/tree/build-ID 检查并进入 beta.41 签名资产。身份、依赖、签名与最终归档证明此前没有在同一入口的正确顺序上完整收口，因此不同失败被误判为账号、钥匙串或缺文件反复失效。
+- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。正式 R4 还必须在创建候选输出前用所选 `AUTOED_RELEASE_VERSION` 重建编译入口，严格绑定 version/commit/tree/build ID；组装器在每个平台再次拒绝任何基础版本或身份漂移。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证；跨进程 owner lock 串行化原地展开，避免并发看到半写目录。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。每个步骤的非零退出和报告解析失败具有不同且固定的步骤级错误码。
+- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；beta.41 两平台本地资产稳定复现唯一 build-version failure 且远端无变更；五个 focused 文件独立 31/31 pass；managed typecheck pass；bootstrap 15/15（含并发串行化与崩溃 owner 回收）、ledger 4/4、release gate 45/45、artifact assembly 9/9 pass；两个真实并发 bootstrap 均完成签名、指纹、归档和依赖检查，无半展开文件或 synthetic service 残留。完整新 R1 尚待最终修复提交后运行。
+- files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/build/assemble.mjs, scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, AGENTS.md, .planning/STATE.md, .planning/debug/release-environment-orchestration.md]

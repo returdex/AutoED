@@ -19,6 +19,7 @@ import {
 } from '../../scripts/release/phase2-gate.mjs';
 import {
   createPhase2CapabilityManifest,
+  verifyPhase2CandidateBuildIdentity,
   verifyPhase2CapabilityClosure,
   verifyPhase2SignedClosure,
 } from '../../scripts/build/assemble.mjs';
@@ -30,7 +31,7 @@ import {
 } from '../../scripts/release/preflight.mjs';
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
-import {phase2ClosureBytes} from '../../scripts/release/assemble-phase2.mjs';
+import {phase2ClosureBytes,preparePhase2CandidateBuild} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
@@ -39,6 +40,17 @@ import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 it('binds the capability closure digest to the exact canonical bytes placed in the public archive',()=>{
   const closure={z:1,a:{second:true,first:'value'}},bytes=phase2ClosureBytes(closure);
   expect(bytes.toString('utf8')).toBe(canonical(closure));expect(sha(bytes)).toBe(canonicalSha256(closure));expect(sha(Buffer.from(JSON.stringify(closure)))).not.toBe(canonicalSha256(closure));
+});
+
+it('rebuilds the selected prerelease identity before assembly and rejects a base-version build',()=>{
+  const selected=selection(),projectRoot=makeRoot();let invocation:any;
+  const runBuild=(program:string,args:readonly string[],options:any)=>{invocation={program,args,options};write(projectRoot,'build/identity.json',JSON.stringify({version:selected.version,commit:selected.commit,tree:selected.tree,buildId:selected.buildId}));};
+  expect(preparePhase2CandidateBuild(selected,{projectRoot,runBuild})).toMatchObject({version:selected.version,buildId:selected.buildId});
+  expect(invocation.program).toBe(process.execPath);expect(invocation.args).toEqual([join(projectRoot,'scripts/build/build.mjs')]);expect(invocation.options).toMatchObject({cwd:projectRoot,stdio:'pipe',timeout:120000});expect(invocation.options.env.AUTOED_RELEASE_VERSION).toBe(selected.version);
+  expect(verifyPhase2CandidateBuildIdentity(selected,{version:selected.version,commit:selected.commit,tree:selected.tree,buildId:selected.buildId})).toMatchObject({status:'pass',version:selected.version});
+  expect(()=>verifyPhase2CandidateBuildIdentity(selected,{version:'0.1.0',commit:selected.commit,tree:selected.tree,buildId:selected.buildId})).toThrow('PHASE2_UPDATER_BUILD_VERSION_MISMATCH');
+  expect(()=>verifyPhase2CandidateBuildIdentity(selected,{version:selected.version,commit:selected.commit,tree:selected.tree,buildId:hash('f')})).toThrow('PHASE2_UPDATER_BUILD_IDENTITY_MISMATCH');
+  expect(()=>preparePhase2CandidateBuild(selected,{projectRoot,runBuild:()=>write(projectRoot,'build/identity.json',JSON.stringify({version:'0.1.0',commit:selected.commit,tree:selected.tree,buildId:selected.buildId}))})).toThrow('PHASE2_UPDATER_BUILD_VERSION_MISMATCH');
 });
 
 it('isolates every historically slow focused file in its own bounded managed process',()=>{

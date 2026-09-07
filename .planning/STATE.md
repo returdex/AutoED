@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: R0 repair after beta.40 POST_PUBLIC target-proof failure; durable R4/environment correction implemented, fresh unnumbered R1 pending
-last_updated: "2026-09-07T13:00:00+10:00"
-last_activity: 2026-09-07
+stopped_at: R0 repair after beta.41 POST_ARTIFACT candidate-version failure; fresh unnumbered R1 pending
+last_updated: "2026-09-08T04:30:00+10:00"
+last_activity: 2026-09-08
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.40 as immutable invalidated history. Beta.40 completed R2–R4 and was published once, then its one permitted full verifier failed at `target-proof/macos/archive_or_signature` with no availability receipt. Local diagnosis proved both target archives contain closure bytes whose raw digest differs from the canonical-object digest bound by the temporary R4 script. A durable R4/environment correction is implemented and awaiting a fresh exact-source unnumbered R1. `active update candidate: none`; no later beta is selected or authorized. All update/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.41 as immutable invalidated history. Beta.41 used a fresh R1 and passed R2/R3, but its locally signed R4 assets failed the mandatory pre-publication proof because both updater manifests carried base build version `0.1.0` instead of selected version `0.1.0-beta.41`. No beta.41 tag, release or public asset exists; it is permanently consumed as `POST_ARTIFACT`. The R0 correction rebuilds the exact selected version before packaging and rejects every version/identity mismatch. `active update candidate: none`; a fresh unnumbered R1 is pending and no later beta is selected or authorized. All update/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.40 R5, which failed its single anonymous full verifier at target proof; release-tool repair is in R0 with fresh unnumbered R1 pending; 19 of 41 have completion summaries
-Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.40 is `POST_PUBLIC` with no availability receipt. `active update candidate: none`; no later beta may be selected until a fresh unnumbered R0/R1 passes.
-Last activity: 2026-09-07 - Proved beta.40 closure byte/digest mismatch, added durable environment and R4 orchestration with pre-publication R5-equivalent target proof, and confirmed current managed runtime, isolated GitHub identity and keyring selfcheck pass
+Plan: Post-02-14 release stabilization reached beta.41 R4, which failed its local pre-publication target proof; candidate-version repair is in R0 with fresh unnumbered R1 pending; 19 of 41 have completion summaries
+Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.41 is immutable unpublished `POST_ARTIFACT` history. `active update candidate: none`; no later beta may be selected until a fresh unnumbered R0/R1 passes.
+Last activity: 2026-09-08 - Consumed beta.41 before publication on exact updater build-version mismatch and added fail-closed selected-version rebuild/identity verification to the sole R4 command
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31, beta.37, beta.38 and beta.39 are immutable invalidated history; beta.39 is `POST_PUBLIC` with no availability receipt and `active update candidate: none`.
+- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31–beta.41 invalidation history is preserved; beta.41 is `POST_ARTIFACT`, unpublished, and `active update candidate: none`.
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.31, beta.37, beta.38 and beta.39 are immutable invalidated history, beta.39 is `POST_PUBLIC` with no availability receipt, beta.32–beta.36 are unpublished-consumed, and `active update candidate: none`; live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.31–beta.41 invalidation history is preserved, beta.41 is unpublished `POST_ARTIFACT`, and `active update candidate: none`; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.39 `POST_PUBLIC` invalidated without an availability receipt, with no active update candidate
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.41 `POST_ARTIFACT` invalidated before publication, with no active update candidate
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -130,6 +130,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.39 is permanently invalidated `POST_PUBLIC` history with no availability receipt. Its then-required next step was a fresh unnumbered R0/R1 before beta.40; beta.40 later proceeded and is separately recorded below. 01-14 and Windows remained `not_run / human_needed`, real L evidence pending, and 02-15/Phase 3 blocked.
 - [Release]: The fresh unnumbered R0/R1 recurrence at `6c2adad` stopped `PRE_RUNNER`. Bounded diagnosis proved contradictory synthetic-process argv/root parsers; `3968624` fixes both while preserving strict ownership and cleanup, and managed typecheck, unit 3/3 plus one observable integration batch 8 files/109 tests pass. The exact full integration observer still produced no final totals within 75 seconds, so no complete R1 pass, beta selection/consumption or attestation exists. — Identify the slow or blocked integration boundary and then run a complete fresh R0/R1; all Windows/live/02-15/Phase 3 gates remain blocked.
 - [Release]: beta.40 completed R2–R4 and was published once with 16 immutable assets, but its one permitted full anonymous verifier failed at `target-proof/macos/archive_or_signature` and wrote no availability receipt. Both local target archives reproduce the same raw closure-digest failure: a temporary R4 script wrote ordinary JSON bytes but signed the canonical-object digest. — Classify beta.40 as `POST_PUBLIC`, preserve it permanently, replace ad-hoc R4 with a repository-owned command that performs the exact R5 proof before publication, and return to a fresh unnumbered R0/R1 before any later candidate.
+- [Release]: The corrective unnumbered R1 passed at `eaef25d…` with build `eff9ff2b…`; beta.41 then passed R2/R3 and produced 16 signed local assets, but the pre-publication target proof rejected both updater manifests because `build.version` remained `0.1.0` rather than `0.1.0-beta.41`. No remote mutation occurred. — Classify beta.41 as immutable `POST_ARTIFACT`, retire its active selection/report, rebuild the selected prerelease identity inside the sole R4 entrypoint, and require a fresh unnumbered R1 before beta.42.
 
 ### Pending Todos
 
@@ -181,8 +182,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-05T20:00:45+10:00
-Stopped at: R0 repair after beta.40 `POST_PUBLIC` target-proof failure; durable R4/environment correction implemented, `active update candidate: none`, fresh unnumbered R1 pending
+Last session: 2026-09-08T04:30:00+10:00
+Stopped at: R0 repair after beta.41 `POST_ARTIFACT` candidate-version failure; `active update candidate: none`, fresh unnumbered R1 pending
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.40 `POST_PUBLIC` failures are recorded by their immutable invalidation documents. Beta.37 through beta.40 are immutable published-but-invalidated history; beta.40 has no availability receipt, `active update candidate: none`, no later candidate or human update prompt is authorized.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.40 `POST_PUBLIC` failures and beta.41 `POST_ARTIFACT` failure are recorded by immutable invalidation documents. `active update candidate: none`; no later candidate or human update prompt is authorized before the fresh R1 passes.
