@@ -84,7 +84,7 @@ export async function verifyPhase2Availability({release,publication:publicationI
   }catch(error){if(error?.phase2Safe)throw error;throw phase2Failure('finalize','release','unexpected');}finally{if(temporary)rmSync(temporary,{recursive:true,force:true});}
 }
 
-function phase2ArchiveProof(platform,downloaded,release){
+export function phase2ArchiveProof(platform,downloaded,release){
   try{
     const target=release.targets[platform],bytes=downloaded.get(target.name);if(!bytes)throw new Error();
     const entries=(release.targets[platform].name.endsWith('.zip')?zipEntries(bytes):tarEntries(bytes,512*1024*1024)).filter(entry=>entry.kind!=='directory'),byPath=new Map();for(const entry of entries){if(entry.kind!=='file'||byPath.has(entry.path)||entry.path.startsWith('/')||entry.path.split('/').some(part=>part==='..'||part==='.'||!part))throw new Error();byPath.set(entry.path,entry.read());}

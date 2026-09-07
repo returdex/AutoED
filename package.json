@@ -12,7 +12,9 @@
     "test:native": "vitest --project native",
     "test:ui": "playwright test",
     "build": "node scripts/build/build.mjs",
-    "check:bootstrap": "node scripts/dev/runtime.mjs --check"
+    "check:bootstrap": "node scripts/dev/runtime.mjs --check",
+    "release:environment": "node scripts/dev/runtime.mjs node scripts/release/release-environment.mjs",
+    "release:assemble-phase2": "node scripts/dev/runtime.mjs node scripts/release/assemble-phase2.mjs"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

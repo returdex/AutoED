@@ -8,6 +8,7 @@ import {
   PHASE2_BUILD_OBLIGATIONS,
   PHASE2_CAPABILITIES,
   PHASE2_RELEASE_MEMBERS,
+  canonical,
   canonicalSha256,
   phase2VersionSetSha256,
   renderPhase2InstallPromptCore,
@@ -29,10 +30,16 @@ import {
 } from '../../scripts/release/preflight.mjs';
 import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/release/publish.mjs';
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
+import {phase2ClosureBytes} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 import {createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
+
+it('binds the capability closure digest to the exact canonical bytes placed in the public archive',()=>{
+  const closure={z:1,a:{second:true,first:'value'}},bytes=phase2ClosureBytes(closure);
+  expect(bytes.toString('utf8')).toBe(canonical(closure));expect(sha(bytes)).toBe(canonicalSha256(closure));expect(sha(Buffer.from(JSON.stringify(closure)))).not.toBe(canonicalSha256(closure));
+});
 
 const roots:string[]=[];
 afterEach(()=>{for(const root of roots.splice(0))rmSync(root,{recursive:true,force:true});});
