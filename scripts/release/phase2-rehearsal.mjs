@@ -66,9 +66,9 @@ const PHASE2_REHEARSAL_ORDER=Object.freeze(['runtime','freeze','build','focused'
 const PUBLICATION_FIXTURE=Object.freeze({version:'0.1.0-beta.32',tag:'v0.1.0-beta.32',kind:'invalidated_historical_contract_fixture'});
 const PUBLICATION_CONTRACT_IDS=Object.freeze(['historical_noncandidate','actual_two_by_eight','absent_422_exact','public_consumed_monotonic','metadata_exact','sixteen_heads','verifier_once','no_side_effect','no_fixture_leak']);
 const PUBLICATION_FORBIDDEN=/\b(?:gh|curl|wget|fetch|publish|push|tag|remote\s+add)\b/i;
-const FIXED_COMMANDS=Object.freeze({
+export const FIXED_COMMANDS=Object.freeze({
   focused:{ceiling:1200,steps:Object.freeze([
-    Object.freeze({name:'process-lifecycle',runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run','tests/integration/process-lifecycle.test.ts','tests/integration/managed-cleanup.test.ts','tests/integration/two-build-upgrade.test.ts','tests/integration/upgrade-journal.test.ts','tests/integration/upgrade-recovery.test.ts'])}),
+    ...['process-lifecycle','managed-cleanup','two-build-upgrade','upgrade-journal','upgrade-recovery'].map(name=>Object.freeze({name,runner:'vitest',args:Object.freeze(['npm','run','test:integration','--','--run',`tests/integration/${name}.test.ts`])})),
     Object.freeze({name:'historical-process-ledger',runner:'vitest',args:Object.freeze(['npm','run','test:unit','--','--run','tests/unit/process-ledger.test.ts'])}),
   ])},
   typecheck:{ceiling:120,steps:Object.freeze([Object.freeze({name:'typecheck',runner:'rc',args:Object.freeze(['npm','run','typecheck'])})])},

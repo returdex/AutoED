@@ -39,6 +39,10 @@ updated: 2026-09-07
   observation: 受管 Node 24.20.0、固定依赖、隔离 GitHub login `returdex`、repo-local Git 身份/remote 和 OS-keyring 签名 challenge 均通过前置自检；`.runtime/release-environment.json` 以 0600 权限保存非秘密坐标与依赖摘要。
 - timestamp: 2026-09-07
   observation: 新回归证明 capability closure 的归档字节等于 canonical serialization，且其原始 SHA-256 等于清单绑定摘要；focused release-gates 41/41 与 managed typecheck 通过。
+- timestamp: 2026-09-07
+  observation: 修复提交后的首个 R1 在旧 focused 五文件单进程步骤达到 1200 秒上限并正确返回 `PRE_RUNNER/COMMAND_TIMEOUT`；无进程或临时根残留。
+- timestamp: 2026-09-07
+  observation: 五个 focused integration 文件独立运行全部通过：1/1（21s）、7/7（235s）、9/9（201s）、6/6（50s）、8/8（527s）。总计 31/31；证明超时来自单 Vitest 进程内的组合资源/观察边界，而非断言失败。
 
 ## Eliminated
 
@@ -50,6 +54,6 @@ updated: 2026-09-07
 ## Resolution
 
 - root_cause: R4 缺少仓库内单一编排入口，执行任务以临时脚本重建流程；该脚本对 closure 文件和摘要使用了两种 JSON 序列化。身份与签名检查也未集中在长耗时组装之前，因此默认账号和钥匙串提示被误判为反复出现的新故障。
-- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。
-- verification: 当前环境 preflight pass；keyring selfcheck pass；beta.40 两平台旧归档均稳定复现同一预期失败；managed typecheck pass；focused release gate 41/41 pass。完整新 R1 尚待修复提交后运行。
-- files_changed: [scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, tests/integration/phase2-release-gates.test.ts, package.json, .planning/debug/release-environment-orchestration.md]
+- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。R1 focused 组保留相同测试集合，但把五个高成本 integration 文件拆为五个独立受管进程及各自 1200 秒硬上限，避免单 Vitest worker 累积并提供精确文件边界。
+- verification: 当前环境 preflight pass；keyring selfcheck pass；beta.40 两平台旧归档均稳定复现同一预期失败；五个 focused 文件独立 31/31 pass；managed typecheck pass；focused release gate 42/42 pass。完整新 R1 尚待 runner 修复提交后运行。
+- files_changed: [scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, package.json, .planning/debug/release-environment-orchestration.md]
