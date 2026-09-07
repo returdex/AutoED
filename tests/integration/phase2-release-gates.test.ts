@@ -32,7 +32,7 @@ import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/rel
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {phase2ClosureBytes} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
@@ -48,6 +48,10 @@ it('isolates every historically slow focused file in its own bounded managed pro
 it('isolates the complete integration inventory without omitting a test file',()=>{
   const observed=readdirSync(join(process.cwd(),'tests/integration')).filter(name=>name.endsWith('.test.ts')).sort().map(name=>`tests/integration/${name}`);
   expect(INTEGRATION_TEST_FILES).toEqual(observed);expect(FIXED_COMMANDS.integration.ceiling).toBe(1200);expect(FIXED_COMMANDS.integration.steps).toHaveLength(observed.length);expect(FIXED_COMMANDS.integration.steps.map(step=>step.args.at(-1))).toEqual(observed);
+});
+
+it('reports a fixed failing step without exposing raw child output',()=>{
+  expect(phase2StepFailureCode('COMMAND_PROCESS_FAILED','upgrade-recovery')).toBe('COMMAND_PROCESS_FAILED_UPGRADE_RECOVERY');expect(phase2StepFailureCode('COMMAND_REPORT_INVALID','integration-phase2-release-gates')).toBe('COMMAND_REPORT_INVALID_INTEGRATION_PHASE2_RELEASE_GATES');expect(()=>phase2StepFailureCode('COMMAND_PROCESS_FAILED','../../outside')).toThrow('COMMAND_ID_INVALID');
 });
 
 const roots:string[]=[];

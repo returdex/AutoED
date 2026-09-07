@@ -4,14 +4,30 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
 import { spawnSync } from 'node:child_process';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, acquireBootstrapLock, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
   it('reuses a regular local artifact without a network fetch', async () => {
     const root=mkdtempSync(join(tmpdir(),'autoed-runtime-cache-')),path=join(root,'artifact');writeFileSync(path,'verified-cache');let fetched=0;
     try{await expect(cachedArtifact(path,async()=>{fetched++;return Buffer.from('network');})).resolves.toEqual(Buffer.from('verified-cache'));expect(fetched).toBe(0);}finally{rmSync(root,{recursive:true,force:true});}
+  });
+  it('serializes concurrent managed bootstrap writers and releases ownership', async () => {
+    const root=mkdtempSync(join(tmpdir(),'autoed-runtime-lock-')),lockPath=join(root,'bootstrap.lock');let secondAcquired=false;
+    try {
+      const releaseFirst=await acquireBootstrapLock({lockPath,timeoutMs:1_000,retryMs:5});
+      const second=acquireBootstrapLock({lockPath,timeoutMs:1_000,retryMs:5}).then(release=>{secondAcquired=true;return release;});
+      await delay(25);expect(secondAcquired).toBe(false);releaseFirst();const releaseSecond=await second;expect(secondAcquired).toBe(true);releaseSecond();expect(existsSync(lockPath)).toBe(false);
+    } finally {rmSync(root,{recursive:true,force:true});}
+  });
+  it('reclaims a bootstrap lock whose recorded owner exited', async () => {
+    const root=mkdtempSync(join(tmpdir(),'autoed-runtime-stale-lock-')),lockPath=join(root,'bootstrap.lock');
+    try {
+      writeFileSync(lockPath,JSON.stringify({schema:1,pid:2_147_483_647,token:'stale',startedAt:'2026-01-01T00:00:00.000Z'}));
+      const release=await acquireBootstrapLock({lockPath,timeoutMs:1_000,retryMs:5});release();expect(existsSync(lockPath)).toBe(false);
+    } finally {rmSync(root,{recursive:true,force:true});}
   });
   it('runs actual Node 24 and exact installed dependencies', () => {
     expect(process.version).toBe('v24.20.0');

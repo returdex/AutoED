@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, lstatSync, readdirSync, realpathSync, statSync, unlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve, relative, isAbsolute, delimiter, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -98,7 +98,63 @@ function safeDirectory(path) {
   }
 }
 
-export async function loadVerifier() {
+function processIsAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return error?.code === 'EPERM'; }
+}
+
+const wait = milliseconds => new Promise(resolveWait => setTimeout(resolveWait, milliseconds));
+
+export async function acquireBootstrapLock({
+  lockPath = join(TOOLCHAIN, '.bootstrap.lock'),
+  timeoutMs = 180_000,
+  retryMs = 100,
+  staleMs = 15 * 60_000,
+} = {}) {
+  const token = randomUUID();
+  const startedAt = new Date().toISOString();
+  const deadline = Date.now() + timeoutMs;
+  while (true) {
+    let descriptor;
+    try {
+      assertRegularFile(lockPath);
+      descriptor = openSync(lockPath, 'wx', 0o600);
+      writeFileSync(descriptor, JSON.stringify({ schema: 1, pid: process.pid, token, startedAt }));
+      closeSync(descriptor); descriptor = undefined;
+      return () => {
+        try {
+          const current = JSON.parse(readFileSync(lockPath, 'utf8'));
+          if (current?.token === token && current?.pid === process.pid) unlinkSync(lockPath);
+        } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+      };
+    } catch (error) {
+      if (descriptor !== undefined) { try { closeSync(descriptor); } catch {} }
+      if (error?.code !== 'EEXIST') {
+        try {
+          const current = JSON.parse(readFileSync(lockPath, 'utf8'));
+          if (current?.token === token && current?.pid === process.pid) unlinkSync(lockPath);
+        } catch {}
+        throw error;
+      }
+    }
+    let reclaim = false;
+    try {
+      const metadata = JSON.parse(readFileSync(lockPath, 'utf8'));
+      reclaim = metadata?.schema === 1 && !processIsAlive(metadata.pid);
+    } catch {
+      try { reclaim = Date.now() - statSync(lockPath).mtimeMs > staleMs; } catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
+    }
+    if (reclaim) {
+      try { unlinkSync(lockPath); } catch (error) { if (error?.code !== 'ENOENT') throw error; }
+      continue;
+    }
+    if (Date.now() >= deadline) throw new Error('Managed bootstrap lock timeout');
+    await wait(retryMs);
+  }
+}
+
+async function loadVerifierUnlocked() {
   const verifier = join(TOOLCHAIN, 'verifier');
   safeDirectory(verifier);
   const tarball = join(verifier, 'openpgp-6.3.1.tgz');
@@ -115,6 +171,13 @@ export async function loadVerifier() {
     throw new Error('Unexpected verifier package');
   }
   return import(pathToFileURL(join(verifier, 'package/dist/node/openpgp.mjs')).href);
+}
+
+export async function loadVerifier() {
+  safeDirectory(TOOLCHAIN);
+  const releaseLock = await acquireBootstrapLock();
+  try { return await loadVerifierUnlocked(); }
+  finally { releaseLock(); }
 }
 
 export async function verifySignedChecksums(openpgp, checksums, signatureBytes, armoredKeys, fingerprints = RELEASE_FINGERPRINTS) {
@@ -152,29 +215,32 @@ export async function bootstrap() {
   const node = join(nodeRoot, platform.startsWith('win') ? 'node.exe' : 'bin/node');
   console.error(`Scoped bootstrap: .runtime/dev-toolchain; Node ${NODE_VERSION} ${platform}; isolated openpgp 6.3.1; no global changes`);
   safeDirectory(TOOLCHAIN);
-  const openpgp = await loadVerifier();
-  const checksumPath = join(TOOLCHAIN, 'SHASUMS256.txt');
-  const signaturePath = join(TOOLCHAIN, 'SHASUMS256.txt.sig');
-  const checksums = await cachedArtifact(checksumPath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt`, checksumPath, 100_000));
-  const signature = await cachedArtifact(signaturePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt.sig`, signaturePath, 100_000));
-  const keys = [];
-  for (const fingerprint of RELEASE_FINGERPRINTS) {
-    const keyPath = join(TOOLCHAIN, `${fingerprint}.asc`);
-    const bytes = await cachedArtifact(keyPath, () => download(`https://raw.githubusercontent.com/nodejs/release-keys/${KEY_REVISION}/keys/${fingerprint}.asc`, keyPath, 100_000));
-    keys.push(bytes.toString('utf8'));
-  }
-  const signer = await verifySignedChecksums(openpgp, checksums, signature, keys);
-  const archivePath = join(TOOLCHAIN, filename);
-  assertRegularFile(archivePath);
-  const archive = await cachedArtifact(archivePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/${filename}`, archivePath));
-  verifyArchive(checksums, filename, archive);
-  assertExtractionTree(nodeRoot, true);
-  // Re-extract authenticated bytes even on reuse; a cached node executable is not trusted.
-  run('tar', [platform.startsWith('win') ? '-xf' : '-xzf', archivePath, '-C', TOOLCHAIN]);
-  run(node, ['--version']);
-  assertRegularFile(join(TOOLCHAIN, 'verification.json'));
-  writeFileSync(join(TOOLCHAIN, 'verification.json'), JSON.stringify({ node: NODE_VERSION, platform, signer, archiveHash: sha256(archive), verifiedAt: new Date().toISOString() }, null, 2));
-  return { node, nodeRoot };
+  const releaseLock = await acquireBootstrapLock();
+  try {
+    const openpgp = await loadVerifierUnlocked();
+    const checksumPath = join(TOOLCHAIN, 'SHASUMS256.txt');
+    const signaturePath = join(TOOLCHAIN, 'SHASUMS256.txt.sig');
+    const checksums = await cachedArtifact(checksumPath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt`, checksumPath, 100_000));
+    const signature = await cachedArtifact(signaturePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt.sig`, signaturePath, 100_000));
+    const keys = [];
+    for (const fingerprint of RELEASE_FINGERPRINTS) {
+      const keyPath = join(TOOLCHAIN, `${fingerprint}.asc`);
+      const bytes = await cachedArtifact(keyPath, () => download(`https://raw.githubusercontent.com/nodejs/release-keys/${KEY_REVISION}/keys/${fingerprint}.asc`, keyPath, 100_000));
+      keys.push(bytes.toString('utf8'));
+    }
+    const signer = await verifySignedChecksums(openpgp, checksums, signature, keys);
+    const archivePath = join(TOOLCHAIN, filename);
+    assertRegularFile(archivePath);
+    const archive = await cachedArtifact(archivePath, () => download(`https://nodejs.org/dist/v${NODE_VERSION}/${filename}`, archivePath));
+    verifyArchive(checksums, filename, archive);
+    assertExtractionTree(nodeRoot, true);
+    // Re-extract authenticated bytes even on reuse; a cached node executable is not trusted.
+    run('tar', [platform.startsWith('win') ? '-xf' : '-xzf', archivePath, '-C', TOOLCHAIN]);
+    run(node, ['--version']);
+    assertRegularFile(join(TOOLCHAIN, 'verification.json'));
+    writeFileSync(join(TOOLCHAIN, 'verification.json'), JSON.stringify({ node: NODE_VERSION, platform, signer, archiveHash: sha256(archive), verifiedAt: new Date().toISOString() }, null, 2));
+    return { node, nodeRoot };
+  } finally { releaseLock(); }
 }
 
 export function checkPackage() {

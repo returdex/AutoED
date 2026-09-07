@@ -49,6 +49,10 @@ updated: 2026-09-07
   observation: 受管 runtime 每次 invocation 都重新下载 Node checksum、签名和九个 release keys；一次网络瞬断产生裸 `fetch failed`，即使全部经过签名验证的缓存已存在。修复后缓存存在时只读本地字节并继续做完整签名/fingerprint/archive 验证，缺失时才下载。
 - timestamp: 2026-09-07
   observation: 完整 integration 超时后留下两个 owner 已退出的 native-fixture API/Worker。其 compiled entrypoint、synthetic root、installation metadata、runtime receipts 与 build identity 均一致，但 ledger 仅认可 installed-program 布局，因而无法回收。新增双布局严格校验后，setup 安全终止这两个精确 PID，随后 ledger 4/4、bootstrap 13/13、release gates 43/43 通过且无 synthetic service 残留。
+- timestamp: 2026-09-08
+  observation: 完整清单隔离后的 R1 在 focused 阶段返回旧的笼统 `COMMAND_REPORT_INVALID`；旧 runner 将非零测试退出和真正的输出解析失败压成同一码且不记录步骤。`two-build-upgrade` 随后独立 9/9 通过，真实 reporter 对固定输出 44/44 正确解析。runner 现将固定步骤名分别绑定到 `COMMAND_PROCESS_FAILED_*` 或 `COMMAND_REPORT_INVALID_*`，不输出原始内容。
+- timestamp: 2026-09-08
+  observation: 两个受管 runtime 并发启动时，一个进程在 verifier 目录重展开期间观察到 source-map 暂时缺失，另一个通过；文件随后恢复。根因是认证缓存可复用后仍会重验并原地展开，但 bootstrap 没有跨进程写互斥。新增带随机 owner token、PID 存活检查、崩溃回收和固定超时的本地锁，串行化 verifier/Node 展开；它不保存秘密，也不放宽每次密码学验证。
 
 ## Eliminated
 
@@ -60,6 +64,6 @@ updated: 2026-09-07
 ## Resolution
 
 - root_cause: R4 缺少仓库内单一编排入口，执行任务以临时脚本重建流程；该脚本对 closure 文件和摘要使用了两种 JSON 序列化。身份与签名检查也未集中在长耗时组装之前，因此默认账号和钥匙串提示被误判为反复出现的新故障。
-- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。
-- verification: 当前环境 preflight pass（24 项本地依赖）；keyring selfcheck pass；beta.40 两平台旧归档均稳定复现同一预期失败；五个 focused 文件独立 31/31 pass；managed typecheck pass；bootstrap 13/13、ledger 4/4、release gate 43/43 pass，无 synthetic service 残留。完整新 R1 尚待最终修复提交后运行。
+- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证；跨进程 owner lock 串行化原地展开，避免并发看到半写目录。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。每个步骤的非零退出和报告解析失败具有不同且固定的步骤级错误码。
+- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；五个 focused 文件独立 31/31 pass；managed typecheck pass；bootstrap 15/15（含并发串行化与崩溃 owner 回收）、ledger 4/4、release gate 44/44 pass；两个真实并发 bootstrap 均完成签名、指纹、归档和依赖检查，无半展开文件或 synthetic service 残留。完整新 R1 尚待最终修复提交后运行。
 - files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, .planning/debug/release-environment-orchestration.md]
