@@ -4,6 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {closeSync,existsSync,fsyncSync,linkSync,openSync,readFileSync,unlinkSync,writeFileSync} from 'node:fs';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {runtimeGitTool} from '../dev/runtime.mjs';
 
 const SCRIPT_PATH=fileURLToPath(import.meta.url);
 const REPO_ROOT=resolve(dirname(SCRIPT_PATH),'../..');
@@ -180,7 +181,7 @@ function atomicNoReplace(path,value){const temporary=join(dirname(path),`.phase2
 async function main(){
   const args=process.argv.slice(2);let result;
   if(args.length===5&&args[0]==='--write-selection'&&args[1]==='--input'&&args[3]==='--out'){
-    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs'),{hashBuildInputs}=await import('../dev/runtime.mjs');readPhase2RehearsalBinding(value);verifySelectionCheckout(value,{commit:execFileSync('git',['rev-parse','HEAD'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),tree:execFileSync('git',['rev-parse','HEAD^{tree}'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),sourceSha256:hashBuildInputs(REPO_ROOT)});}atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
+    const value=validateBuildSelection(readJson(resolve(args[2]))),target=fixedOutput(args[4],'release/phase2-build-selection.json');if(Number(value.version.split('.').at(-1))>31){const {readPhase2RehearsalBinding}=await import('./phase2-rehearsal.mjs'),{hashBuildInputs}=await import('../dev/runtime.mjs'),gitTool=runtimeGitTool();readPhase2RehearsalBinding(value);verifySelectionCheckout(value,{commit:execFileSync(gitTool,['rev-parse','HEAD'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),tree:execFileSync(gitTool,['rev-parse','HEAD^{tree}'],{cwd:REPO_ROOT,encoding:'utf8'}).trim(),sourceSha256:hashBuildInputs(REPO_ROOT)});}atomicNoReplace(target,value);result={status:'selected',version:value.version,buildId:value.buildId,selectionSha256:canonicalSha256(value)};
   }else if(args.length===7&&args[0]==='--write-report'&&args[1]==='--selection'&&args[3]==='--input'&&args[5]==='--out'){
     if(resolve(args[2])!==join(REPO_ROOT,'release/phase2-build-selection.json'))fail('PHASE2_GATE_ARGUMENT_INVALID');const selection=validateBuildSelection(readJson(resolve(args[2]))),value=validatePhase2TestReport(readJson(resolve(args[4])),selection),target=fixedOutput(args[6],'release/phase2-test-report.json');atomicNoReplace(target,value);result={status:'pass',version:value.version,buildId:value.buildId,testReportSha256:canonicalSha256(value)};
   }else if(args.length===3&&args[0]==='--validate-selection'&&args[2]==='--read-only'){

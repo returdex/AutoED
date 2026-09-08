@@ -17,9 +17,9 @@ updated: 2026-09-08
 
 ## Current Focus
 
-- hypothesis: 受管 runtime 在已验证缓存每次重验时仍以裸 `tar` 依赖调用 shell PATH；长测试批次后的一次 OS/name-resolution spawn 不稳定可在正式 R4 bootstrap 前造成伪“缺文件”失败。
-- test: 将平台 archive tool 解析为经过文件检查的绝对路径，macOS 固定 `/usr/bin/tar`，并把非秘密坐标持久化进 release environment；回归拒绝 Windows 缺失/相对 SystemRoot 与源码中的裸 `run('tar')`。
-- expecting: 受管 bootstrap 不再依赖调用 shell 的 PATH 查找 archive tool；缺失时固定 fail closed，存在时始终调用同一绝对系统工具。
+- hypothesis: R1 detached observer 仅以 `kill(-pgid,0)` 判断存在，把 live、zombie-only 与非 `ESRCH` 观察错误压成同一码；发行关键路径仍有裸 `git`/`gh`，所以 PATH 波动会继续伪装成缺文件、账号或签名问题。
+- test: 用固定 `/bin/ps` 对信号探测为“存在”的组做 PID-free 状态 census，分别返回 live/zombie-only/unknown；把具体 fixed step 附到 runner 错误，并将 tar/git/gh/ps 绝对路径及版本写入 0600 release environment。源码回归拒绝 release/build 脚本的裸外部命令。
+- expecting: zombie-only 不再阻塞 R1，观察失败与真正 live descendant 使用不同错误码且带精确步骤；所有发行关键工具绕过 shell PATH，账号仍仅由隔离 GH config 决定。
 - next_action: 在修复提交上完成新的无编号 R0/R1；通过前不选择后续 beta。
 - reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`，beta.41 保持 `POST_ARTIFACT`，beta.42 因 recurrent/ambiguous `POST_TRANSIENT` 永久消耗。三者均禁止重试、重签、覆盖、删除或重新标记；beta.43 只能在新 R1 通过并获得明确授权后选择。
 
@@ -61,6 +61,12 @@ updated: 2026-09-08
   observation: `ce6c38c…` 的 fresh R1 完整通过，beta.42 R2/R3 也通过；首次正式 R4 却在任何候选 build/sign/asset 前返回 `Subprocess failed (spawn): tar`。两次紧随其后的 managed bootstrap selfcheck 通过，但同一诊断 shell 随后不能按名解析 `git`；无法满足单次、确定、非复发瞬态证明，beta.42 未发布即永久失效。
 - timestamp: 2026-09-08
   observation: 受管 runtime 的两个认证归档解包点此前都调用裸 `tar`。纠正后通过平台函数验证绝对 archive tool，macOS 固定 `/usr/bin/tar`，release environment 将该非秘密坐标写入 0600 本地配置；缺失或不安全路径固定拒绝。
+- timestamp: 2026-09-08
+  observation: archive-tool 修复提交 `40abd99…` 上的首个 fresh R1 越过 focused recovery，进入完整 integration 后在首个 `artifact-assembly` 文件关闭边界返回 `PRE_RUNNER / PROCESS_GROUP_REMAINS`。失败后无相关进程残留；一次带 PID/state census 的完整复现和随后两次完整聚焦复现均 9/9 pass。
+- timestamp: 2026-09-08
+  observation: 旧 `pgidExists` 对任何非 `ESRCH` 信号探测错误返回 null，但最终用 `!== false` 将 null 和 true 都标成 remains；它也不能识别 zombie-only group，且 `runFixedCommand` 不附 step。纠正后 release gate 46/46 覆盖 live/zombie/absent/observer-failure，bootstrap 17/17 覆盖固定工具及裸命令源码扫描，managed typecheck 与 build 均通过。
+- timestamp: 2026-09-08
+  observation: 0600 `.runtime/release-environment.json` 现固定记录 `/usr/bin/tar`、`/usr/bin/git`、Git 版本、解析后的 GitHub CLI 版本路径/版本及 `/bin/ps`；环境 preflight 仍为 24 dependencies、returdex isolated identity、keyring pass。Git credential helper 的固定绝对 GitHub CLI 路径已只读解析通过。
 
 ## Eliminated
 
@@ -71,7 +77,7 @@ updated: 2026-09-08
 
 ## Resolution
 
-- root_cause: 第一层问题是 R4 曾缺少仓库内单一编排入口，临时脚本对 closure 文件和摘要使用了两种 JSON 序列化。统一入口后暴露第二层问题：正式 R4 直接复用了无编号 R1 的基础版本构建，而 build ID 不包含发行显示版本，导致 `0.1.0` 编译身份通过 commit/tree/build-ID 检查并进入 beta.41 签名资产。身份、依赖、签名与最终归档证明此前没有在同一入口的正确顺序上完整收口，因此不同失败被误判为账号、钥匙串或缺文件反复失效。
-- fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。正式 R4 还必须在创建候选输出前用所选 `AUTOED_RELEASE_VERSION` 重建编译入口，严格绑定 version/commit/tree/build ID；组装器在每个平台再次拒绝任何基础版本或身份漂移。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证；跨进程 owner lock 串行化原地展开，避免并发看到半写目录。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。每个步骤的非零退出和报告解析失败具有不同且固定的步骤级错误码。
-- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；beta.41 两平台本地资产稳定复现唯一 build-version failure 且远端无变更；beta.42 在 R4 build/sign/asset 前停止且远端/签名资产均不存在。archive-tool 修复后 bootstrap unit 16/16、managed typecheck、连续两次 bootstrap selfcheck 和完整嵌套 `release:environment` 均通过；0600 本地配置已记录 `/usr/bin/tar`。release gate 45/45、artifact assembly 9/9 先前通过。完整新 R1 尚待最终修复提交后运行。
-- files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/build/assemble.mjs, scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, AGENTS.md, .planning/STATE.md, .planning/debug/release-environment-orchestration.md]
+- root_cause: 第一层问题是 R4 曾缺少仓库内单一编排入口，临时脚本对 closure 文件和摘要使用了两种 JSON 序列化。统一入口后暴露第二层问题：正式 R4 复用了无编号 R1 的基础版本构建，导致 beta.41 版本身份错误。第三层环境问题是 release-critical 子进程仍分散依赖 PATH，且 R1 只用 `kill(-pgid,0)` 观察进程组，把 zombie-only、观察错误和真正 live descendant 合并成同一失败，又不记录步骤。这些边界没有在一个固定入口、固定工具集合和可诊断状态模型中收口，因此看似无关的账号、签名、缺文件与清理问题会反复重新调查。
+- fix: 保留 `release:environment` 和 `release:assemble-phase2` 固定入口、canonical closure bytes、selected-version rebuild、R5-equivalent prepublication proof、keyring challenge、隔离 GitHub 配置和 bootstrap owner lock。新增统一的绝对可执行文件解析：发行关键脚本仅调用验证过的 tar/git/gh/ps，Git credential helper 也绑定同一绝对 gh；非秘密路径、版本、依赖摘要写入 gitignored 0600 `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置。R1 进程观察对信号存在结果再执行固定 `/bin/ps` census，把 zombie-only 当作无活进程，把 observer failure 与 live remains 分开，并把具体 fixed step 附到错误码。逐文件 integration、固定超时、严格 owner ledger、签名/fingerprint/archive 验证与零 skip/todo 规则均不放宽。
+- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40–beta.42 的不可变失败边界保持不变。新修复下 bootstrap unit 17/17、release gate 46/46、managed typecheck、managed build、三次完整聚焦 artifact assembly 9/9 pass；release/build 源码中裸 git/gh/tar 调用为零。0600 本机配置已记录 tar/git/gh/ps 路径和 Git/GitHub CLI 版本。完整新 R1 尚待最终修复提交后运行。
+- files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/build/build.mjs, scripts/build/assemble.mjs, scripts/release/assemble-phase2.mjs, scripts/release/materialize.mjs, scripts/release/preflight.mjs, scripts/release/publish.mjs, scripts/release/release-environment.mjs, scripts/release/sensitive-scan.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-gate.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, AGENTS.md, .planning/STATE.md, .planning/debug/release-environment-orchestration.md]

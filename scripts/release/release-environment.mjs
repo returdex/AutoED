@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {chmodSync,existsSync,lstatSync,mkdirSync,readFileSync,renameSync,writeFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {checkPackage,NODE_VERSION,RELEASE_FINGERPRINTS,TOOLCHAIN,runtimeArchiveTool} from '../dev/runtime.mjs';
+import {checkPackage,NODE_VERSION,RELEASE_FINGERPRINTS,TOOLCHAIN,runtimeArchiveTool,runtimeGitTool,runtimeGithubTool,runtimeProcessObserver} from '../dev/runtime.mjs';
 import {phase2IdentityOnly} from './preflight.mjs';
 import {selfcheckTrust} from './trust.mjs';
 
@@ -25,9 +26,10 @@ function requiredPaths(root){return[
   join(root,'.runtime/delivery-cache/extracted/win-keyring/package'),
 ];}
 export function releaseEnvironmentConfig({root=repo}={}){
-  const githubConfigDir=process.platform==='darwin'?join(homedir(),'Library/Application Support/AutoED-Rebuild-Release/github'):join(process.env.LOCALAPPDATA??'','AutoED-Rebuild-Release/github'),managedNode=join(TOOLCHAIN,`node-v${NODE_VERSION}-${process.platform==='darwin'?'darwin-arm64':'win-x64'}`,process.platform==='win32'?'node.exe':'bin/node'),paths=requiredPaths(root);
+  const githubConfigDir=process.platform==='darwin'?join(homedir(),'Library/Application Support/AutoED-Rebuild-Release/github'):join(process.env.LOCALAPPDATA??'','AutoED-Rebuild-Release/github'),managedNode=join(TOOLCHAIN,`node-v${NODE_VERSION}-${process.platform==='darwin'?'darwin-arm64':'win-x64'}`,process.platform==='win32'?'node.exe':'bin/node'),paths=requiredPaths(root),gitTool=runtimeGitTool(),githubTool=runtimeGithubTool(),processObserver=runtimeProcessObserver();
   if(!paths.every(existsSync)||!existsSync(managedNode)||!existsSync(githubConfigDir))fail();protectedDirectory(dirname(githubConfigDir));protectedDirectory(githubConfigDir);
-  return Object.freeze({schema:1,...expected,githubConfigDir,managedNode,archiveTool:runtimeArchiveTool(),deliveryCache:join(root,'.runtime/delivery-cache'),dependencyCount:paths.length,packageSha256:sha(readFileSync(join(root,'package.json'))),lockSha256:sha(readFileSync(join(root,'package-lock.json'))),platformMatrixSha256:sha(readFileSync(join(root,'scripts/build/platform-matrix.json')))});
+  const gitVersion=execFileSync(gitTool,['--version'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim(),githubVersion=execFileSync(githubTool,['--version'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).split('\n')[0].trim();
+  return Object.freeze({schema:1,...expected,githubConfigDir,managedNode,archiveTool:runtimeArchiveTool(),gitTool,gitVersion,githubTool,githubVersion,processObserver,deliveryCache:join(root,'.runtime/delivery-cache'),dependencyCount:paths.length,packageSha256:sha(readFileSync(join(root,'package.json'))),lockSha256:sha(readFileSync(join(root,'package-lock.json'))),platformMatrixSha256:sha(readFileSync(join(root,'scripts/build/platform-matrix.json')))});
 }
 export function writeReleaseEnvironmentConfig(value,{root=repo}={}){
   const runtime=join(root,'.runtime');if(!existsSync(runtime))mkdirSync(runtime,{mode:0o700});if(lstatSync(runtime).isSymbolicLink()||!lstatSync(runtime).isDirectory())fail();const path=join(runtime,'release-environment.json'),temporary=path+'.tmp';

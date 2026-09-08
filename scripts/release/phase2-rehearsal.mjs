@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {basename,dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {canonical,canonicalSha256,phase2VersionSetSha256} from './phase2-gate.mjs';
-import {hashBuildInputs} from '../dev/runtime.mjs';
+import {hashBuildInputs,runtimeGitTool,runtimeProcessObserver} from '../dev/runtime.mjs';
 import {renderPhase2RehearsalInstallPromptCore} from './phase2-gate.mjs';
 import {assembleManagedUpdaterRehearsalPair} from '../build/assemble.mjs';
 import {combineSensitiveReports,createCapturedOutputScanner,scanReachableHistory as scanSensitiveReachableHistory,scanTrackedTree,scanWorkingTree} from './sensitive-scan.mjs';
@@ -80,17 +80,31 @@ export const FIXED_COMMANDS=Object.freeze({
 });
 const MAX_CAPTURE_BYTES=64*1024*1024,PROCESS_GROUP_GRACE_MS=5000;
 const digestBytes=value=>createHash('sha256').update(value).digest('hex');
-const pgidExists=(pid,kill=process.kill)=>{try{kill(-pid,0);return true;}catch(error){return error?.code==='ESRCH'?false:null;}};
 const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+
+/**
+ * Distinguish live group members from zombie-only kernel bookkeeping.
+ * @param {number} pgid
+ * @param {{kill?:typeof process.kill,execFile?:typeof execFileSync,observer?:string}} options
+ */
+export function observePhase2ProcessGroup(pgid,{kill=process.kill,execFile=execFileSync,observer}={}){
+  if(!Number.isSafeInteger(pgid)||pgid<2||typeof kill!=='function'||typeof execFile!=='function')return null;
+  try{kill(-pgid,0);}catch(error){return error?.code==='ESRCH'?false:null;}
+  try{
+    const executable=observer??runtimeProcessObserver(),output=execFile(executable,['-axo','pgid=,state='],{encoding:'utf8',timeout:3000,maxBuffer:4*1024*1024,stdio:['ignore','pipe','ignore']});
+    const states=String(output).split('\n').map(line=>line.trim().split(/\s+/)).filter(parts=>parts.length>=2&&Number(parts[0])===pgid).map(parts=>parts[1]);
+    return states.some(state=>typeof state==='string'&&!state.startsWith('Z'));
+  }catch{return null;}
+}
 
 /**
  * The sole detached-child adapter for R1 runtime checks, builds, and fixed
  * suites. It is deliberately bufferless apart from the bounded report copy:
  * stdout and stderr enter the same sensitive scanner in arrival order.
- * @param {{program:string,args:string[],cwd:string,timeoutMs:number,scanner:{write:(value:Buffer)=>unknown},outputLimit?:number,kill?:typeof process.kill,spawnImpl?:typeof spawn}} options
+ * @param {{program:string,args:string[],cwd:string,timeoutMs:number,scanner:{write:(value:Buffer)=>unknown},outputLimit?:number,kill?:typeof process.kill,spawnImpl?:typeof spawn,groupProbe?:typeof observePhase2ProcessGroup}} options
  */
-export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outputLimit=MAX_CAPTURE_BYTES,kill=process.kill,spawnImpl=spawn}={}){
-  if(typeof program!=='string'||!Array.isArray(args)||args.some(value=>typeof value!=='string')||typeof cwd!=='string'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||!scanner||typeof scanner.write!=='function'||!Number.isSafeInteger(outputLimit)||outputLimit<1||outputLimit>MAX_CAPTURE_BYTES||typeof kill!=='function'||typeof spawnImpl!=='function')runnerFail('PRE_RUNNER','SPAWN_ARGUMENT_INVALID');
+export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outputLimit=MAX_CAPTURE_BYTES,kill=process.kill,spawnImpl=spawn,groupProbe=observePhase2ProcessGroup}={}){
+  if(typeof program!=='string'||!Array.isArray(args)||args.some(value=>typeof value!=='string')||typeof cwd!=='string'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||!scanner||typeof scanner.write!=='function'||!Number.isSafeInteger(outputLimit)||outputLimit<1||outputLimit>MAX_CAPTURE_BYTES||typeof kill!=='function'||typeof spawnImpl!=='function'||typeof groupProbe!=='function')runnerFail('PRE_RUNNER','SPAWN_ARGUMENT_INVALID');
   let child,timeoutTimer=null,killTimer=null,stopReason=null,bytes=0,spawnError=false,closed=false;
   const chunks=[];
   const clearTimers=()=>{if(timeoutTimer){clearTimeout(timeoutTimer);timeoutTimer=null;}if(killTimer){clearTimeout(killTimer);killTimer=null;}};
@@ -111,10 +125,13 @@ export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outp
     closed=true;result=close;
     // A parent can close while an owned descendant retains the process group.
     // Keep the group scoped to this child and prove it has disappeared.
-    if(pgidExists(child.pid,kill)===true)terminate(stopReason??'descendant');
+    let group=groupProbe(child.pid,{kill});
+    if(group===null)runnerFail('PRE_RUNNER','PROCESS_GROUP_OBSERVATION_FAILED');
+    if(group===true)terminate(stopReason??'descendant');
     const deadline=Date.now()+PROCESS_GROUP_GRACE_MS+1000;
-    while(pgidExists(child.pid,kill)===true&&Date.now()<deadline)await delay(25);
-    if(pgidExists(child.pid,kill)!==false)runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
+    while(group===true&&Date.now()<deadline){await delay(100);group=groupProbe(child.pid,{kill});}
+    if(group===null)runnerFail('PRE_RUNNER','PROCESS_GROUP_OBSERVATION_FAILED');
+    if(group===true)runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
   }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER','SPAWN_FAILED');
   }finally{clearTimers();}
   if(!closed||spawnError)runnerFail('PRE_RUNNER','SPAWN_FAILED');
@@ -126,7 +143,7 @@ function commandDigestArgs(spec){return ['scripts/dev/runtime.mjs',...spec.steps
 async function runFixedCommand(root,id,scanner,ledger){
   const spec=FIXED_COMMANDS[id];if(!spec)runnerFail('PRE_RUNNER','COMMAND_ID_INVALID');const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node');if(!existsSync(node))runnerFail('PRE_RUNNER','MANAGED_NODE_MISSING');
   if(!Array.isArray(ledger))runnerFail('PRE_RUNNER','CAPTURE_INVALID');const commandSha256=phase2RehearsalCommandSha256({program:'managed-node',args:commandDigestArgs(spec),env:{}});ledger.push(Object.freeze({id,commandSha256}));let passed=0;
-  for(const step of spec.steps){const child=await runPhase2Detached({program:node,args:['scripts/dev/runtime.mjs',...step.args],cwd:root,timeoutMs:spec.ceiling*1000,scanner});if(child.exitCode!==0||child.signal)runnerFail('PRE_SOURCE',phase2StepFailureCode('COMMAND_PROCESS_FAILED',step.name));let report;try{report=reportPhase2RehearsalCommand({runner:step.runner,exitCode:child.exitCode,signal:child.signal,stdout:child.stdout,commandSha256});}catch{runnerFail('PRE_SOURCE',phase2StepFailureCode('COMMAND_REPORT_INVALID',step.name));}passed+=report.passed;}
+  for(const step of spec.steps){let child;try{child=await runPhase2Detached({program:node,args:['scripts/dev/runtime.mjs',...step.args],cwd:root,timeoutMs:spec.ceiling*1000,scanner});}catch(error){const match=/^PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=([A-Z0-9_]{1,64})$/.exec(error?.message??'');if(match)runnerFail('PRE_RUNNER',`${match[1]}_AT_${step.name.toUpperCase().replaceAll('-','_')}`);throw error;}if(child.exitCode!==0||child.signal)runnerFail('PRE_SOURCE',phase2StepFailureCode('COMMAND_PROCESS_FAILED',step.name));let report;try{report=reportPhase2RehearsalCommand({runner:step.runner,exitCode:child.exitCode,signal:child.signal,stdout:child.stdout,commandSha256});}catch{runnerFail('PRE_SOURCE',phase2StepFailureCode('COMMAND_REPORT_INVALID',step.name));}passed+=report.passed;}
   return Object.freeze({schema:1,runner:spec.steps.length===1?spec.steps[0].runner:'vitest',status:'pass',passed,failed:0,skipped:0,todo:0,commandSha256});
 }
 export function phase2StepFailureCode(prefix,name){if(!['COMMAND_PROCESS_FAILED','COMMAND_REPORT_INVALID'].includes(prefix)||typeof name!=='string'||!/^[a-z0-9-]{1,64}$/.test(name))runnerFail('PRE_RUNNER','COMMAND_ID_INVALID');return `${prefix}_${name.toUpperCase().replaceAll('-','_')}`;}
@@ -279,7 +296,7 @@ export function normalizePhase2RehearsalOwnedRoot(root){
 function createPhase2RehearsalOwnedRoot(){return normalizePhase2RehearsalOwnedRoot(realpathSync(mkdtempSync(join(tmpdir(),'autoed-r1-owned-'))));}
 /** Production execution is fixed: callers cannot supply command, target or coordinate overrides. */
 export function createProductionPhase2RehearsalOps({root=ROOT}={}){
-  const git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',timeout:30000,maxBuffer:1024*1024}).trim();
+  const gitTool=runtimeGitTool(),git=args=>execFileSync(gitTool,args,{cwd:root,encoding:'utf8',timeout:30000,maxBuffer:1024*1024}).trim();
   const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node'),scanner=createCapturedOutputScanner(),ledger=[],owned=createPhase2RehearsalOwnedRoot();
   const receiptNames=['release/phase2-build-selection.json','release/phase2-test-report.json','release/phase2-beta-artifacts.json','release/phase2-publication.json','release/phase2-availability.json','release/phase2-install-prompt.md'];
   const receiptDigest=()=>canonicalSha256(receiptNames.map(name=>existsSync(join(root,name))?{name,sha256:canonicalSha256(readFileSync(join(root,name)))}:{name,missing:true}));

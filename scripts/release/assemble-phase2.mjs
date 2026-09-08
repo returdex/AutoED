@@ -10,7 +10,7 @@ import {phase2ArtifactPreflight,renderPhase2ExternalInstallPrompt,validatePhase2
 import {preflightReleaseEnvironment} from './release-environment.mjs';
 import {signReleaseFile} from './trust.mjs';
 import {phase2ArchiveProof} from './verify-availability.mjs';
-import {hashBuildInputs} from '../dev/runtime.mjs';
+import {hashBuildInputs,runtimeGitTool} from '../dev/runtime.mjs';
 
 const root=resolve(fileURLToPath(new URL('../..',import.meta.url))),sha=value=>createHash('sha256').update(value).digest('hex');
 function fail(code='PHASE2_ASSEMBLY_INVALID'){throw new Error(code);}
@@ -26,7 +26,7 @@ export function preparePhase2CandidateBuild(selectionInput,{projectRoot=root,run
 function descriptor(tag,path,extra={}){const bytes=readFileSync(path),name=path.slice(path.lastIndexOf('/')+1);return{name,localPath:path.slice(root.length+1),url:`https://github.com/returdex/AutoED/releases/download/${tag}/${encodeURIComponent(name)}`,bytes:bytes.length,sha256:sha(bytes),...extra};}
 function localAssetMap(target){return new Map([target,target.updater.bootstrap,target.updater.manifest,target.updater.signature,...target.updater.artifacts].map(asset=>[asset.name,readFileSync(join(root,asset.localPath))]));}
 async function assemble(){
-  const selection=validateBuildSelection(JSON.parse(readFileSync(join(root,'release/phase2-build-selection.json'),'utf8'))),tests=validatePhase2TestReport(JSON.parse(readFileSync(join(root,'release/phase2-test-report.json'),'utf8')),selection),head=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),tree=execFileSync('git',['rev-parse','HEAD^{tree}'],{cwd:root,encoding:'utf8'}).trim();verifySelectionCheckout(selection,{commit:head,tree,sourceSha256:hashBuildInputs(root)});
+  const selection=validateBuildSelection(JSON.parse(readFileSync(join(root,'release/phase2-build-selection.json'),'utf8'))),tests=validatePhase2TestReport(JSON.parse(readFileSync(join(root,'release/phase2-test-report.json'),'utf8')),selection),gitTool=runtimeGitTool(),head=execFileSync(gitTool,['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),tree=execFileSync(gitTool,['rev-parse','HEAD^{tree}'],{cwd:root,encoding:'utf8'}).trim();verifySelectionCheckout(selection,{commit:head,tree,sourceSha256:hashBuildInputs(root)});
   const versionRoot=join(root,'.runtime/releases',selection.version),receiptPath=join(root,'release/phase2-beta-artifacts.json'),promptPath=join(root,'release/phase2-install-prompt.md');if(existsSync(versionRoot)||existsSync(receiptPath)||existsSync(promptPath))fail('PHASE2_ASSEMBLY_OUTPUT_EXISTS');
   await preflightReleaseEnvironment({root});preparePhase2CandidateBuild(selection,{projectRoot:root});
   mkdirSync(versionRoot,{recursive:true,mode:0o700});const transient=join(versionRoot,'.assembly');mkdirSync(transient,{mode:0o700});const trustRoot=JSON.parse(readFileSync(join(root,'release/trust-root.json'),'utf8'));

@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, symlinkSync, writeFileSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { spawnSync } from 'node:child_process';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, acquireBootstrapLock, runtimeArchiveTool, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, acquireBootstrapLock, runtimeArchiveTool, runtimeGitTool, runtimeGithubTool, runtimeProcessObserver, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
   it('reuses a regular local artifact without a network fetch', async () => {
@@ -40,6 +40,15 @@ describe('managed bootstrap and synthetic harness', () => {
     expect(()=>runtimeArchiveTool({platform:'win32',env:{}})).toThrow('Managed archive tool unavailable');
     expect(()=>runtimeArchiveTool({platform:'win32',env:{SystemRoot:'relative'}})).toThrow('Managed archive tool unavailable');
     expect(readFileSync(join(ROOT,'scripts/dev/runtime.mjs'),'utf8')).not.toMatch(/run\(['"]tar['"]/);
+  });
+  it('pins validated release Git, GitHub CLI and process-observer executables', () => {
+    expect(isAbsolute(runtimeGitTool())).toBe(true);
+    expect(isAbsolute(runtimeGithubTool())).toBe(true);
+    if(process.platform!=='win32')expect(runtimeProcessObserver()).toBe('/bin/ps');
+    for(const folder of ['scripts/release','scripts/build'])for(const name of readdirSync(join(ROOT,folder)).filter(value=>value.endsWith('.mjs'))){
+      const source=readFileSync(join(ROOT,folder,name),'utf8');
+      expect(source,`${folder}/${name}`).not.toMatch(/(?:execFileSync|execFile|spawnSync|spawn)\(['"][A-Za-z][A-Za-z0-9_.-]*['"]|run\(['"](?:git|gh|tar)['"]/);
+    }
   });
   it('fails an actual all-skipped Vitest subprocess', () => {
     const child = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run', '--project', 'unit', 'tests/unit/bootstrap.test.ts', '--testNamePattern', '__no_matching_behavior__'], { cwd: ROOT, encoding: 'utf8', timeout: 10_000 });

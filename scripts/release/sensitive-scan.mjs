@@ -2,6 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {closeSync,lstatSync,openSync,readSync,readdirSync,readFileSync,realpathSync,readlinkSync,statSync} from 'node:fs';
 import {dirname,isAbsolute,join,relative,resolve} from 'node:path';
+import {runtimeGitTool} from '../dev/runtime.mjs';
 
 const MAX_OBJECT_BYTES=64*1024*1024;
 const MAX_OBJECTS=200000;
@@ -79,9 +80,9 @@ export function scanCapturedOutput(chunks,{maxBytes=8*1024*1024}={}){
 function scanBlob(root,hash,{surface,onObject}){
   try{
     if(!HASH.test(hash))return false;
-    const size=Number(execFileSync('git',['cat-file','-s',hash],{cwd:root,encoding:'utf8',timeout:5000,maxBuffer:1024*1024}).trim());
+    const size=Number(execFileSync(runtimeGitTool(),['cat-file','-s',hash],{cwd:root,encoding:'utf8',timeout:5000,maxBuffer:1024*1024}).trim());
     if(!Number.isSafeInteger(size)||size<0||size>MAX_OBJECT_BYTES)return false;
-    const bytes=execFileSync('git',['cat-file','blob',hash],{cwd:root,timeout:5000,maxBuffer:MAX_OBJECT_BYTES+1});
+    const bytes=execFileSync(runtimeGitTool(),['cat-file','blob',hash],{cwd:root,timeout:5000,maxBuffer:MAX_OBJECT_BYTES+1});
     return onObject(bytes);
   }catch{return false;}
 }
@@ -92,7 +93,7 @@ export function scanTrackedTree(root,treeish='HEAD',{allowPath}={}){
   const surface='tracked',actual=safeRoot(root);
   try{
     if(!actual||typeof treeish!=='string'||!/^[A-Za-z0-9._/-]{1,128}$/.test(treeish)){if(process.env.AUTOED_SENSITIVE_DEBUG==='1')throw new Error('SENSITIVE_HISTORY_INPUT');return emptyFailure(surface);}
-    const output=execFileSync('git',['ls-tree','-r','-z',treeish],{cwd:actual,encoding:'buffer',timeout:30000,maxBuffer:64*1024*1024});
+    const output=execFileSync(runtimeGitTool(),['ls-tree','-r','-z',treeish],{cwd:actual,encoding:'buffer',timeout:30000,maxBuffer:64*1024*1024});
     const scanner=createSensitiveChunkScanner({surface,maxBytes:MAX_TOTAL_BYTES});let count=0;
     for(const row of output.toString('utf8').split('\0').filter(Boolean)){
       const match=/^(\d{6}) (blob) ([a-f0-9]{40,64})\t(.+)$/.exec(row);
@@ -107,12 +108,12 @@ export function scanReachableHistory(root,treeish='HEAD',{allowPath,isReviewedEx
   const surface='history',actual=safeRoot(root);
   try{
     if(!actual||typeof treeish!=='string'||!/^[A-Za-z0-9._/-]{1,128}$/.test(treeish))return emptyFailure(surface);
-    const output=execFileSync('git',['rev-list','--objects',treeish],{cwd:actual,encoding:'utf8',timeout:30000,maxBuffer:32*1024*1024});
+    const output=execFileSync(runtimeGitTool(),['rev-list','--objects',treeish],{cwd:actual,encoding:'utf8',timeout:30000,maxBuffer:32*1024*1024});
     let count=0,totalBytes=0;const digest=createHash('sha256');
     for(const sourceRow of output.split('\n').filter(Boolean)){
       const row=sourceRow.endsWith('\r')?sourceRow.slice(0,-1):sourceRow;
       const match=/^([a-f0-9]{40,64})(?: (.*))?$/.exec(row);if(!match)return emptyFailure(surface);
-      const type=execFileSync('git',['cat-file','-t',match[1]],{cwd:actual,encoding:'utf8',timeout:5000,maxBuffer:1024*1024}).trim();if(type!=='blob')continue;
+      const type=execFileSync(runtimeGitTool(),['cat-file','-t',match[1]],{cwd:actual,encoding:'utf8',timeout:5000,maxBuffer:1024*1024}).trim();if(type!=='blob')continue;
       const path=match[2]??'';
       if(!sourcePathAllowed(path,allowPath)||++count>MAX_OBJECTS)return emptyFailure(surface);
       let bytes;
@@ -133,7 +134,7 @@ export function scanWorkingTree(root,{allowPath}={}){
   const surface='working_tree',actual=safeRoot(root);
   try{
     if(!actual)return emptyFailure(surface);
-    const output=execFileSync('git',['ls-files','-co','--exclude-standard','-z'],{cwd:actual,encoding:'buffer',timeout:30000,maxBuffer:64*1024*1024});
+    const output=execFileSync(runtimeGitTool(),['ls-files','-co','--exclude-standard','-z'],{cwd:actual,encoding:'buffer',timeout:30000,maxBuffer:64*1024*1024});
     const scanner=createSensitiveChunkScanner({surface,maxBytes:MAX_TOTAL_BYTES});let count=0;
     for(const path of output.toString('utf8').split('\0').filter(Boolean)){
       const absolute=safeRelative(path)&&sourcePathAllowed(path,allowPath)?childOf(actual,path):null;if(!absolute||++count>MAX_OBJECTS)return emptyFailure(surface);

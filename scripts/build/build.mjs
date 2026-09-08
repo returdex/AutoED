@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, renameSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hashBuildInputs } from '../dev/runtime.mjs';
+import { hashBuildInputs, runtimeGitTool } from '../dev/runtime.mjs';
 
 // Browser assets have no runtime identity and cannot import server modules.
 export async function buildStatusAssets(inputRoot, outputRoot) {
@@ -33,7 +33,7 @@ if (process.version !== 'v24.20.0') throw new Error('Build requires the verified
 const variant = process.env.AUTOED_BUILD_VARIANT ?? 'A';
 if (!['A', 'B'].includes(variant)) throw new Error('Build variant must be A or B');
 const hash = value => createHash('sha256').update(value).digest('hex');
-const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+const git = (...args) => execFileSync(runtimeGitTool(), args, { cwd: root, encoding: 'utf8' }).trim();
 const packageVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const version = process.env.AUTOED_RELEASE_VERSION ?? packageVersion;
 if (version !== packageVersion && !/^0\.1\.0-beta\.[1-9]\d*$/.test(version)) throw new Error('Release version must be an approved 0.1.0 beta');

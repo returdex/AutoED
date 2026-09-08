@@ -19,19 +19,52 @@ export const RELEASE_FINGERPRINTS = Object.freeze([
 ]);
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+function validatedExecutable(candidates, unavailable, preserveCandidate = false) {
+  for (const candidate of candidates) {
+    try {
+      if (typeof candidate !== 'string' || !isAbsolute(candidate)) continue;
+      const resolved = realpathSync(candidate), stat = lstatSync(resolved);
+      if (stat.isFile() && !stat.isSymbolicLink()) return preserveCandidate ? candidate : resolved;
+    } catch {}
+  }
+  throw new Error(unavailable);
+}
+
 export function runtimeArchiveTool({ platform = process.platform, env = process.env } = {}) {
-  let candidate;
-  if (platform === 'darwin' || platform === 'linux') candidate = '/usr/bin/tar';
+  let candidates;
+  if (platform === 'darwin' || platform === 'linux') candidates = ['/usr/bin/tar'];
   else if (platform === 'win32') {
     const systemRoot = env.SystemRoot;
     if (typeof systemRoot !== 'string' || !isAbsolute(systemRoot)) throw new Error('Managed archive tool unavailable');
-    candidate = join(systemRoot, 'System32', 'tar.exe');
+    candidates = [join(systemRoot, 'System32', 'tar.exe')];
   } else throw new Error('Managed archive tool unavailable');
-  try {
-    const resolved = realpathSync(candidate), stat = lstatSync(resolved);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
-    return candidate;
-  } catch { throw new Error('Managed archive tool unavailable'); }
+  return validatedExecutable(candidates, 'Managed archive tool unavailable', true);
+}
+
+export function runtimeGitTool({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'darwin' || platform === 'linux') return validatedExecutable(['/usr/bin/git'], 'Managed Git unavailable', true);
+  if (platform === 'win32') {
+    const programFiles = env.ProgramFiles;
+    if (typeof programFiles !== 'string' || !isAbsolute(programFiles)) throw new Error('Managed Git unavailable');
+    return validatedExecutable([join(programFiles, 'Git', 'cmd', 'git.exe')], 'Managed Git unavailable', true);
+  }
+  throw new Error('Managed Git unavailable');
+}
+
+export function runtimeGithubTool({ platform = process.platform, env = process.env } = {}) {
+  if (platform === 'darwin') return validatedExecutable(['/opt/homebrew/bin/gh', '/usr/local/bin/gh'], 'Managed GitHub CLI unavailable');
+  if (platform === 'linux') return validatedExecutable(['/usr/bin/gh', '/usr/local/bin/gh'], 'Managed GitHub CLI unavailable');
+  if (platform === 'win32') {
+    const programFiles = env.ProgramFiles;
+    if (typeof programFiles !== 'string' || !isAbsolute(programFiles)) throw new Error('Managed GitHub CLI unavailable');
+    return validatedExecutable([join(programFiles, 'GitHub CLI', 'gh.exe')], 'Managed GitHub CLI unavailable');
+  }
+  throw new Error('Managed GitHub CLI unavailable');
+}
+
+export function runtimeProcessObserver({ platform = process.platform } = {}) {
+  if (platform === 'darwin' || platform === 'linux') return validatedExecutable(['/bin/ps'], 'Managed process observer unavailable', true);
+  throw new Error('Managed process observer unavailable');
 }
 
 export function hashBuildInputs(root) {

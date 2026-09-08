@@ -33,7 +33,7 @@ import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/rel
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {phase2ClosureBytes,preparePhase2CandidateBuild} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
 import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
@@ -233,6 +233,16 @@ it('detached runner merges stderr, enforces limits and removes descendants befor
   await expect(runPhase2Detached({program:process.execPath,args:['-e',"process.stdout.write('x'.repeat(512))"],cwd:process.cwd(),timeoutMs:1000,outputLimit:64,scanner:{write(){}}})).rejects.toThrow('COMMAND_OUTPUT_LIMIT');
   const descendant=await runPhase2Detached({program:process.execPath,args:['-e',"const {spawn}=require('node:child_process');const child=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)\"],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(0),10)"],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}}}),pid=Number(descendant.stdout.toString());
   expect(pid).toBeGreaterThan(1);expect(()=>process.kill(pid,0)).toThrow();
+});
+
+it('process-group observation distinguishes live, zombie-only, absent and observer failure',()=>{
+  const alive=()=>{},absent=()=>{const error:any=new Error('absent');error.code='ESRCH';throw error;},denied=()=>{const error:any=new Error('denied');error.code='EPERM';throw error;};
+  const ps=(text:string)=>()=>text;
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 S\n 321 Z\n') as any,observer:'/bin/ps'})).toBe(true);
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 Z\n') as any,observer:'/bin/ps'})).toBe(false);
+  expect(observePhase2ProcessGroup(321,{kill:absent as any,execFile:ps('') as any,observer:'/bin/ps'})).toBe(false);
+  expect(observePhase2ProcessGroup(321,{kill:denied as any,execFile:ps(' 321 S\n') as any,observer:'/bin/ps'})).toBe(null);
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:(()=>{throw new Error('ps');}) as any,observer:'/bin/ps'})).toBe(null);
 });
 
 it('classifies failures by operation boundary without parsing arbitrary error text',async()=>{
