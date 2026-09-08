@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { spawnSync } from 'node:child_process';
 import { assertNativePlatform, assertLocalURL, createHarness, summarizeEvidence, evidence } from '../../packages/test-support/src/harness.js';
-import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, acquireBootstrapLock, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
+import { ROOT, TOOLCHAIN, target, hashBuildInputs, loadVerifier, verifySignedChecksums, verifyArchive, verifyIntegrity, assertRegularFile, cachedArtifact, checkPackage, acquireBootstrapLock, runtimeArchiveTool, RELEASE_FINGERPRINTS, VERIFIER_INTEGRITY } from '../../scripts/dev/runtime.mjs';
 
 describe('managed bootstrap and synthetic harness', () => {
   it('reuses a regular local artifact without a network fetch', async () => {
@@ -34,6 +34,12 @@ describe('managed bootstrap and synthetic harness', () => {
     const pkg = checkPackage();
     expect(Object.keys(pkg.dependencies).some(name => /openai|anthropic|openpgp/i.test(name))).toBe(false);
     expect(pkg.dependencies.playwright).toBe(pkg.devDependencies['@playwright/test']);
+  });
+  it('uses a validated absolute platform archive tool without PATH lookup', () => {
+    expect(runtimeArchiveTool()).toBe(process.platform==='win32'?join(process.env.SystemRoot!,'System32','tar.exe'):'/usr/bin/tar');
+    expect(()=>runtimeArchiveTool({platform:'win32',env:{}})).toThrow('Managed archive tool unavailable');
+    expect(()=>runtimeArchiveTool({platform:'win32',env:{SystemRoot:'relative'}})).toThrow('Managed archive tool unavailable');
+    expect(readFileSync(join(ROOT,'scripts/dev/runtime.mjs'),'utf8')).not.toMatch(/run\(['"]tar['"]/);
   });
   it('fails an actual all-skipped Vitest subprocess', () => {
     const child = spawnSync(process.execPath, [join(ROOT, 'node_modules/vitest/vitest.mjs'), 'run', '--project', 'unit', 'tests/unit/bootstrap.test.ts', '--testNamePattern', '__no_matching_behavior__'], { cwd: ROOT, encoding: 'utf8', timeout: 10_000 });

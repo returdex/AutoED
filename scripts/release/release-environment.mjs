@@ -4,7 +4,7 @@ import {chmodSync,existsSync,lstatSync,mkdirSync,readFileSync,renameSync,writeFi
 import {homedir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {checkPackage,NODE_VERSION,RELEASE_FINGERPRINTS,TOOLCHAIN} from '../dev/runtime.mjs';
+import {checkPackage,NODE_VERSION,RELEASE_FINGERPRINTS,TOOLCHAIN,runtimeArchiveTool} from '../dev/runtime.mjs';
 import {phase2IdentityOnly} from './preflight.mjs';
 import {selfcheckTrust} from './trust.mjs';
 
@@ -27,7 +27,7 @@ function requiredPaths(root){return[
 export function releaseEnvironmentConfig({root=repo}={}){
   const githubConfigDir=process.platform==='darwin'?join(homedir(),'Library/Application Support/AutoED-Rebuild-Release/github'):join(process.env.LOCALAPPDATA??'','AutoED-Rebuild-Release/github'),managedNode=join(TOOLCHAIN,`node-v${NODE_VERSION}-${process.platform==='darwin'?'darwin-arm64':'win-x64'}`,process.platform==='win32'?'node.exe':'bin/node'),paths=requiredPaths(root);
   if(!paths.every(existsSync)||!existsSync(managedNode)||!existsSync(githubConfigDir))fail();protectedDirectory(dirname(githubConfigDir));protectedDirectory(githubConfigDir);
-  return Object.freeze({schema:1,...expected,githubConfigDir,managedNode,deliveryCache:join(root,'.runtime/delivery-cache'),dependencyCount:paths.length,packageSha256:sha(readFileSync(join(root,'package.json'))),lockSha256:sha(readFileSync(join(root,'package-lock.json'))),platformMatrixSha256:sha(readFileSync(join(root,'scripts/build/platform-matrix.json')))});
+  return Object.freeze({schema:1,...expected,githubConfigDir,managedNode,archiveTool:runtimeArchiveTool(),deliveryCache:join(root,'.runtime/delivery-cache'),dependencyCount:paths.length,packageSha256:sha(readFileSync(join(root,'package.json'))),lockSha256:sha(readFileSync(join(root,'package-lock.json'))),platformMatrixSha256:sha(readFileSync(join(root,'scripts/build/platform-matrix.json')))});
 }
 export function writeReleaseEnvironmentConfig(value,{root=repo}={}){
   const runtime=join(root,'.runtime');if(!existsSync(runtime))mkdirSync(runtime,{mode:0o700});if(lstatSync(runtime).isSymbolicLink()||!lstatSync(runtime).isDirectory())fail();const path=join(runtime,'release-environment.json'),temporary=path+'.tmp';

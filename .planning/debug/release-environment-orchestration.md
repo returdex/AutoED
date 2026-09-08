@@ -17,11 +17,11 @@ updated: 2026-09-08
 
 ## Current Focus
 
-- hypothesis: 正式 R4 虽已统一序列化和预检，却复用了无编号 R1 的基础版本构建；build ID 不包含发行显示版本，因此旧 `0.1.0` 编译身份可进入候选签名阶段。
-- test: 让正式 R4 在任何输出之前以固定 `AUTOED_RELEASE_VERSION` 重建，并对 version/commit/tree/build ID 做精确绑定；用回归测试拒绝基础版本或任一身份漂移。
-- expecting: 后续候选只能从携带精确 prerelease 版本的编译入口和清单组装；版本或身份漂移在写入/签名前以固定错误码停止。
+- hypothesis: 受管 runtime 在已验证缓存每次重验时仍以裸 `tar` 依赖调用 shell PATH；长测试批次后的一次 OS/name-resolution spawn 不稳定可在正式 R4 bootstrap 前造成伪“缺文件”失败。
+- test: 将平台 archive tool 解析为经过文件检查的绝对路径，macOS 固定 `/usr/bin/tar`，并把非秘密坐标持久化进 release environment；回归拒绝 Windows 缺失/相对 SystemRoot 与源码中的裸 `run('tar')`。
+- expecting: 受管 bootstrap 不再依赖调用 shell 的 PATH 查找 archive tool；缺失时固定 fail closed，存在时始终调用同一绝对系统工具。
 - next_action: 在修复提交上完成新的无编号 R0/R1；通过前不选择后续 beta。
-- reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`；beta.41 已生成签名资产并按 `POST_ARTIFACT` 消耗。两者均禁止重试、重签、覆盖、删除或重新标记；beta.42 只能在新 R1 通过并获得明确授权后选择。
+- reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`，beta.41 保持 `POST_ARTIFACT`，beta.42 因 recurrent/ambiguous `POST_TRANSIENT` 永久消耗。三者均禁止重试、重签、覆盖、删除或重新标记；beta.43 只能在新 R1 通过并获得明确授权后选择。
 
 ## Evidence
 
@@ -57,6 +57,10 @@ updated: 2026-09-08
   observation: fresh unnumbered R1 在 `eaef25d…` 完整通过；beta.41 R2/R3 通过并签出 16 个本地资产，但正式 R4 的预发布 R5 proof 在两个 updater manifest 上同时拒绝 `build.version=0.1.0`，期望值为 `0.1.0-beta.41`。Ed25519、closure、license、四组件 hash/URL、隔离 GitHub 身份和 keyring 均通过；远端没有 beta.41 tag/release/asset。
 - timestamp: 2026-09-08
   observation: 正式 R4 现在在创建输出目录前调用唯一 build 脚本并固定传入所选 prerelease 版本，随后严格校验 version/commit/tree/build ID；组装器也独立重复该校验。回归测试 45/45、artifact assembly 9/9 和 managed typecheck 通过。
+- timestamp: 2026-09-08
+  observation: `ce6c38c…` 的 fresh R1 完整通过，beta.42 R2/R3 也通过；首次正式 R4 却在任何候选 build/sign/asset 前返回 `Subprocess failed (spawn): tar`。两次紧随其后的 managed bootstrap selfcheck 通过，但同一诊断 shell 随后不能按名解析 `git`；无法满足单次、确定、非复发瞬态证明，beta.42 未发布即永久失效。
+- timestamp: 2026-09-08
+  observation: 受管 runtime 的两个认证归档解包点此前都调用裸 `tar`。纠正后通过平台函数验证绝对 archive tool，macOS 固定 `/usr/bin/tar`，release environment 将该非秘密坐标写入 0600 本地配置；缺失或不安全路径固定拒绝。
 
 ## Eliminated
 
@@ -69,5 +73,5 @@ updated: 2026-09-08
 
 - root_cause: 第一层问题是 R4 曾缺少仓库内单一编排入口，临时脚本对 closure 文件和摘要使用了两种 JSON 序列化。统一入口后暴露第二层问题：正式 R4 直接复用了无编号 R1 的基础版本构建，而 build ID 不包含发行显示版本，导致 `0.1.0` 编译身份通过 commit/tree/build-ID 检查并进入 beta.41 签名资产。身份、依赖、签名与最终归档证明此前没有在同一入口的正确顺序上完整收口，因此不同失败被误判为账号、钥匙串或缺文件反复失效。
 - fix: 增加 `release:environment` 和 `release:assemble-phase2` 固定入口。前者只使用隔离 GitHub 配置、repo-local Git 身份、受管 Node/固定缓存并提前完成一次 keyring challenge；后者用 canonical bytes 同时写文件和计算摘要，并在写 R4 收据前直接复用 R5 `phase2ArchiveProof` 检查两平台全部本地资产。正式 R4 还必须在创建候选输出前用所选 `AUTOED_RELEASE_VERSION` 重建编译入口，严格绑定 version/commit/tree/build ID；组装器在每个平台再次拒绝任何基础版本或身份漂移。非秘密本机配置持久化到 gitignored `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置中。受管 runtime 优先复用本地 Node/PGP/checksum/key 缓存，但每次仍执行签名、fingerprint 和 archive hash 验证；跨进程 owner lock 串行化原地展开，避免并发看到半写目录。R1 focused 与完整 integration 都保留精确测试集合，每个 integration 文件运行于独立受管进程并各有 1200 秒硬上限；完整清单直接从 source-bound `tests/integration/*.test.ts` 排序生成并由回归测试核对。synthetic process ledger 同时严格识别 installed 与 native-fixture compiled 两种受保护布局，使 owner 被超时终止后仍能精确回收独立服务。每个步骤的非零退出和报告解析失败具有不同且固定的步骤级错误码。
-- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；beta.41 两平台本地资产稳定复现唯一 build-version failure 且远端无变更；五个 focused 文件独立 31/31 pass；managed typecheck pass；bootstrap 15/15（含并发串行化与崩溃 owner 回收）、ledger 4/4、release gate 45/45、artifact assembly 9/9 pass；两个真实并发 bootstrap 均完成签名、指纹、归档和依赖检查，无半展开文件或 synthetic service 残留。完整新 R1 尚待最终修复提交后运行。
+- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40 两平台旧归档均稳定复现同一预期失败；beta.41 两平台本地资产稳定复现唯一 build-version failure 且远端无变更；beta.42 在 R4 build/sign/asset 前停止且远端/签名资产均不存在。archive-tool 修复后 bootstrap unit 16/16、managed typecheck、连续两次 bootstrap selfcheck 和完整嵌套 `release:environment` 均通过；0600 本地配置已记录 `/usr/bin/tar`。release gate 45/45、artifact assembly 9/9 先前通过。完整新 R1 尚待最终修复提交后运行。
 - files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/build/assemble.mjs, scripts/release/assemble-phase2.mjs, scripts/release/release-environment.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, AGENTS.md, .planning/STATE.md, .planning/debug/release-environment-orchestration.md]

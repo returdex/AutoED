@@ -19,6 +19,21 @@ export const RELEASE_FINGERPRINTS = Object.freeze([
 ]);
 export const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+export function runtimeArchiveTool({ platform = process.platform, env = process.env } = {}) {
+  let candidate;
+  if (platform === 'darwin' || platform === 'linux') candidate = '/usr/bin/tar';
+  else if (platform === 'win32') {
+    const systemRoot = env.SystemRoot;
+    if (typeof systemRoot !== 'string' || !isAbsolute(systemRoot)) throw new Error('Managed archive tool unavailable');
+    candidate = join(systemRoot, 'System32', 'tar.exe');
+  } else throw new Error('Managed archive tool unavailable');
+  try {
+    const resolved = realpathSync(candidate), stat = lstatSync(resolved);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error();
+    return candidate;
+  } catch { throw new Error('Managed archive tool unavailable'); }
+}
+
 export function hashBuildInputs(root) {
   function files(path) {
     if (!existsSync(join(root, path))) return [];
@@ -165,7 +180,7 @@ async function loadVerifierUnlocked() {
   // Unpack the verified published bundle directly: no npm, lifecycle scripts,
   // optional peers, global installs or production dependency. LICENSE stays here.
   assertExtractionTree(join(verifier, 'package'));
-  run('tar', ['-xzf', tarball, '-C', verifier]);
+  run(runtimeArchiveTool(), ['-xzf', tarball, '-C', verifier]);
   const metadata = JSON.parse(readFileSync(join(verifier, 'package/package.json'), 'utf8'));
   if (metadata.name !== 'openpgp' || metadata.version !== '6.3.1' || !existsSync(join(verifier, 'package/LICENSE'))) {
     throw new Error('Unexpected verifier package');
@@ -235,7 +250,7 @@ export async function bootstrap() {
     verifyArchive(checksums, filename, archive);
     assertExtractionTree(nodeRoot, true);
     // Re-extract authenticated bytes even on reuse; a cached node executable is not trusted.
-    run('tar', [platform.startsWith('win') ? '-xf' : '-xzf', archivePath, '-C', TOOLCHAIN]);
+    run(runtimeArchiveTool(), [platform.startsWith('win') ? '-xf' : '-xzf', archivePath, '-C', TOOLCHAIN]);
     run(node, ['--version']);
     assertRegularFile(join(TOOLCHAIN, 'verification.json'));
     writeFileSync(join(TOOLCHAIN, 'verification.json'), JSON.stringify({ node: NODE_VERSION, platform, signer, archiveHash: sha256(archive), verifiedAt: new Date().toISOString() }, null, 2));
