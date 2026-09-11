@@ -1,9 +1,8 @@
-import {secretStoreForInstallation} from '../../platform/src/runtime-secrets.js';
-import type {RootSelection} from '../../platform/src/paths.js';
+import {readInstallationCredential} from '../../platform/src/credentials.js';
 import {z} from 'zod';
 export type ClientPurpose='cli'|'mcp'|'installer';
-export async function clientCredential(selection:RootSelection,installationId:string,purpose:ClientPurpose,credentialId?:string){
+export async function clientCredential(root:string,parent:string,installationId:string,purpose:ClientPurpose,credentialId?:string){
   z.uuid().parse(installationId);z.enum(['cli','mcp','installer']).parse(purpose);
   if(credentialId&&!/^selfcheck-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(credentialId))throw new Error('AUTH_REQUIRED');
-  const token=await secretStoreForInstallation(selection).get(installationId,credentialId??purpose);if(!token)throw new Error('AUTH_REQUIRED');return token;
+  const token=await readInstallationCredential(root,parent,installationId,credentialId??purpose);if(!token)throw new Error('AUTH_REQUIRED');return token;
 }

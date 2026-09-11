@@ -46,6 +46,17 @@ export class NativeSecretStore implements SecretStore {
     try { await this.#bounded(this.#entry(id, name).then(entry => entry.deleteCredential())); } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
   }
 }
+
+/** Narrow client adapter: callers receive only the credential value and cannot
+ * inspect installation metadata, secret-store paths, or the selected driver.
+ * The runtime selector is loaded after this module has initialized because it
+ * reuses NativeSecretStore for production installations.
+ */
+export async function readInstallationCredential(root: string, parent: string, installationId: string, name: string): Promise<string | null> {
+  validate(installationId, name);
+  const { secretStoreForInstallation } = await import('./runtime-secrets.js');
+  return secretStoreForInstallation({ root, parent, excludedRoots: [] }).get(installationId, name);
+}
 export type CredentialDestination = 'local_cli' | 'model' | 'service' | 'installer' | 'selfcheck';
 export interface CredentialRecord {
   installationId: string; name: string; digest: string; scope: Scope; destination: CredentialDestination;

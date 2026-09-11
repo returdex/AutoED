@@ -75,6 +75,8 @@ updated: 2026-09-11
   observation: 失败后遗留的唯一服务满足测试根、安装 metadata、编译入口和六 token `--autoed-service` argv 的严格合成归属校验；已按精确 PID 终止并确认当前残留为零。beta.43 没有 tag、release、public asset、签名资产或 availability receipt。
 - timestamp: 2026-09-11
   observation: 修复后的 managed typecheck 通过；凭据/账本 15/15、client wiring 8/8、process lifecycle 1/1、two-build upgrade 9/9、managed cleanup 7/7、journal 6/6、recovery 8/8、release gates 46/46 均在独立测试进程中完整通过。一次主动中断的组合批次留下两个服务，新回收入口仅在 owner 退出且全部严格证据匹配后终止它们，随后 ledger 为零。
+- timestamp: 2026-09-11
+  observation: `7ba6cac…` 上首次完整 fresh R1 越过全部 fixed integration 与 typecheck，但 full unit 以 153/154 停止；唯一失败是 `packages/client/src/credentials.ts` 新增了对 `runtime-secrets.ts` 与 `paths.ts` 的直接依赖，违反既有 MCP 窄适配器边界。凭据读取现重新封装为唯一获准的 `client/credentials -> platform/credentials` 边，并且只返回 token，不向客户端暴露 installation metadata、secret-store path 或 driver。
 
 ## Eliminated
 
