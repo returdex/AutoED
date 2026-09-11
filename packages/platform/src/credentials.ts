@@ -18,20 +18,32 @@ const nativeFactory: EntryFactory = async (service, name) => {
 /** Exact installation UUID namespaces only. Never enumerate or fall back to plaintext. */
 export class NativeSecretStore implements SecretStore {
   readonly #factory: EntryFactory;
-  constructor(factory: EntryFactory = nativeFactory) { this.#factory = factory; }
+  readonly #timeoutMs: number;
+  constructor(factory: EntryFactory = nativeFactory, timeoutMs = 5000) {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 30_000) throw new Error('INVALID_CREDENTIAL');
+    this.#factory = factory; this.#timeoutMs = timeoutMs;
+  }
+  async #bounded<T>(operation: Promise<T>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([operation, new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('SECRET_STORE_UNAVAILABLE')), this.#timeoutMs);
+      })]);
+    } finally { if (timer) clearTimeout(timer); }
+  }
   async #entry(id: string, name: string): Promise<NativeEntry> { return this.#factory(`org.autoed.rebuild.${id.toLowerCase()}`, name); }
   async get(id: string, name: string): Promise<string | null> {
     validate(id, name);
-    try { return (await (await this.#entry(id, name)).getPassword()) ?? null; } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
+    try { return (await this.#bounded(this.#entry(id, name).then(entry => entry.getPassword()))) ?? null; } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
   }
   async set(id: string, name: string, value: string): Promise<void> {
     validate(id, name);
     if (typeof value !== 'string' || value.length < 32 || value.length > 4096) throw new Error('INVALID_CREDENTIAL');
-    try { await (await this.#entry(id, name)).setPassword(value); } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
+    try { await this.#bounded(this.#entry(id, name).then(entry => entry.setPassword(value))); } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
   }
   async delete(id: string, name: string): Promise<void> {
     validate(id, name);
-    try { await (await this.#entry(id, name)).deleteCredential(); } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
+    try { await this.#bounded(this.#entry(id, name).then(entry => entry.deleteCredential())); } catch { throw new Error('SECRET_STORE_UNAVAILABLE'); }
   }
 }
 export type CredentialDestination = 'local_cli' | 'model' | 'service' | 'installer' | 'selfcheck';

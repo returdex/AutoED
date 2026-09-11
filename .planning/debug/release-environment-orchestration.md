@@ -2,7 +2,7 @@
 status: verifying
 trigger: "反复出现缺少文件、签名失败、GitHub 多账号身份错误，并要求把非秘密配置和依赖持久化、将重复签名授权收敛为一次确认"
 created: 2026-09-07
-updated: 2026-09-08
+updated: 2026-09-11
 ---
 
 # Release environment and orchestration recurrence
@@ -17,11 +17,11 @@ updated: 2026-09-08
 
 ## Current Focus
 
-- hypothesis: R1 detached observer 仅以 `kill(-pgid,0)` 判断存在，把 live、zombie-only 与非 `ESRCH` 观察错误压成同一码；发行关键路径仍有裸 `git`/`gh`，所以 PATH 波动会继续伪装成缺文件、账号或签名问题。
-- test: 用固定 `/bin/ps` 对信号探测为“存在”的组做 PID-free 状态 census，分别返回 live/zombie-only/unknown；把具体 fixed step 附到 runner 错误，并将 tar/git/gh/ps 绝对路径及版本写入 0600 release environment。源码回归拒绝 release/build 脚本的裸外部命令。
-- expecting: zombie-only 不再阻塞 R1，观察失败与真正 live descendant 使用不同错误码且带精确步骤；所有发行关键工具绕过 shell PATH，账号仍仅由隔离 GH config 决定。
-- next_action: 在修复提交上完成新的无编号 R0/R1；通过前不选择后续 beta。
-- reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`，beta.41 保持 `POST_ARTIFACT`，beta.42 因 recurrent/ambiguous `POST_TRANSIENT` 永久消耗。三者均禁止重试、重签、覆盖、删除或重新标记；beta.43 只能在新 R1 通过并获得明确授权后选择。
+- hypothesis: beta.43 的 `two-build-upgrade` 在候选 A 的 API 已启动但 Worker 尚未启动时停住；该路径的 `NativeSecretStore.get()` 没有超时，合成测试又不必要地依赖真实 macOS Keychain，导致 `OwnedProcessSupervisor.start()` 的十秒边界可被绕过。Vitest 超时只终止测试协调进程，独立进程组中的合成 API 因而残留。
+- test: 先用可注入的挂起 keyring 实现证明 NativeSecretStore 操作能够在固定边界失败；再为明确标记的 synthetic installation 使用受保护、跨进程的测试 secret store，并证明 runner 只回收该步骤新创建且满足精确六 token argv/安装根约束的合成服务。
+- expecting: 生产 Keychain 仍是唯一生产 secret store 且有固定超时；合成测试不访问真实 Keychain；固定步骤无论通过、失败或超时都不遗留其新建的严格归属服务。
+- next_action: 记录并退役 beta.43，完成聚焦回归与修复提交，再在干净树上运行一次完整、全新的无编号 R1；R1 后停止，不选择 beta.44。
+- reasoning_checkpoint: beta.40 保持 `POST_PUBLIC`，beta.41 保持 `POST_ARTIFACT`，beta.42 与 beta.43 均为不可重试的未发布消耗历史。beta.43 的首个正式 R3 失败已由同一精确测试再次复现，不能按单次瞬态保留。
 
 ## Evidence
 
@@ -67,6 +67,14 @@ updated: 2026-09-08
   observation: 旧 `pgidExists` 对任何非 `ESRCH` 信号探测错误返回 null，但最终用 `!== false` 将 null 和 true 都标成 remains；它也不能识别 zombie-only group，且 `runFixedCommand` 不附 step。纠正后 release gate 46/46 覆盖 live/zombie/absent/observer-failure，bootstrap 17/17 覆盖固定工具及裸命令源码扫描，managed typecheck 与 build 均通过。
 - timestamp: 2026-09-08
   observation: 0600 `.runtime/release-environment.json` 现固定记录 `/usr/bin/tar`、`/usr/bin/git`、Git 版本、解析后的 GitHub CLI 版本路径/版本及 `/bin/ps`；环境 preflight 仍为 24 dependencies、returdex isolated identity、keyring pass。Git credential helper 的固定绝对 GitHub CLI 路径已只读解析通过。
+- timestamp: 2026-09-11
+  observation: `dd446af…` 的完整无编号 R1 已通过并留下精确 attestation；beta.43 随后仅完成本地 R2 选择。首次正式 R3 在固定 `two-build-upgrade` 步骤返回 `PRE_SOURCE / COMMAND_PROCESS_FAILED_TWO_BUILD_UPGRADE`，精确测试文件独立重跑再次以 300 秒超时复现（8/9 通过），因此不是一次性 runner/transient。
+- timestamp: 2026-09-11
+  observation: 失败 fixture 的 journal 停在 `started/intent`，候选 A API 有严格 runtime record 和 listener，Worker 尚无 record，且没有 failure receipt。该启动检查会先后等待 `NativeSecretStore.get(..., 'cli')` 与 `get(..., 'api')`，现有实现没有任何有界失败。
+- timestamp: 2026-09-11
+  observation: 失败后遗留的唯一服务满足测试根、安装 metadata、编译入口和六 token `--autoed-service` argv 的严格合成归属校验；已按精确 PID 终止并确认当前残留为零。beta.43 没有 tag、release、public asset、签名资产或 availability receipt。
+- timestamp: 2026-09-11
+  observation: 修复后的 managed typecheck 通过；凭据/账本 15/15、client wiring 8/8、process lifecycle 1/1、two-build upgrade 9/9、managed cleanup 7/7、journal 6/6、recovery 8/8、release gates 46/46 均在独立测试进程中完整通过。一次主动中断的组合批次留下两个服务，新回收入口仅在 owner 退出且全部严格证据匹配后终止它们，随后 ledger 为零。
 
 ## Eliminated
 
@@ -79,5 +87,5 @@ updated: 2026-09-08
 
 - root_cause: 第一层问题是 R4 曾缺少仓库内单一编排入口，临时脚本对 closure 文件和摘要使用了两种 JSON 序列化。统一入口后暴露第二层问题：正式 R4 复用了无编号 R1 的基础版本构建，导致 beta.41 版本身份错误。第三层环境问题是 release-critical 子进程仍分散依赖 PATH，且 R1 只用 `kill(-pgid,0)` 观察进程组，把 zombie-only、观察错误和真正 live descendant 合并成同一失败，又不记录步骤。这些边界没有在一个固定入口、固定工具集合和可诊断状态模型中收口，因此看似无关的账号、签名、缺文件与清理问题会反复重新调查。
 - fix: 保留 `release:environment` 和 `release:assemble-phase2` 固定入口、canonical closure bytes、selected-version rebuild、R5-equivalent prepublication proof、keyring challenge、隔离 GitHub 配置和 bootstrap owner lock。新增统一的绝对可执行文件解析：发行关键脚本仅调用验证过的 tar/git/gh/ps，Git credential helper 也绑定同一绝对 gh；非秘密路径、版本、依赖摘要写入 gitignored 0600 `.runtime/release-environment.json`，私钥/token 仍只留在 OS keyring/GitHub CLI 受保护配置。R1 进程观察对信号存在结果再执行固定 `/bin/ps` census，把 zombie-only 当作无活进程，把 observer failure 与 live remains 分开，并把具体 fixed step 附到错误码。逐文件 integration、固定超时、严格 owner ledger、签名/fingerprint/archive 验证与零 skip/todo 规则均不放宽。
-- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40–beta.42 的不可变失败边界保持不变。新修复下 bootstrap unit 17/17、release gate 46/46、managed typecheck、managed build、三次完整聚焦 artifact assembly 9/9 pass；release/build 源码中裸 git/gh/tar 调用为零。0600 本机配置已记录 tar/git/gh/ps 路径和 Git/GitHub CLI 版本。完整新 R1 尚待最终修复提交后运行。
-- files_changed: [packages/test-support/src/process-ledger.ts, scripts/dev/runtime.mjs, scripts/build/build.mjs, scripts/build/assemble.mjs, scripts/release/assemble-phase2.mjs, scripts/release/materialize.mjs, scripts/release/preflight.mjs, scripts/release/publish.mjs, scripts/release/release-environment.mjs, scripts/release/sensitive-scan.mjs, scripts/release/verify-availability.mjs, scripts/release/phase2-gate.mjs, scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/unit/bootstrap.test.ts, tests/unit/process-ledger.test.ts, package.json, AGENTS.md, .planning/STATE.md, .planning/debug/release-environment-orchestration.md]
+- verification: 当前环境 preflight pass（24 项本地依赖，隔离账号 `returdex`，keyring selfcheck pass）；beta.40–beta.43 的不可变失败边界保持不变。新修复下 managed typecheck、凭据/账本 15/15、client wiring 8/8、process lifecycle 1/1、two-build upgrade 9/9、managed cleanup 7/7、journal 6/6、recovery 8/8、release gates 46/46 pass；主动中断后的严格 orphan reclaim 也确认 ledger 为零。完整新 R1 尚待最终修复提交后运行。
+- files_changed: [packages/platform/src/credentials.ts, packages/platform/src/runtime-secrets.ts, packages/platform/src/processes.ts, packages/client/src/credentials.ts, packages/client/src/http.ts, packages/installer/src/install.ts, packages/installer/src/upgrade.ts, apps/api/src/main.ts, apps/worker/src/main.ts, packages/test-support/src/native-runtime.ts, packages/test-support/src/upgrade-fixture.ts, packages/test-support/src/process-ledger.ts, scripts/install/selfcheck.mjs, scripts/release/reclaim-synthetic-processes.mjs, scripts/release/phase2-rehearsal.mjs, tests/unit/credential-redaction.test.ts, tests/integration/client-wiring.test.ts, tests/integration/process-lifecycle.test.ts, tests/integration/upgrade-journal.test.ts, AGENTS.md, .planning/STATE.md, .planning/phases/02-poc-live/02-38-BETA-43-INVALIDATION.md, .planning/debug/release-environment-orchestration.md]

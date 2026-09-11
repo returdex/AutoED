@@ -9,7 +9,7 @@ import { syntheticProvider } from '../../../packages/test-support/src/synthetic-
 import type { BuildIdentity, WriteContext, Health } from '../../../packages/domain/src/model.js';
 import Fastify from 'fastify';
 import { serviceSelection, runtimeIdentity, publishProcess, processProof, workerLaunchContext, type ProcessRecord } from '../../../packages/platform/src/processes.js';
-import { NativeSecretStore } from '../../../packages/platform/src/credentials.js';
+import { secretStoreForInstallation } from '../../../packages/platform/src/runtime-secrets.js';
 import { readInstallation } from '../../../packages/platform/src/installation.js';
 import { managedPaths, assertManagedPath } from '../../../packages/platform/src/paths.js';
 import { SQLiteMaintenanceStore } from '../../../packages/persistence/src/database.js';
@@ -98,7 +98,7 @@ async function standaloneWorker() {
   const context=workerLaunchContext(launch.selection,launch.nonce,WORKER_BUILD_IDENTITY);
   process.umask(0o077);
   const metadata=readInstallation(launch.selection);const databasePath=assertManagedPath(managedPaths(launch.selection.root),'data/jobs.sqlite');
-  const controlDb=openDatabase(databasePath);const maintenance=new SQLiteMaintenanceStore(controlDb);const secrets=new NativeSecretStore();
+  const controlDb=openDatabase(databasePath);const maintenance=new SQLiteMaintenanceStore(controlDb);const secrets=secretStoreForInstallation(launch.selection);
   const app=Fastify({logger:false,trustProxy:false,bodyLimit:1024,requestTimeout:3000,connectionTimeout:3000});
   const policy=new SyntheticOutputPolicy(metadata.installationId);
   let origin='';let record:ProcessRecord;let closing=false;let shutdown=false;const limit=new WindowLimit(30);

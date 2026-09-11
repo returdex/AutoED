@@ -43,7 +43,8 @@ for(const stale of ['cli','mcp','worker','manifest'] as const)it(`selfcheck reco
 it('official stdio exposes only three strict tools, denies browser instructions and reports stopped API without autostart',async()=>{
   const f=await createNativeRuntime();let client:Client|undefined;try{
     expect((await f.runCli(['start'])).code).toBe(0);client=new Client({name:'synthetic-contract-client',version:'0.1.0'});
-    const transport=new StdioClientTransport({command:process.execPath,args:[f.entries.mcp,'--root',f.selection.root,'--parent',f.selection.parent],cwd:f.out,stderr:'pipe',maxBufferSize:131072,env:{AUTOED_SYNTHETIC_TEST:'1',AUTOED_SYNTHETIC_PORT:String(f.metadata.port)}});
+    const childEnv=Object.fromEntries(['HOME','TMPDIR','TMP','TEMP'].flatMap(name=>process.env[name]===undefined?[]:[[name,process.env[name]!]]));childEnv.AUTOED_SYNTHETIC_TEST='1';childEnv.AUTOED_SYNTHETIC_PORT=String(f.metadata.port);
+    const transport=new StdioClientTransport({command:process.execPath,args:[f.entries.mcp,'--root',f.selection.root,'--parent',f.selection.parent],cwd:f.out,stderr:'pipe',maxBufferSize:131072,env:childEnv});
     transport.stderr?.on('data',()=>{});await client.connect(transport);
     expect((await client.listTools()).tools.map(t=>t.name).sort()).toEqual(['autoed_job_get','autoed_selftest','autoed_status']);
     for(const field of ['url','js','selector','path','root']){let denied=false;try{const result=await client.callTool({name:'autoed_status',arguments:{[field]:'untrusted'}});denied=result.isError===true;}catch{denied=true;}expect(denied).toBe(true);}

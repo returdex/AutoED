@@ -17,7 +17,7 @@ export class HttpClient {
   constructor(private readonly root:string,private readonly parent:string,private readonly purpose:ClientPurpose,private readonly build:BuildIdentity,private readonly credentialId?:string,installerEndpoint?:ReturnType<typeof discover>){if(installerEndpoint){if(purpose!=='installer'||!isDiscoveredEndpoint(installerEndpoint))throw new Error('INVALID_REQUEST');this.endpoint=installerEndpoint;}}
   private async raw(path:string,body?:unknown){
     const endpoint=this.endpoint??=discover(this.root,this.parent);await endpoint.guard();
-    const token=await clientCredential(endpoint.installationId,this.purpose,this.credentialId);
+    const token=await clientCredential({root:this.root,parent:this.parent,excludedRoots:[]},endpoint.installationId,this.purpose,this.credentialId);
     await endpoint.guard();
     const result=await new Promise<{status:number;value:unknown}>((resolve,reject)=>{
       const req=httpRequest({hostname:'127.0.0.1',port:endpoint.port,path,method:body===undefined?'GET':'POST',agent:false,signal:AbortSignal.timeout(5000),headers:{authorization:`Bearer ${token}`,...(body===undefined?{}:{'content-type':'application/json'})}},res=>{

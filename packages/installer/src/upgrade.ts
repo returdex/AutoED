@@ -9,7 +9,7 @@ import {sameIdentity} from '../../application/src/identity.js';
 import {HttpClient} from '../../client/src/http.js';
 import {discoverBoundClientEndpoint} from '../../platform/src/client-endpoint.js';
 import {inspectClientHosts} from '../../platform/src/client-host.js';
-import {NativeSecretStore} from '../../platform/src/credentials.js';
+import {secretStoreForInstallation,secretStoreForProvisioning} from '../../platform/src/runtime-secrets.js';
 import {initializeInstallation,readInstallation} from '../../platform/src/installation.js';
 import {OwnedProcessSupervisor,observeProcess,matchesProcess} from '../../platform/src/processes.js';
 import {assertManagedPath,managedPaths,type RootSelection} from '../../platform/src/paths.js';
@@ -95,7 +95,8 @@ async function stopOwned(supervisor:OwnedProcessSupervisor,identity:ReturnType<O
 async function awaitGenerationExit(supervisor:OwnedProcessSupervisor,identity:ReturnType<OwnedProcessSupervisor['registered']>[number]){await stopOwned(supervisor,identity);}
 export async function upgradeConfirmed(preview:InstallPreview,confirmation:InstallConfirmation,options:UpgradeOptions){
   const manifest=approvedManifest(preview,confirmation),selection=preview.selection,initial=preview.previousInstallation==='none';
-  if(initial)await initializeInstallation(selection,options.store??new NativeSecretStore(),preview.installationId);
+  const secrets=options.store??(initial?secretStoreForProvisioning(selection):secretStoreForInstallation(selection));
+  if(initial)await initializeInstallation(selection,secrets,preview.installationId);
   const metadata=readInstallation(selection);if(metadata.installationId!==preview.installationId)throw new Error('INSTALLATION_MISMATCH');
   const old=options.oldManifest;if(!initial&&(!old||!isVerifiedManifest(old)||assertOwnedLaunchers(selection).manifestHash!==old.manifestHash))throw new Error('OLD_ARTIFACT_UNVERIFIED');
   if(old)verifiedRuntime(selection,old);

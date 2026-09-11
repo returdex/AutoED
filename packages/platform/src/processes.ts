@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { ProcessSupervisor, SecretStore } from '../../application/src/ports.js';
 import type { BuildIdentity, ProcessIdentity, ProcessLaunch, WriteContext } from '../../domain/src/model.js';
 import { BuildIdentitySchema } from '../../contracts/src/index.js';
-import { NativeSecretStore } from './credentials.js';
+import { secretStoreForInstallation } from './runtime-secrets.js';
 import { assertPortAvailable, readInstallation } from './installation.js';
 import { assertManagedPath, assertSafeAncestors, managedPaths, type RootSelection } from './paths.js';
 import { protectPath, windowsProbe } from './permissions.js';
@@ -101,7 +101,7 @@ export interface SupervisorOptions { selection:RootSelection;managedNode:string;
 export class OwnedProcessSupervisor implements ProcessSupervisor {
   private readonly secrets:SecretStore;
   private readonly inspectionFailures = new Map<'api'|'worker', string>();
-  constructor(private readonly options:SupervisorOptions){this.secrets=options.secrets??new NativeSecretStore();}
+  constructor(private readonly options:SupervisorOptions){this.secrets=options.secrets??secretStoreForInstallation(options.selection);}
   /** Internal diagnostics only; callers must still treat `unknown` as fail-closed. */
   inspectionCause(role:'api'|'worker'): string | undefined { return this.inspectionFailures.get(role); }
   private record(role:'api'|'worker'):ProcessRecord|null {
@@ -193,7 +193,11 @@ export class OwnedProcessSupervisor implements ProcessSupervisor {
         const record=this.record(launch.role);
         if(record) {
           if(record.pid!==child.pid||record.nonce!==nonce||record.buildId!==launch.build.buildId)throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');
-          if(await this.inspect(record)==='running'){releaseLock=true;return record;}
+          const remaining=deadline-Date.now();if(remaining<=0)break;
+          let timer:ReturnType<typeof setTimeout>|undefined;
+          const state=await Promise.race([this.inspect(record),new Promise<'deadline'>(resolve=>{timer=setTimeout(()=>resolve('deadline'),remaining);})]);
+          if(timer)clearTimeout(timer);if(state==='deadline')break;
+          if(state==='running'){releaseLock=true;return record;}
         }
         if(spawnError||child.exitCode!==null||child.signalCode!==null){releaseLock=true;throw new Error('SERVICE_START_FAILED');}
         await wait(250);

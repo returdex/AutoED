@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: R0 repair after post-beta.42 R1 process-observer ambiguity; fresh unnumbered R1 pending
-last_updated: "2026-09-08T21:05:00+10:00"
-last_activity: 2026-09-08
+stopped_at: beta.43 R3 invalidated; bounded secret-store and exact orphan-reclaim R0 complete; fresh unnumbered R1 pending
+last_updated: "2026-09-11T17:00:00+10:00"
+last_activity: 2026-09-11
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.42 as immutable invalidated history. The first post-beta.42 fresh R1 on `40abd99` stopped `PRE_RUNNER / PROCESS_GROUP_REMAINS` at complete-suite `artifact-assembly`; three focused full reruns passed and no owned process remained. The R0 correction now removes all bare git/gh/tar lookup from release-critical scripts, persists validated absolute tools/versions in the 0600 local environment file, and distinguishes live, zombie-only and observer-failure process states with exact step codes. `active update candidate: none`; another complete fresh unnumbered R1 is pending and no later beta is selected or authorized. All update/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.43 as immutable invalidated history. beta.43's first R3 focused gate and an independent exact rerun both failed at `two-build-upgrade`; the second produced 8/9 then timed out at 300 seconds. The R0 correction bounds native Keychain operations, isolates explicit S/I credentials in a protected disposable cross-process store, and performs strict exited-owner orphan reclaim after every fixed R1 step. Focused typecheck, credential/ledger 15/15, client wiring 8/8, process lifecycle 1/1, two-build upgrade 9/9, managed cleanup 7/7, journal 6/6, recovery 8/8 and release gates 46/46 pass. `active update candidate: none`; a complete fresh unnumbered R1 is pending and beta.44 is neither selected nor authorized. All signing/publication/update/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.42 R4; the first corrective R1 then exposed ambiguous process-group observation, now repaired in R0 with another fresh unnumbered R1 pending; 19 of 41 have completion summaries
-Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.41–beta.42 are immutable unpublished consumed history. `active update candidate: none`; no later beta may be selected until a fresh unnumbered R0/R1 passes.
-Last activity: 2026-09-08 - Kept beta.42 invalidated, classified the corrective R1 failure, pinned all release tool paths and separated live/zombie/observer process states
+Plan: Post-02-14 release stabilization reached beta.43 R3; beta.43 is now invalidated and its credential/process recurrence is repaired in R0, with a complete fresh unnumbered R1 pending; 19 of 41 have completion summaries
+Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.41–beta.43 are immutable unpublished consumed history. `active update candidate: none`; beta.44 is neither selected nor authorized and requires a fresh unnumbered R1 plus separate authorization.
+Last activity: 2026-09-11 - Invalidated beta.43, bounded native secret-store operations, isolated synthetic credentials and added strict post-step orphan reclaim
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31–beta.42 invalidation history is preserved; beta.42 is unpublished and `active update candidate: none`.
+- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31–beta.43 invalidation history is preserved; beta.43 is unpublished and `active update candidate: none`.
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.31–beta.42 invalidation history is preserved, beta.42 is unpublished consumed history, and `active update candidate: none`; live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.31–beta.43 invalidation history is preserved, beta.43 is unpublished consumed history, and `active update candidate: none`; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.42 invalidated before artifact assembly, with no active update candidate
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.43 invalidated during R3, with no active update candidate
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -133,6 +133,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: The corrective unnumbered R1 passed at `eaef25d…` with build `eff9ff2b…`; beta.41 then passed R2/R3 and produced 16 signed local assets, but the pre-publication target proof rejected both updater manifests because `build.version` remained `0.1.0` rather than `0.1.0-beta.41`. No remote mutation occurred. — Classify beta.41 as immutable `POST_ARTIFACT`, retire its active selection/report, rebuild the selected prerelease identity inside the sole R4 entrypoint, and require a fresh unnumbered R1 before beta.42.
 - [Release]: The candidate-version corrective R1 passed at `ce6c38c…`; beta.42 passed R2/R3, then formal R4 stopped before build/signing with `Subprocess failed (spawn): tar`. Two immediate bootstrap checks passed but the same bounded shell later failed name lookup for `git`, so a single non-recurrent transient was not proven. No beta.42 local/remote tag, signed asset or release exists. — Permanently invalidate beta.42, remove PATH lookup for managed archive extraction, persist the validated absolute archive tool coordinate, and require a fresh unnumbered R1 before beta.43.
 - [Release]: The first post-beta.42 fresh R1 on `40abd99…` passed the focused slow boundaries through recovery, then stopped at the first complete integration file with `PRE_RUNNER / PROCESS_GROUP_REMAINS`. The failed group disappeared, no owned process remained and three full focused `artifact-assembly` runs passed. Source inspection proved the observer merged zombie-only and unknown observation states with live descendants and omitted the step name; release scripts still had bare git/gh lookup. — Pin validated absolute git/gh/ps paths and versions beside tar in the local 0600 environment file, classify process states separately, add exact step codes, then run another complete fresh R1 before any beta.43 authorization.
+- [Release]: `dd446af…` passed a fresh unnumbered R1 and beta.43 was selected once, but its first formal R3 stopped at the fixed `two-build-upgrade` step; the exact file independently reproduced an 8/9 result followed by the same 300-second timeout. No tag, signed artifact or release exists. — Permanently invalidate beta.43, bound native secret-store calls, isolate explicit synthetic credentials from the OS Keychain, reclaim only strict exited-owner synthetic services after every fixed step, and require a fresh unnumbered R1 plus separate authorization before beta.44.
 
 ### Pending Todos
 
@@ -184,8 +185,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-08T04:30:00+10:00
-Stopped at: R0 repair after post-beta.42 R1 process-observer ambiguity; `active update candidate: none`, fresh unnumbered R1 pending
+Last session: 2026-09-11T17:00:00+10:00
+Stopped at: beta.43 R3 invalidated and credential/process R0 repaired; `active update candidate: none`, fresh unnumbered R1 pending
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.42 failures are recorded by immutable invalidation documents. `active update candidate: none`; no later candidate or human update prompt is authorized before the fresh R1 passes.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.43 failures are recorded by immutable invalidation documents. `active update candidate: none`; beta.44 and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.

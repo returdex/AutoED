@@ -140,14 +140,7 @@ async function waitForEmpty(timeoutMs = 5000): Promise<void> {
  * signalled; an unknown observation fails closed.
  */
 export async function installSyntheticProcessLedger(): Promise<void> {
-  const prior = readSyntheticProcessLedger();
-  for (const item of prior) {
-    const state = await ownerAlive(item);
-    if (state === 'unknown') fail('SYNTHETIC_PROCESS_OWNER_UNCONFIRMED');
-    if (state === 'alive') fail('SYNTHETIC_PROCESS_LEAK_PREEXISTING');
-    try { process.kill(item.pid, 'SIGTERM'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') fail('SYNTHETIC_PROCESS_RECLAIM_UNCONFIRMED'); }
-  }
-  if (prior.length) await waitForEmpty();
+  await reclaimOrphanedSyntheticProcesses();
   const baseline = readSyntheticProcessLedger();
   if (baseline.length) fail('SYNTHETIC_PROCESS_LEAK_PREEXISTING');
   process.once('exit', () => {
@@ -161,4 +154,18 @@ export async function installSyntheticProcessLedger(): Promise<void> {
       process.exitCode = process.exitCode || 1;
     }
   });
+}
+
+/** Reclaim only strictly validated synthetic services whose recorded harness
+ * owner has exited. This is also called after every release-rehearsal step.
+ */
+export async function reclaimOrphanedSyntheticProcesses(): Promise<void> {
+  const prior = readSyntheticProcessLedger();
+  for (const item of prior) {
+    const state = await ownerAlive(item);
+    if (state === 'unknown') fail('SYNTHETIC_PROCESS_OWNER_UNCONFIRMED');
+    if (state === 'alive') fail('SYNTHETIC_PROCESS_LEAK_PREEXISTING');
+    try { process.kill(item.pid, 'SIGTERM'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') fail('SYNTHETIC_PROCESS_RECLAIM_UNCONFIRMED'); }
+  }
+  if (prior.length) await waitForEmpty();
 }

@@ -4,7 +4,7 @@ import { existsSync,mkdirSync,readFileSync,realpathSync,symlinkSync,writeFileSyn
 import { join,resolve } from 'node:path';
 import { createHarness } from './harness.js';
 import { initializeInstallation,readProvisioningReceipt } from '../../platform/src/installation.js';
-import { NativeSecretStore } from '../../platform/src/credentials.js';
+import { secretStoreForProvisioning } from '../../platform/src/runtime-secrets.js';
 import { OwnedProcessSupervisor,matchesProcess,observeProcess,ownsListener } from '../../platform/src/processes.js';
 import { protectPath } from '../../platform/src/permissions.js';
 import type { BuildIdentity } from '../../domain/src/model.js';
@@ -15,7 +15,7 @@ import { publishSyntheticActive } from './runtime-installation.js';
 export async function createNativeRuntime(variant:'A'|'B'='B') {
   const h=createHarness(),parent=realpathSync(h.root);protectPath(parent);
   const out=join(parent,'compiled'),selection={root:join(parent,'installation'),parent,excludedRoots:[]};
-  const secrets=new NativeSecretStore();let initialized=false;let provisioning=false;let installationId:string|undefined;
+  const secrets=secretStoreForProvisioning(selection);let initialized=false;let provisioning=false;let installationId:string|undefined;
   let supervisor:OwnedProcessSupervisor|undefined;const children=new Set<ChildProcess>();const temporaryNames=new Set<string>();
   async function cleanup() {
     for(const child of children)if(child.exitCode===null&&child.signalCode===null){const exited=once(child,'exit');child.kill('SIGTERM');await Promise.race([exited,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('HUMAN_ACTION_REQUIRED: owned CLI exit unconfirmed; fixture preserved')),5000);timer.unref();child.once('exit',()=>clearTimeout(timer));})]);}

@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { NativeSecretStore, issueCredential, verifyCredential, revokeCredential } from '../../packages/platform/src/credentials.js';
 import { assertPortAvailable, initializeInstallation, readInstallation, readProvisioningReceipt } from '../../packages/platform/src/installation.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
+import { secretStoreForInstallation, secretStoreForProvisioning } from '../../packages/platform/src/runtime-secrets.js';
 
 const harnesses: ReturnType<typeof createHarness>[] = [];
 afterEach(async () => { for (const h of harnesses.splice(0)) await h.cleanup(); });
@@ -70,6 +71,21 @@ describe('synthetic credential boundary (not native Keychain evidence)', () => {
     const { store: working } = memory(); const scope = { installationId: id, source: 'synthetic', courseId: 'selftest' } as const;
     const record = await issueCredential(working, id, 'cli', scope, 'local_cli');
     await expect(verifyCredential(store, record, privateDetail, scope, 'local_cli')).rejects.toThrow('SECRET_STORE_UNAVAILABLE');
+  });
+  it('bounds a native entry factory or operation that never settles', async () => {
+    const id=randomUUID(),never=new Promise<never>(()=>{}),store=new NativeSecretStore(()=>never,20),started=Date.now();
+    await expect(store.get(id,'cli')).rejects.toThrow('SECRET_STORE_UNAVAILABLE');
+    expect(Date.now()-started).toBeLessThan(1000);
+  });
+  it('keeps explicit synthetic credentials in one protected disposable cross-process namespace', async () => {
+    const h=createHarness();harnesses.push(h);const parent=realpathSync(h.root),selection={root:join(parent,'installation'),parent,excludedRoots:[]};
+    const provision=secretStoreForProvisioning(selection),metadata=await initializeInstallation(selection,provision),second=secretStoreForInstallation(selection);
+    expect(await second.get(metadata.installationId,'cli')).toBe(await provision.get(metadata.installationId,'cli'));
+    const directory=join(selection.root,'secrets/synthetic-credentials'),files=readdirSync(directory);expect(files).toHaveLength(4);
+    expect((lstatSync(directory).mode&0o777)).toBe(0o700);for(const name of files)expect((lstatSync(join(directory,name)).mode&0o777)).toBe(0o600);
+    const marker=`${parent}.synthetic-run.json`,original=readFileSync(marker);writeFileSync(marker,'{}');
+    expect(()=>secretStoreForInstallation(selection)).toThrow('SYNTHETIC_SECRET_STORE_DENIED');writeFileSync(marker,original);
+    for(const name of ['api','cli','mcp','installer'])await provision.delete(metadata.installationId,name);
   });
   it('uses 256-bit independent tokens, binding digest to scope and destination; revoke/rotate are immediate', async () => {
     const { store, entries } = memory(); const installationId = randomUUID(); const scope = { installationId, source: 'synthetic', courseId: 'selftest' } as const;

@@ -25,7 +25,7 @@ import { openDatabase, readGate, SQLiteMaintenanceStore } from '../../../package
 import { SQLiteJobStore } from '../../../packages/persistence/src/claims.js';
 import { SQLiteStatusProjectionStore } from '../../../packages/persistence/src/runtime-status.js';
 import { SQLiteAccountBindingStore, SQLiteLiveCheckpointStore, SQLiteNativeEvidenceStore, SQLiteProfileOwnershipStore, SQLiteSourceConfigStore, SQLiteSourceObservationStore } from '../../../packages/persistence/src/auth.js';
-import { NativeSecretStore } from '../../../packages/platform/src/credentials.js';
+import { secretStoreForInstallation } from '../../../packages/platform/src/runtime-secrets.js';
 import { readInstallation } from '../../../packages/platform/src/installation.js';
 import { assertManagedPath, managedPaths } from '../../../packages/platform/src/paths.js';
 import { serviceSelection, runtimeIdentity, publishProcess, processProof, type ProcessRecord } from '../../../packages/platform/src/processes.js';
@@ -226,7 +226,7 @@ async function standaloneApi() {
     await projections.writeComponent({role:'api',build:API_BUILD_IDENTITY!,checkedAt:new Date(now).toISOString(),health,evidence:'process_report'},
       {...context,operationId:readGate(db).operationId});last=now;
   }
-  const secrets=new NativeSecretStore();const maintenance=new SQLiteMaintenanceStore(db);
+  const secrets=secretStoreForInstallation(launch.selection);const maintenance=new SQLiteMaintenanceStore(db);
   const sourceConfigs=new SQLiteSourceConfigStore(db),observations=new SQLiteSourceObservationStore(db),bindings=new SQLiteAccountBindingStore(db),ownership=new SQLiteProfileOwnershipStore(db);
   const liveStore=new SQLiteLiveCheckpointStore(db),liveAuthority=new DurablePairedLiveAuthority(secrets,metadata.installationId);
   const live=new PairedLiveCheckpointService(liveStore,liveAuthority,

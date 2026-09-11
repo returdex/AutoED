@@ -8,7 +8,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { OwnedProcessSupervisor, observeProcess } from '../../packages/platform/src/processes.js';
 import { initializeInstallation, readProvisioningReceipt } from '../../packages/platform/src/installation.js';
-import { NativeSecretStore } from '../../packages/platform/src/credentials.js';
+import { secretStoreForProvisioning } from '../../packages/platform/src/runtime-secrets.js';
 import { createHarness } from '../../packages/test-support/src/harness.js';
 import { protectPath } from '../../packages/platform/src/permissions.js';
 import type { BuildIdentity } from '../../packages/domain/src/model.js';
@@ -16,7 +16,7 @@ import { publishSyntheticActive } from '../../packages/test-support/src/runtime-
 
 it('launcher exits; actual API and Worker stay independent; reuse and authenticated owned stop reject altered identities',async()=>{
   const h=createHarness(); const parent=realpathSync(h.root);protectPath(parent);
-  const selection={root:join(parent,'installation'),parent,excludedRoots:[]}; const secrets=new NativeSecretStore();
+  const selection={root:join(parent,'installation'),parent,excludedRoots:[]}; const secrets=secretStoreForProvisioning(selection);
   let installationId:string|undefined;let supervisor:OwnedProcessSupervisor|undefined;
   let provisioningComplete=false;
   let stage='initialization';let originalCode='NONE';
@@ -32,6 +32,7 @@ it('launcher exits; actual API and Worker stay independent; reuse and authentica
     const build:BuildIdentity={version:'0.1.0',buildId:'e'.repeat(64),commit:'b'.repeat(40),tree:'c'.repeat(40),dependencyHash:'d'.repeat(64),protocol:1,schemaMin:1,schemaMax:1,capabilities:['echo','digest']};
     const entries={api:join(out,'apps/api/src/main.js'),worker:join(out,'apps/worker/src/main.js')};
     for(const entry of Object.values(entries))writeFileSync(entry,readFileSync(entry,'utf8').replaceAll('__AUTOED_BUILD_IDENTITY__',JSON.stringify(build)));
+    mkdirSync(join(out,'build'),{mode:0o700});writeFileSync(join(out,'build/identity.json'),JSON.stringify({...build,entries:['api','worker']}),{mode:0o600});
     publishSyntheticActive(selection,metadata,build,{cli:entries.api,mcp:entries.worker});
     const options={selection,managedNode:realpathSync(process.execPath),entries};
     supervisor=new OwnedProcessSupervisor(options);
