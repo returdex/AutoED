@@ -8,7 +8,7 @@ import {readInstallation} from './installation.js';
 import {assertManagedPath,managedPaths,type RootSelection} from './paths.js';
 import {protectPath} from './permissions.js';
 import {observeProcess,matchesProcess} from './processes.js';
-const Lease=z.strictObject({installationId:z.uuid(),build:BuildIdentitySchema,pid:z.number().int().positive(),nonce:z.uuid(),osStartIdentity:z.string(),executable:z.string(),entrypoint:z.string(),operationId:z.uuid().nullable()});
+export const ClientLeaseSchema=z.strictObject({installationId:z.uuid(),build:BuildIdentitySchema,pid:z.number().int().positive(),nonce:z.uuid(),osStartIdentity:z.string(),executable:z.string(),entrypoint:z.string(),operationId:z.uuid().nullable()});
 const Admission=z.strictObject({operationId:z.uuid(),buildId:z.string().regex(/^[a-f0-9]{64}$/),mode:z.enum(['selfcheck','normal_probe','blocked'])});
 const AdmissionOwner=z.strictObject({installationId:z.uuid(),pid:z.number().int().positive(),nonce:z.uuid(),osStartIdentity:z.string(),executable:z.string()});
 function save(path:string,value:unknown){const fd=openSync(path,'wx',0o600);try{protectPath(path);writeFileSync(fd,JSON.stringify(value));fsyncSync(fd);}finally{closeSync(fd);}}
@@ -28,7 +28,7 @@ export async function registerClientHost(selection:RootSelection,build:BuildIden
     if(admission.buildId!==build.buildId||admission.mode==='blocked'||(operationId===null?admission.mode!=='normal_probe':admission.mode!=='selfcheck'||admission.operationId!==operationId))throw new Error('MAINTENANCE_ACTIVE');
   }
   const active=assertManagedPath(paths,'active.json');if(existsSync(active)){const record=read(active) as {installationId?:string;build?:BuildIdentity};if(record.installationId!==metadata.installationId||record.build?.buildId!==build.buildId)throw new Error('IDENTITY_MISMATCH');}
-  const observed=await observeProcess(process.pid);if(!observed)throw new Error('HOST_INVENTORY_UNCONFIRMED');const lease=Lease.parse({installationId:metadata.installationId,build,pid:process.pid,nonce:randomUUID(),...observed,entrypoint:process.argv[1],operationId});
+  const observed=await observeProcess(process.pid);if(!observed)throw new Error('HOST_INVENTORY_UNCONFIRMED');const lease=ClientLeaseSchema.parse({installationId:metadata.installationId,build,pid:process.pid,nonce:randomUUID(),...observed,entrypoint:process.argv[1],operationId});
   const directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory)){mkdirSync(directory,{mode:0o700});protectPath(directory);}if(readdirSync(directory).length>=256)throw new Error('HOST_INVENTORY_LIMIT');save(join(directory,lease.nonce+'.json'),lease);
   // Keep immutable receipt after EOF. Cleanup must observe actual OS exit, not trust an exit callback.
   return lease.nonce;
@@ -36,7 +36,19 @@ export async function registerClientHost(selection:RootSelection,build:BuildIden
 export async function inspectClientHosts(selection:RootSelection){
   const metadata=readInstallation(selection),paths=managedPaths(selection.root),directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory))return [];
   const names=readdirSync(directory);if(names.length>256)throw new Error('HOST_INVENTORY_UNCONFIRMED');const result=[];
-  for(const name of names){if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('HOST_INVENTORY_UNCONFIRMED');const path=assertManagedPath(paths,'runtime/clients/'+name),lease=Lease.parse(read(path));if(lease.installationId!==metadata.installationId||name!==lease.nonce+'.json')throw new Error('HOST_INVENTORY_UNCONFIRMED');const os=await observeProcess(lease.pid);const state=os===null?'exited':matchesProcess({...lease,role:'api',buildId:lease.build.buildId},os)?'running':'replaced';result.push({lease,path,state});}
+  for(const name of names){if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('HOST_INVENTORY_UNCONFIRMED');const path=assertManagedPath(paths,'runtime/clients/'+name),lease=ClientLeaseSchema.parse(read(path));if(lease.installationId!==metadata.installationId||name!==lease.nonce+'.json')throw new Error('HOST_INVENTORY_UNCONFIRMED');const os=await observeProcess(lease.pid);const state=os===null?'exited':matchesProcess({...lease,role:'api',buildId:lease.build.buildId},os)?'running':'replaced';result.push({lease,path,state});}
   return result;
+}
+/** Detached recovery inventory: callers must first prove the legacy installation
+ * receipt. Every remembered host must be strictly owned and observed exited. */
+export async function inspectClientHostsForRecovery(selection:RootSelection,installationId:string){
+  const paths=managedPaths(selection.root),directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory))return 0;
+  const names=readdirSync(directory);if(names.length>256)throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+  for(const name of names){
+    if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+    const lease=ClientLeaseSchema.parse(read(assertManagedPath(paths,'runtime/clients/'+name)));
+    if(lease.installationId!==installationId||name!==lease.nonce+'.json'||await observeProcess(lease.pid)!==null)throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+  }
+  return names.length;
 }
 export {Admission as ClientAdmissionSchema};

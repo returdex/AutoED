@@ -136,10 +136,11 @@ Required procedure:
 2. Download the complete archive without credentials, ranges, fallback mirrors, or a caller-supplied URL. Verify the exact byte count and SHA-256 from the external prompt before opening it.
 3. Verify the fixed Ed25519 fingerprint, signed manifest, signature, capability closure, this core member, unchanged PolyForm Noncommercial 1.0.0 license, dependency closure, target identity, and every declared member before installation.
 4. Refuse missing, extra, duplicate, linked, private, sensitive, stale, mismatched, unsigned, alternate-key, or partially downloaded content. Do not accept a substituted external prompt as this signed core.
-5. Run the managed prompt-driven update, reload the Codex MCP integration when instructed, and require readiness plus cleanup=complete. 不得覆盖已发布版本，不得强制降级，不得删除课程资料。
-6. Do not open a school source or perform official login/MFA during installation. 不得登录，不得读取、请求、记录或返回密码、MFA、输入值或按键。
-7. The dedicated Profile is sensitive credential storage. 不得复制或备份 Profile，不得导出 Cookie、storage state、密钥或原始网络捕获。
-8. Publication, installation, update, synthetic, integration, or native checks do not create live evidence. Windows remains not_run/human_needed, live remains not_run/human_needed, and Phase 3 remains blocked until the required hard human gates pass.
+5. A legacy macOS schema-1 ownership receipt may be migrated only when the volatile mount-device value is the sole mismatch and a fresh bounded recovery preview independently verifies the protected root identity, owned launchers, prior signed release and complete file closures, exited owned processes and client hosts, absent update/launch locks, and the exact installer credential. Require the exact RECOVER scope confirmation before the atomic receipt migration. Any other mismatch, stale proof, unknown process, unavailable credential, or manual receipt edit must fail closed.
+6. Run the managed prompt-driven update, reload the Codex MCP integration when instructed, and require readiness plus cleanup=complete. 不得覆盖已发布版本，不得强制降级，不得删除课程资料。
+7. Do not open a school source or perform official login/MFA during installation. 不得登录，不得读取、请求、记录或返回密码、MFA、输入值或按键。
+8. The dedicated Profile is sensitive credential storage. 不得复制或备份 Profile，不得导出 Cookie、storage state、密钥或原始网络捕获。
+9. Publication, installation, update, synthetic, integration, or native checks do not create live evidence. Windows remains not_run/human_needed, live remains not_run/human_needed, and Phase 3 remains blocked until the required hard human gates pass.
 
 Expected post-update state: API healthy, Worker healthy, paired UI ready, actual build matched, managed entrypoints matched, cleanup=complete. Any mismatch, cleanup_pending, unavailable signed proof, or unknown ownership is a failure and must stop dependent work.
 `;
