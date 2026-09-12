@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.45 HUMAN_PRODUCT invalidated; client PID-reuse recovery corrective R0 complete; fresh unnumbered R1 not authorized
-last_updated: "2026-09-13T00:00:00+10:00"
+stopped_at: beta.46 invalidated during ambiguous first R3 two-build-upgrade failure; active candidate none; bounded R0 diagnosis required
+last_updated: "2026-09-13T02:59:05+10:00"
 last_activity: 2026-09-13
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.45 as immutable invalidated history. Beta.45 passed R2-R5 but its real signed macOS updater stopped at `INSTALLATION_RECOVERY_UNCONFIRMED_CLIENTS`. Read-only diagnosis found 214 valid leases, 212 absent PIDs, two unrelated PID reuses and zero exact owned running clients. Corrective R0 distinguishes exact owned processes from reuse, binds and revalidates the whole recovery proof after confirmation, emits stage-specific sanitized codes, and signs projectless/one-shot/no-workspace-write constraints into future prompts. `active update candidate: none`; complete fresh unnumbered R1 is not authorized in the current scope and beta.46 is neither selected nor authorized. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.46 as immutable invalidated history. The post-beta.45 fresh R1 passed and beta.46 was selected once, but its first formal R3 stopped at `PRE_SOURCE / COMMAND_PROCESS_FAILED_INTEGRATION_TWO_BUILD_UPGRADE`. The exact file then passed independently 9/9, while the failed bounded run exposed no attributable environment cause; ambiguity therefore invalidates beta.46 under the stabilization policy. `active update candidate: none`; bounded R0 diagnosis and a complete fresh unnumbered R1 are required before any beta.47 authorization/selection. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.45 human update; beta.45 is invalidated and its client PID-reuse recurrence corrective R0 is complete; 19 of 41 have completion summaries
-Status: beta.31, beta.37–beta.40 and beta.44–beta.45 are immutable published-but-invalidated history; beta.41–beta.43 are immutable unpublished consumed history. `active update candidate: none`; beta.46 is neither selected nor authorized and requires a complete fresh unnumbered R1 plus separate authorization.
-Last activity: 2026-09-13 - Invalidated beta.45, diagnosed client PID reuse and implemented bounded recovery/task-context R0 corrections
+Plan: Post-02-14 release stabilization reached beta.46 R3; beta.46 is invalidated before signing/publication after an ambiguous two-build-upgrade failure; 19 of 41 have completion summaries
+Status: beta.31, beta.37–beta.40 and beta.44–beta.45 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46 are immutable unpublished consumed history. `active update candidate: none`; beta.47 requires bounded R0 diagnosis, a complete fresh unnumbered R1 and separate authorization.
+Last activity: 2026-09-13 - Selected beta.46 once, stopped at the first R3 two-build-upgrade failure, and invalidated it because the transient cause remained unproven
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
