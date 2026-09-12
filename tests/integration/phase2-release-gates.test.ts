@@ -377,10 +377,16 @@ it('two-layer install prompt signs an archive-independent core and externally bi
   }
   expect(external).toContain(release.installPromptCoreSha256);
   expect(external).not.toContain(release.externalPromptSha256);
+  expect(core).toContain('local projectless Codex task');
+  expect(core).toContain('Run the selected bootstrap exactly once');
 });
 
 it('external install prompt provides one verified executable updater entrypoint per native target',()=>{
   const release=artifactReceipt(),external=renderPhase2ExternalInstallPrompt(release)!;
+  expect(external).toContain('local projectless Codex task');
+  expect(external).toContain('must not read, edit, commit, or push the current task workspace');
+  expect(external).toContain('Run the selected bootstrap exactly once');
+  expect(external).toContain('do not rerun it after any nonzero, interrupted, uncertain, or human-needed result');
   expect(external).toContain("curl -fL --proto '=https'");
   expect(external).toContain('shasum -a 256 -c -');
   expect(external).toContain('/bin/sh autoed-bootstrap.sh --root');

@@ -1,4 +1,4 @@
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {existsSync,lstatSync,mkdirSync,openSync,closeSync,writeFileSync,fsyncSync,readFileSync,readdirSync,rmdirSync,unlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {z} from 'zod';
@@ -42,13 +42,15 @@ export async function inspectClientHosts(selection:RootSelection){
 /** Detached recovery inventory: callers must first prove the legacy installation
  * receipt. Every remembered host must be strictly owned and observed exited. */
 export async function inspectClientHostsForRecovery(selection:RootSelection,installationId:string){
-  const paths=managedPaths(selection.root),directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory))return 0;
-  const names=readdirSync(directory);if(names.length>256)throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+  const paths=managedPaths(selection.root),directory=assertManagedPath(paths,'runtime/clients');if(!existsSync(directory))return {count:0,evidenceSha256:createHash('sha256').update('[]').digest('hex')};
+  const names=readdirSync(directory).sort();if(names.length>256)throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');const evidence=[];
   for(const name of names){
     if(!/^[a-f0-9-]{36}\.json$/.test(name))throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
-    const lease=ClientLeaseSchema.parse(read(assertManagedPath(paths,'runtime/clients/'+name)));
-    if(lease.installationId!==installationId||name!==lease.nonce+'.json'||await observeProcess(lease.pid)!==null)throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+    const path=assertManagedPath(paths,'runtime/clients/'+name),bytes=readFileSync(path),lease=ClientLeaseSchema.parse(read(path));
+    if(lease.installationId!==installationId||name!==lease.nonce+'.json')throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+    const os=await observeProcess(lease.pid);if(os!==null&&matchesProcess({...lease,role:'api',buildId:lease.build.buildId},os))throw new Error('INSTALLATION_RECOVERY_UNCONFIRMED');
+    evidence.push({name,sha256:createHash('sha256').update(bytes).digest('hex'),state:'not-owned'});
   }
-  return names.length;
+  return {count:names.length,evidenceSha256:createHash('sha256').update(JSON.stringify(evidence)).digest('hex')};
 }
 export {Admission as ClientAdmissionSchema};
