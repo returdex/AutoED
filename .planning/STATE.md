@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.43 R3 invalidated; bounded secret-store and exact orphan-reclaim R0 complete; fresh unnumbered R1 pending
-last_updated: "2026-09-11T17:00:00+10:00"
-last_activity: 2026-09-11
+stopped_at: beta.45 HUMAN_PRODUCT invalidated; client PID-reuse recovery corrective R0 complete; fresh unnumbered R1 not authorized
+last_updated: "2026-09-13T00:00:00+10:00"
+last_activity: 2026-09-13
 progress:
   total_phases: 9
   completed_phases: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.43 as immutable invalidated history. beta.43's first R3 focused gate and an independent exact rerun both failed at `two-build-upgrade`; the second produced 8/9 then timed out at 300 seconds. The R0 correction bounds native Keychain operations, isolates explicit S/I credentials in a protected disposable cross-process store, and performs strict exited-owner orphan reclaim after every fixed R1 step. Focused typecheck, credential/ledger 15/15, client wiring 8/8, process lifecycle 1/1, two-build upgrade 9/9, managed cleanup 7/7, journal 6/6, recovery 8/8 and release gates 46/46 pass. `active update candidate: none`; a complete fresh unnumbered R1 is pending and beta.44 is neither selected nor authorized. All signing/publication/update/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.45 as immutable invalidated history. Beta.45 passed R2-R5 but its real signed macOS updater stopped at `INSTALLATION_RECOVERY_UNCONFIRMED_CLIENTS`. Read-only diagnosis found 214 valid leases, 212 absent PIDs, two unrelated PID reuses and zero exact owned running clients. Corrective R0 distinguishes exact owned processes from reuse, binds and revalidates the whole recovery proof after confirmation, emits stage-specific sanitized codes, and signs projectless/one-shot/no-workspace-write constraints into future prompts. `active update candidate: none`; complete fresh unnumbered R1 is not authorized in the current scope and beta.46 is neither selected nor authorized. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.43 R3; beta.43 is now invalidated and its credential/process recurrence is repaired in R0, with a complete fresh unnumbered R1 pending; 19 of 41 have completion summaries
-Status: beta.31 and beta.37–beta.40 are immutable published-but-invalidated history; beta.41–beta.43 are immutable unpublished consumed history. `active update candidate: none`; beta.44 is neither selected nor authorized and requires a fresh unnumbered R1 plus separate authorization.
-Last activity: 2026-09-11 - Invalidated beta.43, bounded native secret-store operations, isolated synthetic credentials and added strict post-step orphan reclaim
+Plan: Post-02-14 release stabilization reached beta.45 human update; beta.45 is invalidated and its client PID-reuse recurrence corrective R0 is complete; 19 of 41 have completion summaries
+Status: beta.31, beta.37–beta.40 and beta.44–beta.45 are immutable published-but-invalidated history; beta.41–beta.43 are immutable unpublished consumed history. `active update candidate: none`; beta.46 is neither selected nor authorized and requires a complete fresh unnumbered R1 plus separate authorization.
+Last activity: 2026-09-13 - Invalidated beta.45, diagnosed client PID reuse and implemented bounded recovery/task-context R0 corrections
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -36,7 +36,7 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 
 **Velocity:**
 
-- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31–beta.43 invalidation history is preserved; beta.43 is unpublished and `active update candidate: none`.
+- Total plan summaries on disk: 32 (Phase 1: 13/14; Phase 2: 19/41). beta.31–beta.45 invalidation history is preserved and `active update candidate: none`.
 - Average duration: N/A
 - Total execution time: Not aggregated; see individual SUMMARY files
 
@@ -45,12 +45,12 @@ Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 13 completed / 14 planned | Partial; human/native gaps remain | N/A |
-| 2 | 19 summaries / 41 planned | In progress; beta.31–beta.43 invalidation history is preserved, beta.43 is unpublished consumed history, and `active update candidate: none`; live/Windows gates remain blocked | N/A |
+| 2 | 19 summaries / 41 planned | In progress; beta.31–beta.45 invalidation history is preserved and `active update candidate: none`; live/Windows gates remain blocked | N/A |
 | 3–8 | Not yet planned | Not started | N/A |
 
 **Recent Trend:**
 
-- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.43 invalidated during R3, with no active update candidate
+- Last 5 plan summaries: 02-37, 02-41, 02-38, 02-39, 02-13; active position is beta.45 invalidated during real macOS recovery, with no active update candidate
 - Trend: N/A
 
 | Phase 02 P01 | 9 min | 2 tasks | 6 files |
@@ -134,6 +134,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: The candidate-version corrective R1 passed at `ce6c38c…`; beta.42 passed R2/R3, then formal R4 stopped before build/signing with `Subprocess failed (spawn): tar`. Two immediate bootstrap checks passed but the same bounded shell later failed name lookup for `git`, so a single non-recurrent transient was not proven. No beta.42 local/remote tag, signed asset or release exists. — Permanently invalidate beta.42, remove PATH lookup for managed archive extraction, persist the validated absolute archive tool coordinate, and require a fresh unnumbered R1 before beta.43.
 - [Release]: The first post-beta.42 fresh R1 on `40abd99…` passed the focused slow boundaries through recovery, then stopped at the first complete integration file with `PRE_RUNNER / PROCESS_GROUP_REMAINS`. The failed group disappeared, no owned process remained and three full focused `artifact-assembly` runs passed. Source inspection proved the observer merged zombie-only and unknown observation states with live descendants and omitted the step name; release scripts still had bare git/gh lookup. — Pin validated absolute git/gh/ps paths and versions beside tar in the local 0600 environment file, classify process states separately, add exact step codes, then run another complete fresh R1 before any beta.43 authorization.
 - [Release]: `dd446af…` passed a fresh unnumbered R1 and beta.43 was selected once, but its first formal R3 stopped at the fixed `two-build-upgrade` step; the exact file independently reproduced an 8/9 result followed by the same 300-second timeout. No tag, signed artifact or release exists. — Permanently invalidate beta.43, bound native secret-store calls, isolate explicit synthetic credentials from the OS Keychain, reclaim only strict exited-owner synthetic services after every fixed step, and require a fresh unnumbered R1 plus separate authorization before beta.44.
+- [Release]: beta.45 passed R2-R5 and availability, but its real signed macOS recovery stopped at `INSTALLATION_RECOVERY_UNCONFIRMED_CLIENTS`; bounded diagnosis proved two unrelated PID reuses among 214 valid leases and zero owned running clients. The updater task also violated projectless/one-shot/no-workspace-write boundaries, but this does not erase the product attempt. — Permanently invalidate beta.45, correct ownership comparison and full confirmation-time revalidation in R0, then require a separately authorized complete fresh R1 before any beta.46 selection.
 
 ### Pending Todos
 
@@ -185,8 +186,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-11T17:00:00+10:00
-Stopped at: beta.43 R3 invalidated and credential/process R0 repaired; `active update candidate: none`, fresh unnumbered R1 pending
+Last session: 2026-09-13T00:00:00+10:00
+Stopped at: beta.45 HUMAN_PRODUCT invalidated and client PID-reuse recovery corrective R0 complete; `active update candidate: none`, fresh unnumbered R1 not authorized
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
 Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.43 failures are recorded by immutable invalidation documents. `active update candidate: none`; beta.44 and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.
