@@ -153,13 +153,29 @@ it('local publication contract derives 2x8 evidence without network, candidate l
 });
 
 it('fixed rehearsal derives every attestation field from ordered raw ops and cleans before writing',async()=>{
-  const root=makeRoot(),calls:string[]=[],source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
+  const root=makeRoot(),calls:string[]=[],source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),activePointers:[],clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
   const command=(id:string)=>({schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:phase2RehearsalCommandSha256({program:'managed-node',args:[id]})});
   const assembled=rehearsalAssembly();
   const result:any=await runPhase2Rehearsal({root,ops:{runtime:async()=>{calls.push('runtime');return{verified:true,node:'24.20.0',npm:'11.19.0'};},snapshot:async()=>{calls.push('snapshot');return snapshot;},build:async()=>{calls.push('build');return{version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:source};},command:async(id:string)=>{calls.push(id);return command(id);},assembly:async()=>{calls.push('assembly');return assembled;},prompt:async({core,assembly}:any)=>{calls.push('prompt');return renderPhase2RehearsalPromptEnvelope({core,assembly});},publication:async()=>{calls.push('publication');return{status:'pass',contractTests:30,remoteMutations:0,fullVerifierInvocations:1};},scan:async()=>{calls.push('scan');return{status:'pass',findings:0,reportSha256:hash('9')};},cleanup:async()=>{calls.push('cleanup');return true;},now:async()=>{calls.push('now');return now;}}});
   expect(result).toMatchObject({status:'pass',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f')});expect(calls).toEqual(['runtime','snapshot','build','focused','typecheck','unit','integration','ui','native','assembly','prompt','publication','scan','cleanup','snapshot','now']);expect(readPhase2RehearsalBinding({...selection(32),commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:source,rehearsalSha256:result.rehearsalSha256},{root})).toMatchObject({status:'pass'});
   const envelope=renderPhase2RehearsalPromptEnvelope({core:'opaque-core',assembly:assembled}),attestation=readFileSync(join(root,'.planning/release-rehearsals',result.path),'utf8');for(const target of assembled.targets){expect(envelope).not.toContain(target.root);expect(attestation).not.toContain(target.root);}
   expect(()=>reportPhase2RehearsalCommand({runner:'vitest',exitCode:0,stdout:' Tests  1 passed (1)',commandSha256:hash('1')})).toThrow('REPORT_MALFORMED');
+});
+
+it('rehearsal rejects every active R2-R5 pointer at both snapshots',async()=>{
+  const root=makeRoot(),source=hash('a'),activePointers=[
+    'release/phase2-build-selection.json',
+    'release/phase2-test-report.json',
+    'release/phase2-beta-artifacts.json',
+    'release/phase2-install-prompt.md',
+    'release/phase2-publication.json',
+    'release/phase2-availability.json',
+  ],baseSnapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),activePointers:[],clean:true};
+  const command={schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:hash('1')};
+  const ops={runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),build:async()=>({version:'0.1.0',commit:baseSnapshot.commit,tree:baseSnapshot.tree,buildId:hash('f'),sourceSha256:source}),command:async()=>command,assembly:async()=>rehearsalAssembly(),prompt:async({core,assembly}:any)=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async()=>({status:'pass',contractTests:1,remoteMutations:0,fullVerifierInvocations:1}),scan:async()=>({status:'pass',findings:0,reportSha256:hash('2')}),cleanup:async()=>true,now:async()=>now};
+  for(const pointer of activePointers)await expect(runPhase2Rehearsal({root,ops:{...ops,snapshot:async()=>({...baseSnapshot,activePointers:[pointer]})}})).rejects.toThrow('class=PRE_SOURCE code=ACTIVE_RELEASE_POINTER_INITIAL');
+  let snapshots=0;
+  await expect(runPhase2Rehearsal({root,ops:{...ops,snapshot:async()=>{snapshots++;return snapshots===1?baseSnapshot:{...baseSnapshot,activePointers:['release/phase2-install-prompt.md']};}}})).rejects.toThrow('class=PRE_SOURCE code=ACTIVE_RELEASE_POINTER_FINAL');
 });
 
 it('rehearsal reporter accepts title words but requires pure Vitest and Playwright terminal summaries',()=>{
@@ -203,7 +219,7 @@ it('Vitest configuration explicitly rejects committed focused tests in every pro
 });
 
 it('rehearsal consumes only sealed 2x8 closure evidence and rejects forged or missing facts',async()=>{
-  const root=makeRoot(),source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
+  const root=makeRoot(),source=hash('a'),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:source,refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),activePointers:[],clean:true};mkdirSync(join(root,'.planning/release-rehearsals'),{recursive:true,mode:0o700});
   const command={schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:hash('1')};
   const run=async(assembly:any,overrides:any={},targetRoot=root)=>runPhase2Rehearsal({root:targetRoot,ops:{runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,build:async()=>({version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:source}),command:async()=>command,assembly:async()=>assembly,prompt:async({core,assembly}:any)=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async()=>({status:'pass',contractTests:1,remoteMutations:0,fullVerifierInvocations:1}),scan:async()=>({status:'pass',findings:0,reportSha256:hash('2')}),cleanup:async()=>true,now:async()=>now,...overrides}});
   const valid:any=rehearsalAssembly();
@@ -256,7 +272,7 @@ it('process-group observation distinguishes live, zombie-only, absent and observ
 });
 
 it('classifies failures by operation boundary without parsing arbitrary error text',async()=>{
-  const snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:hash('a'),refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),clean:true};
+  const snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:hash('a'),refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),activePointers:[],clean:true};
   const command={schema:1,runner:'rc',status:'pass',passed:1,failed:0,skipped:0,todo:0,commandSha256:hash('1')};
   const base={runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,build:async()=>({version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:snapshot.sourceSha256}),command:async()=>command,assembly:async()=>rehearsalAssembly(),prompt:async({core,assembly}:any)=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async()=>({status:'pass',contractTests:1,remoteMutations:0,fullVerifierInvocations:1}),scan:async()=>({status:'pass',findings:0,reportSha256:hash('2')}),cleanup:async()=>true,now:async()=>now};
   const cases:[string,'PRE_RUNNER'|'PRE_SOURCE',string][]=[

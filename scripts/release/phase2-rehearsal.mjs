@@ -157,8 +157,11 @@ export function requirePhase2ProcessSuccess(result,failureClass){
   if(!result||result.exitCode!==0||result.signal)runnerFail(failureClass,'COMMAND_PROCESS_FAILED');
   return result;
 }
-function sameSnapshot(a,b){return exact(a,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','clean'])&&exact(b,Object.keys(a))&&canonical(a)===canonical(b);}
-function snapshotValid(value){return exact(value,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','clean'])&&GIT.test(value.commit)&&GIT.test(value.tree)&&[value.sourceSha256,value.refsSha256,value.remotesSha256,value.receiptsSha256].every(item=>HASH.test(item))&&value.clean===true;}
+const ACTIVE_PHASE2_RELEASE_POINTERS=Object.freeze(['release/phase2-build-selection.json','release/phase2-test-report.json','release/phase2-beta-artifacts.json','release/phase2-install-prompt.md','release/phase2-publication.json','release/phase2-availability.json']);
+function activePointersValid(value){return Array.isArray(value)&&canonical(value)===canonical(ACTIVE_PHASE2_RELEASE_POINTERS.filter(pointer=>value.includes(pointer)));}
+function sameSnapshot(a,b){return exact(a,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','activePointers','clean'])&&exact(b,Object.keys(a))&&canonical(a)===canonical(b);}
+function snapshotValid(value){return exact(value,['commit','tree','sourceSha256','refsSha256','remotesSha256','receiptsSha256','activePointers','clean'])&&GIT.test(value.commit)&&GIT.test(value.tree)&&[value.sourceSha256,value.refsSha256,value.remotesSha256,value.receiptsSha256].every(item=>HASH.test(item))&&activePointersValid(value.activePointers)&&value.clean===true;}
+function requireNoActiveReleasePointers(snapshot,stage){if(snapshot.activePointers.length!==0)runnerFail('PRE_SOURCE',`ACTIVE_RELEASE_POINTER_${stage}`);}
 function commandFact(value){return value&&value.status==='pass'&&HASH.test(value.commandSha256)&&Number.isSafeInteger(value.passed)&&value.passed>0&&value.failed===0&&value.skipped===0&&value.todo===0;}
 function asCheck(value){if(!commandFact(value))runnerFail('PRE_RUNNER','COMMAND_REPORT_INVALID');return {status:'pass',commandSha256:value.commandSha256,tests:value.passed,skipped:0,todo:0};}
 const REQUIRED_ASSET_ROLES=Object.freeze(['bootstrap','browser','capability','installer','manifest','node','program','signature']);
@@ -258,7 +261,7 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
   let cleanupAttempted=false;
   try{
     const runtime=await call('runtime');if(!exact(runtime,['verified','node','npm'])||runtime.verified!==true||runtime.node!=='24.20.0'||runtime.npm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');
-    const before=await snapshot('initial');if(!snapshotValid(before))runnerFail('PRE_RUNNER','IDENTITY_INVALID');
+    const before=await snapshot('initial');if(!snapshotValid(before))runnerFail('PRE_RUNNER','IDENTITY_INVALID');requireNoActiveReleasePointers(before,'INITIAL');
     const build=await call('build',before);if(!exact(build,['version','commit','tree','buildId','sourceSha256'])||build.version!=='0.1.0'||build.commit!==before.commit||build.tree!==before.tree||build.sourceSha256!==before.sourceSha256||!HASH.test(build.buildId))runnerFail('PRE_SOURCE','BUILD_IDENTITY_DRIFT');
     const focused=asCheck(await call('command','focused'));
     const quality={typecheck:asCheck(await call('command','typecheck')),unit:asCheck(await call('command','unit')),integration:asCheck(await call('command','integration')),ui:asCheck(await call('command','ui')),native:asCheck(await call('command','native'))};
@@ -269,7 +272,7 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
     const publication=await call('publication',{identity,assembly:assembled,before});if(!publication||publication.status!=='pass'||!Number.isSafeInteger(publication.contractTests)||publication.contractTests<1||publication.remoteMutations!==0||publication.fullVerifierInvocations!==1)runnerFail('PRE_SOURCE','PUBLICATION_INVALID');
     const scan=await call('scan');if(!scan||scan.status!=='pass'||scan.findings!==0||!HASH.test(scan.reportSha256))runnerFail('PRE_SOURCE','SENSITIVE_SCAN_INVALID');
     cleanupAttempted=true;if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');
-    const after=await snapshot('final');const remoteSnapshotMutations=['refsSha256','remotesSha256','receiptsSha256'].filter(key=>before[key]!==after[key]).length;if(remoteSnapshotMutations!==0)runnerFail('PRE_RUNNER','REMOTE_MUTATION');if(!sameSnapshot(before,after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');
+    const after=await snapshot('final');if(!snapshotValid(after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');requireNoActiveReleasePointers(after,'FINAL');const remoteSnapshotMutations=['refsSha256','remotesSha256','receiptsSha256'].filter(key=>before[key]!==after[key]).length;if(remoteSnapshotMutations!==0)runnerFail('PRE_RUNNER','REMOTE_MUTATION');if(!sameSnapshot(before,after))runnerFail('PRE_SOURCE','FINAL_IDENTITY_DRIFT');
     const base={schema:1,status:'pass',kind:'unnumbered_release_rehearsal',releaseCoordinate:null,commit:build.commit,tree:build.tree,buildId:build.buildId,sourceSha256:build.sourceSha256,managedRuntime:runtime,focused,quality:{...quality,sensitiveScan:{status:'pass',findings:0,reportSha256:scan.reportSha256}},closures,prompt:{status:'pass',targetCount:prompt.targetCount,assetCount:prompt.assetCount,commandsBound:true,latestReferences:0,envelopeSha256:prompt.envelopeSha256},publication:{status:'pass',contractTests:publication.contractTests,remoteMutations:publication.remoteMutations,fullVerifierInvocations:publication.fullVerifierInvocations},failureHistory:[]};
     const value={...base,completedAt:await call('now')};
     try{validatePhase2Rehearsal(value);}catch{runnerFail('PRE_SOURCE','FINAL_VALIDATION_FAILED');}
@@ -300,9 +303,9 @@ function createPhase2RehearsalOwnedRoot(){return normalizePhase2RehearsalOwnedRo
 export function createProductionPhase2RehearsalOps({root=ROOT}={}){
   const gitTool=runtimeGitTool(),git=args=>execFileSync(gitTool,args,{cwd:root,encoding:'utf8',timeout:30000,maxBuffer:1024*1024}).trim();
   const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node'),scanner=createCapturedOutputScanner(),ledger=[],owned=createPhase2RehearsalOwnedRoot();
-  const receiptNames=['release/phase2-build-selection.json','release/phase2-test-report.json','release/phase2-beta-artifacts.json','release/phase2-publication.json','release/phase2-availability.json','release/phase2-install-prompt.md'];
+  const receiptNames=ACTIVE_PHASE2_RELEASE_POINTERS;
   const receiptDigest=()=>canonicalSha256(receiptNames.map(name=>existsSync(join(root,name))?{name,sha256:canonicalSha256(readFileSync(join(root,name)))}:{name,missing:true}));
-  const snapshot=()=>({commit:git(['rev-parse','HEAD']),tree:git(['write-tree']),sourceSha256:hashBuildInputs(root),refsSha256:canonicalSha256(git(['show-ref','--head'])),remotesSha256:canonicalSha256(git(['remote','-v'])),receiptsSha256:receiptDigest(),clean:git(['status','--porcelain'])==='' });
+  const snapshot=()=>({commit:git(['rev-parse','HEAD']),tree:git(['write-tree']),sourceSha256:hashBuildInputs(root),refsSha256:canonicalSha256(git(['show-ref','--head'])),remotesSha256:canonicalSha256(git(['remote','-v'])),receiptsSha256:receiptDigest(),activePointers:receiptNames.filter(name=>existsSync(join(root,name))),clean:git(['status','--porcelain'])==='' });
   const capture=async(program,args,timeout=300000,failureClass='PRE_RUNNER')=>requirePhase2ProcessSuccess(await runPhase2Detached({program,args,cwd:root,timeoutMs:timeout,scanner}),failureClass).stdout;
   // Actual long commands deliberately live behind the internal fixed command
   // adapter; direct callers never receive a program/argument escape hatch.
