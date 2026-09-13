@@ -7,7 +7,7 @@ it('restores a verified old snapshot only before any new-generation business wri
 },180000);
 
 it('dispatches an exact cleaned-intent continuation before preview or download',async()=>{
-  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);const dispatch=await f.runUpgradeCLI(0,true);expect(dispatch).toMatchObject({type:'install_result',state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});}finally{await f.cleanup();}
+  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);const dispatch=await f.runUpgradeCLI(true);expect(dispatch).toMatchObject({type:'install_result',state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});}finally{await f.cleanup();}
 },180000);
 
 it('resumes the feature-verified target and preserves archives and profile data',async()=>{

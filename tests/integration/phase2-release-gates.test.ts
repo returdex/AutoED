@@ -34,7 +34,7 @@ import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2Avail
 import {phase2ClosureBytes,preparePhase2CandidateBuild} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
 import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
-import {phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
+import {classifyPhase2RehearsalFailure,phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
 it('binds the capability closure digest to the exact canonical bytes placed in the public archive',()=>{
@@ -63,7 +63,7 @@ it('isolates the complete integration inventory without omitting a test file',()
 });
 
 it('reports a fixed failing step without exposing raw child output',()=>{
-  expect(phase2StepFailureCode('COMMAND_PROCESS_FAILED','upgrade-recovery')).toBe('COMMAND_PROCESS_FAILED_UPGRADE_RECOVERY');expect(phase2StepFailureCode('COMMAND_REPORT_INVALID','integration-phase2-release-gates')).toBe('COMMAND_REPORT_INVALID_INTEGRATION_PHASE2_RELEASE_GATES');expect(()=>phase2StepFailureCode('COMMAND_PROCESS_FAILED','../../outside')).toThrow('COMMAND_ID_INVALID');
+  expect(phase2StepFailureCode('COMMAND_PROCESS_FAILED','upgrade-recovery')).toBe('COMMAND_PROCESS_FAILED_UPGRADE_RECOVERY');expect(phase2StepFailureCode('COMMAND_REPORT_INVALID','integration-phase2-release-gates')).toBe('COMMAND_REPORT_INVALID_INTEGRATION_PHASE2_RELEASE_GATES');expect(phase2StepFailureCode('COMMAND_TEST_TIMEOUT','integration-two-build-upgrade')).toBe('COMMAND_TEST_TIMEOUT_INTEGRATION_TWO_BUILD_UPGRADE');expect(()=>phase2StepFailureCode('COMMAND_PROCESS_FAILED','../../outside')).toThrow('COMMAND_ID_INVALID');
 });
 
 const roots:string[]=[];
@@ -183,6 +183,15 @@ it('rehearsal reporter accepts title words but requires pure Vitest and Playwrig
     '  2 passed (1.2s)\n  1 interrupted',
     '  2 passed (1.2s)\n  2 passed (1.2s)',
   ])expect(()=>reportPhase2RehearsalCommand({runner:'playwright',exitCode:0,stdout,commandSha256})).toThrow('REPORT_MALFORMED');
+});
+
+it('classifies bounded nonzero runner output without returning sensitive child text',()=>{
+  expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:'Error: Test timed out in 300000ms. /Users/example/Profile secret'})).toBe('TEST_TIMEOUT');
+  expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:' Test Files  1 failed | 8 passed (9)\n Tests  1 failed | 8 passed (9)'})).toBe('TEST_ASSERTION_FAILED');
+  expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:' Test Files  8 passed (9)\n Tests  8 passed (9)'})).toBe('TEST_RUN_INCOMPLETE');
+  expect(classifyPhase2RehearsalFailure({runner:'playwright',exitCode:1,signal:'SIGTERM',stderr:'password=hunter2'})).toBe('PROCESS_SIGNALLED');
+  expect(classifyPhase2RehearsalFailure({runner:'rc',exitCode:2,stderr:'/Users/example/private'})).toBe('PROCESS_EXIT_NONZERO');
+  expect(()=>classifyPhase2RehearsalFailure({runner:'vitest',exitCode:0,stdout:'secret'})).toThrow('FAILURE_REPORT_ARGUMENT_INVALID');
 });
 
 it('Vitest configuration explicitly rejects committed focused tests in every project',()=>{

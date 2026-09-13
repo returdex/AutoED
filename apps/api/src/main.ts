@@ -130,7 +130,13 @@ export async function startApi(options: ApiOptions) {
   if (options.sessions.installationId !== options.installationId) throw new Error('INVALID_SESSION_SCOPE');
   const app = Fastify({ logger: false, trustProxy: false, bodyLimit: 16384, requestTimeout: 10000, connectionTimeout: 10000 });
   await app.register(cookie);
-  let origin = ''; let shutdownRequested = false; const principals = new WeakMap<FastifyRequest, Principal>(); const authLimit = new WindowLimit(30, options.requestLimitNow);
+  let origin = ''; let shutdownRequested = false; const principals = new WeakMap<FastifyRequest, Principal>();
+  const authLimit = new WindowLimit(30, options.requestLimitNow);
+  // Lifecycle ownership proofs must remain available while a busy selfcheck or
+  // client consumes the ordinary authenticated request budget. The lifecycle
+  // routes keep their own bounded budget and retain normal authentication and
+  // authorization checks below.
+  const lifecycleLimit = new WindowLimit(30, options.requestLimitNow);
   const policy = new SyntheticOutputPolicy(options.installationId);
   const application = new ApiApplication(options.jobs, options.maintenance, options.projections, policy, async () => { shutdownRequested = true; },options.runtimeGeneration);
   const authApplication = options.auth ? new AuthControlApplication({
@@ -152,7 +158,7 @@ export async function startApi(options: ApiOptions) {
     assertTransport(request, origin);
     if (publicStaticPaths.has(request.url) && request.method === 'GET') return;
     if (publicPairingPaths.has(request.url)) return;
-    authLimit.take();
+    (request.url === '/api/process/inspect' || request.url === '/api/control/shutdown' ? lifecycleLimit : authLimit).take();
     principals.set(request, request.headers.authorization !== undefined || !request.cookies.autoed_session
       ? await authenticate(request, options.installationId, options.credentials, options.secrets, options.maintenance,options.selfcheckCredentials?()=>options.selfcheckCredentials!.current():undefined)
       : browserPrincipal(request, options.sessions, origin));

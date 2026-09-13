@@ -9,6 +9,28 @@ const PLAYWRIGHT_ADVERSE_SUMMARY=/^\s*[1-9]\d*\s+(?:failed|skipped|flaky|interru
 const fail=code=>{throw new Error(code);};
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const text=value=>typeof value==='string'?value:Buffer.isBuffer(value)?value.toString('utf8'):'';
+const FAILURE_CODES=new Set(['TEST_TIMEOUT','TEST_ASSERTION_FAILED','TEST_RUN_INCOMPLETE','PROCESS_SIGNALLED','PROCESS_EXIT_NONZERO']);
+
+/**
+ * Converts a bounded nonzero child result to one allowlisted category. This
+ * intentionally returns no command output, path, stack, environment value or
+ * test title.
+ * @param {{runner?:string,exitCode?:number,signal?:string|null,stdout?:string|Buffer,stderr?:string|Buffer}} options
+ */
+export function classifyPhase2RehearsalFailure({runner,exitCode,signal=null,stdout='',stderr=''}={}){
+  if(!['rc','vitest','playwright','json'].includes(runner)||!Number.isInteger(exitCode)||exitCode<0||exitCode>255||(signal!==null&&typeof signal!=='string')||(exitCode===0&&!signal))fail('FAILURE_REPORT_ARGUMENT_INVALID');
+  const output=`${text(stdout)}\n${text(stderr)}`;
+  if(Buffer.byteLength(output)>64*1024*1024)fail('FAILURE_REPORT_OUTPUT_LIMIT');
+  let code='PROCESS_EXIT_NONZERO';
+  if(signal)code='PROCESS_SIGNALLED';
+  else if(runner==='vitest'||runner==='playwright'){
+    if(/(?:Test|Hook) timed out in \d+ms|Timeout of \d+ms exceeded|test timeout/i.test(output))code='TEST_TIMEOUT';
+    else if(/(?:Test Files|Tests)\s+.*\bfailed\b|^\s*[1-9]\d*\s+failed\b/im.test(output))code='TEST_ASSERTION_FAILED';
+    else if(/(?:Test Files|Tests)\s+.*\bpassed\s+\(\d+\)|^\s*[1-9]\d*\s+passed\b/im.test(output))code='TEST_RUN_INCOMPLETE';
+  }
+  if(!FAILURE_CODES.has(code))fail('FAILURE_REPORT_INVALID');
+  return code;
+}
 
 /**
  * Converts bounded child-process output into a deliberately small machine

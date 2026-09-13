@@ -81,6 +81,14 @@ describe('authenticated actual loopback HTTP', () => {
     for (let i = 0; i < 29; i++) expect((await f.call('/api/status', null, undefined, { 'x-forwarded-for': `10.0.0.${i}` })).status).toBe(401);
     expect((await f.call('/api/status', null)).status).toBe(429);
   });
+  it('keeps authenticated lifecycle inspection available when ordinary requests exhaust their rate bucket', async () => {
+    const f = await fixture();
+    for (let i = 0; i < 30; i++) expect((await f.call('/api/status')).status).toBe(200);
+    expect((await f.call('/api/status')).status).toBe(429);
+    const inspect = await f.call('/api/process/inspect', 'cli', { challenge: randomUUID() });
+    expect(inspect.status).toBe(403);
+    expect(await inspect.json()).toMatchObject({ code: 'FORBIDDEN' });
+  });
   it('enforces cap atomically in SQLite including multiple connections and idempotent retry', async () => {
     const f = await fixture(); const first = f.request(); await f.jobs.enqueue(first, { expectedGeneration: 0 });
     for (let i = 1; i < 999; i++) await f.jobs.enqueue(f.request(), { expectedGeneration: 0 });

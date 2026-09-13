@@ -32,6 +32,12 @@ export function assertLocalURL(input: string | URL): URL {
   return url;
 }
 
+interface HarnessSpawnOptions {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  stdio?: 'ignore' | ['pipe', 'pipe', 'pipe'];
+}
+
 /** No real Profile or data roots; ownership is object identity, never a caller PID. */
 export function createHarness() {
   const root = mkdtempSync(join(tmpdir(), 'autoed-synthetic-'));
@@ -67,9 +73,9 @@ export function createHarness() {
     async fetch(input: string | URL, options: RequestInit = {}): Promise<Response> {
       return fetch(assertLocalURL(input), { ...options, redirect: 'error', signal: options.signal ?? AbortSignal.timeout(5_000) });
     },
-    spawn(args: readonly string[]): ChildProcess {
+    spawn(args: readonly string[], options: HarnessSpawnOptions = {}): ChildProcess {
       if (cleaned) throw new Error('Harness already cleaned');
-      const child = spawn(process.execPath, [...args], { cwd: root, stdio: 'ignore', env: { PATH: process.env.PATH, AUTOED_SYNTHETIC_TEST: '1', AUTOED_SYNTHETIC_PORT: process.env.AUTOED_SYNTHETIC_PORT, AUTOED_SYNTHETIC_RUN_ID: runId } });
+      const child = spawn(process.execPath, [...args], { cwd: options.cwd ?? root, stdio: options.stdio ?? 'ignore', env: { PATH: process.env.PATH, ...options.env, AUTOED_SYNTHETIC_TEST: '1', AUTOED_SYNTHETIC_PORT: process.env.AUTOED_SYNTHETIC_PORT, AUTOED_SYNTHETIC_RUN_ID: runId } });
       owned.add(child);
       return child;
     },
