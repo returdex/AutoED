@@ -158,3 +158,19 @@ prompt pointers. A fresh complete unnumbered R1 passed on `78db757…` /
 `bc08b986…` with build `5ad0e07a…`, focused 35, quality 1/154/401/34/24,
 dual 8-asset closures, zero sensitive findings and zero remote mutations.
 Separate authorization remains required before any later candidate selection.
+
+## Beta.49 stale active-prompt collision
+
+Beta.49 was selected once from the passing post-beta.48 R1 identity and its
+complete R3 gate passed 1/154/401/34/24 with zero disabled tests and zero
+sensitive findings. Its first formal R4 invocation then stopped before build,
+signing or artifact creation with `PHASE2_ASSEMBLY_OUTPUT_EXISTS`. The retained
+object was the tracked beta.48 install prompt: the beta.48 invalidation retired
+the other active receipts but omitted this pointer, while R1 only proved that
+the stale receipt set did not change. This is deterministic release-state and
+rehearsal-contract drift, not `POST_TRANSIENT`. beta.49 is immutable unpublished
+`POST_SOURCE` history and must never be retried, signed, tagged, published or
+relabelled. Corrective R0 must retire the stale prompt and make R1 reject every
+pre-existing active R2–R5 pointer before a fresh complete rehearsal. No later
+candidate may be selected without separate authorization; installation, login,
+02-15 and Phase 3 remain blocked.
