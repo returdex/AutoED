@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 import {readFileSync,writeFileSync} from 'node:fs';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
-import {createNativeRuntime} from '../../packages/test-support/src/native-runtime.js';
+import {createNativeRuntime,NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS} from '../../packages/test-support/src/native-runtime.js';
 import {OwnedProcessSupervisor} from '../../packages/platform/src/processes.js';
 
 async function exclusive(f:Awaited<ReturnType<typeof createNativeRuntime>>,workerBuild=f.build){
@@ -22,7 +22,7 @@ for(const variant of ['A','B'] as const)it(`actual ${variant} CLI + SDK stdio MC
     expect(await f.secrets.get(f.metadata.installationId,'selfcheck-'+operationId)===null).toBe(true);
     const status=await (await f.request('/api/status')).json();expect(status).toMatchObject({installationId:f.metadata.installationId,manifest:{build:f.build,evidence:'build_manifest'},selfcheck:{jobId:result.jobId,featureResult:'pass'}});
   }finally{await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);
 
 for(const stale of ['cli','mcp','worker','manifest'] as const)it(`selfcheck records actual mismatched ${stale}, even with the same version string`,async()=>{
   const f=await createNativeRuntime('B');try{
@@ -38,7 +38,7 @@ for(const stale of ['cli','mcp','worker','manifest'] as const)it(`selfcheck reco
       expect(status.selfcheck.probes).toEqual(result.probes);
     }else expect(stale==='manifest'?status.manifest.build.buildId:status.selfcheck.probes.find((p:{role:string})=>p.role===stale).build.buildId).toBe(old.buildId);
   }finally{await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);
 
 it('official stdio exposes only three strict tools, denies browser instructions and reports stopped API without autostart',async()=>{
   const f=await createNativeRuntime();let client:Client|undefined;try{
@@ -52,7 +52,7 @@ it('official stdio exposes only three strict tools, denies browser instructions 
     await f.supervisor.stop(f.supervisor.registered().find(p=>p.role==='api')!);
     const stopped=await client.callTool({name:'autoed_status',arguments:{}});expect(stopped.isError).toBe(true);expect(stopped.structuredContent).toMatchObject({code:'BACKEND_UNAVAILABLE'});
   }finally{await client?.close();await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);
 
 it('early actual CLI failure replaces old selfcheck evidence with failure and revokes the exact temporary credential',async()=>{
   const f=await createNativeRuntime();try{
@@ -62,4 +62,4 @@ it('early actual CLI failure replaces old selfcheck evidence with failure and re
     expect(result).toMatchObject({matched:false,featureResult:'fail',code:'CLI_PROBE_FAILED',projectionWritten:true,probes:[]});
     expect((await (await f.request('/api/status')).json()).selfcheck).toMatchObject({featureResult:'fail',jobId:null,probes:[]});expect(await f.secrets.get(f.metadata.installationId,'selfcheck-'+operationId)===null).toBe(true);
   }finally{await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);

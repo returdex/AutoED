@@ -24,7 +24,7 @@ export function classifyPhase2RehearsalFailure({runner,exitCode,signal=null,stdo
   let code='PROCESS_EXIT_NONZERO';
   if(signal)code='PROCESS_SIGNALLED';
   else if(runner==='vitest'||runner==='playwright'){
-    if(/(?:Test|Hook) timed out in \d+ms|Timeout of \d+ms exceeded|test timeout/i.test(output))code='TEST_TIMEOUT';
+    if(/(?:Test|Hook) timed out in \d+ms|Timeout of \d+ms exceeded|test timeout|\bCLI_OUTPUT_TIMEOUT\b/i.test(output))code='TEST_TIMEOUT';
     else if(/(?:Test Files|Tests)\s+.*\bfailed\b|^\s*[1-9]\d*\s+failed\b/im.test(output))code='TEST_ASSERTION_FAILED';
     else if(/(?:Test Files|Tests)\s+.*\bpassed\s+\(\d+\)|^\s*[1-9]\d*\s+passed\b/im.test(output))code='TEST_RUN_INCOMPLETE';
   }

@@ -1,6 +1,6 @@
 import {expect,it} from 'vitest';
 import {randomUUID} from 'node:crypto';
-import {createNativeRuntime} from '../../packages/test-support/src/native-runtime.js';
+import {createNativeRuntime,NATIVE_RUNTIME_CLI_TEST_TIMEOUT_MS,NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS} from '../../packages/test-support/src/native-runtime.js';
 import {createServer} from 'node:http';
 import {writeFileSync,unlinkSync,mkdirSync,rmdirSync} from 'node:fs';
 import {join} from 'node:path';
@@ -22,7 +22,7 @@ it('compiled CLI starts independent services, proves identity, submits real jobs
     expect((await f.runCli(['stop'])).code).toBe(0);const offline=await f.runCli(['status']);expect(offline.code).not.toBe(0);expect(offline.stdout).toContain('BACKEND_UNAVAILABLE');
     const pendingLaunch=join(f.selection.root,'runtime/worker.launch');mkdirSync(pendingLaunch,{mode:0o700});try{const uncertain=await f.runCli(['stop']);expect(uncertain.code).not.toBe(0);expect(uncertain.stdout).toContain('PROCESS_STOP_UNCONFIRMED');}finally{rmdirSync(pendingLaunch);}
   }finally{await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLI_TEST_TIMEOUT_MS);
 
 it('actual CLI rejects wrong installation proof and redirects, and sends nothing to an unowned listener',async()=>{
   const f=await createNativeRuntime();const recordPath=join(f.selection.root,'runtime/api.json');let requests=0,redirected=0;let mode='wrong-install';
@@ -39,4 +39,12 @@ it('actual CLI rejects wrong installation proof and redirects, and sends nothing
     writeFileSync(recordPath,JSON.stringify(record));expect((await f.runCli(['status'])).stdout).toContain('IDENTITY_MISMATCH');
     mode='redirect';expect((await f.runCli(['status'],'',{HTTP_PROXY:`http://127.0.0.1:${targetPort}`,HTTPS_PROXY:`http://127.0.0.1:${targetPort}`,ALL_PROXY:`http://127.0.0.1:${targetPort}`,NODE_USE_ENV_PROXY:'1'})).stdout).toContain('IDENTITY_MISMATCH');expect(requests).toBe(3);expect(redirected).toBe(0);
   }finally{await new Promise<void>(r=>server.close(()=>r()));await new Promise<void>(r=>target.close(()=>r()));unlinkSync(recordPath);await f.cleanup();}
-},60000);
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);
+
+it('CLI timeout reaps the exact owned child before fixture cleanup continues',async()=>{
+  const f=await createNativeRuntime('B',{cliTimeoutMs:50,cliLifecycleTimeoutMs:50,cliTerminationGraceMs:50});const original=f.entries.cli,blocked=join(f.out,'blocked-cli.js');
+  try{
+    writeFileSync(blocked,"process.on('SIGTERM',()=>{});setInterval(()=>{},1000);");f.entries.cli=blocked;
+    await expect(f.runCli(['status'])).rejects.toThrow('CLI_OUTPUT_TIMEOUT');expect(f.activeCliChildren()).toBe(0);
+  }finally{f.entries.cli=original;await f.cleanup();}
+},NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS);

@@ -11,8 +11,15 @@ import type { BuildIdentity } from '../../domain/src/model.js';
 import { buildStatusAssets } from '../../../scripts/build/build.mjs';
 import { publishSyntheticActive } from './runtime-installation.js';
 
+export const NATIVE_RUNTIME_CLI_TEST_TIMEOUT_MS=360_000;
+export const NATIVE_RUNTIME_CLIENT_TEST_TIMEOUT_MS=180_000;
+
+type NativeRuntimeOptions={cliTimeoutMs?:number;cliLifecycleTimeoutMs?:number;cliTerminationGraceMs?:number};
+
 /** Real isolated compiled processes + fresh synthetic native credentials. Never a persistent default installation. */
-export async function createNativeRuntime(variant:'A'|'B'='B') {
+export async function createNativeRuntime(variant:'A'|'B'='B',runtimeOptions:NativeRuntimeOptions={}) {
+  const cliTimeoutMs=runtimeOptions.cliTimeoutMs??20_000,cliLifecycleTimeoutMs=runtimeOptions.cliLifecycleTimeoutMs??45_000,cliTerminationGraceMs=runtimeOptions.cliTerminationGraceMs??5_000;
+  if(!Number.isSafeInteger(cliTimeoutMs)||cliTimeoutMs<1||!Number.isSafeInteger(cliLifecycleTimeoutMs)||cliLifecycleTimeoutMs<1||!Number.isSafeInteger(cliTerminationGraceMs)||cliTerminationGraceMs<1)throw new Error('NATIVE_RUNTIME_OPTIONS_INVALID');
   const h=createHarness(),parent=realpathSync(h.root);protectPath(parent);
   const out=join(parent,'compiled'),selection={root:join(parent,'installation'),parent,excludedRoots:[]};
   const secrets=secretStoreForProvisioning(selection);let initialized=false;let provisioning=false;let installationId:string|undefined;
@@ -41,15 +48,27 @@ export async function createNativeRuntime(variant:'A'|'B'='B') {
       for(const name of ['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NODE_USE_ENV_PROXY'])if(proxyEnvironment[name])env[name]=proxyEnvironment[name];
       const child=spawn(process.execPath,[entries.cli,'--root',selection.root,'--parent',selection.parent,...args],{cwd:out,env,stdio:['pipe','pipe','pipe'],shell:false});children.add(child);
       let stdout='',stderr='';child.stdout.on('data',chunk=>{stdout+=chunk;if(stdout.length>131072)child.kill('SIGTERM');});child.stderr.on('data',chunk=>{stderr+=chunk;if(stderr.length>8192)child.kill('SIGTERM');});child.stdin.end(input);
-      let timer:ReturnType<typeof setTimeout>|undefined;
-      try{const [code]=await Promise.race([once(child,'close'),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{if(child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');reject(new Error('CLI_OUTPUT_TIMEOUT'));},15000);timer.unref();})]);return {code,stdout,stderr};}
-      finally{if(timer)clearTimeout(timer);if(child.exitCode!==null||child.signalCode!==null)children.delete(child);}
+      const closed=once(child,'close'),wait=async(ms:number)=>new Promise<'timeout'>(resolve=>{const timer=setTimeout(()=>resolve('timeout'),ms);timer.unref();child.once('close',()=>clearTimeout(timer));});
+      const timeout=(args[0]==='start'||args[0]==='stop')?cliLifecycleTimeoutMs:cliTimeoutMs;
+      let didClose=false;
+      try{
+        const result=await Promise.race([closed.then(value=>({kind:'closed' as const,value})),wait(timeout).then(()=>({kind:'timeout' as const}))]);
+        if(result.kind==='closed'){didClose=true;return {code:result.value[0],stdout,stderr};}
+        if(child.exitCode===null&&child.signalCode===null)child.kill('SIGTERM');
+        let terminated=await Promise.race([closed.then(value=>({kind:'closed' as const,value})),wait(cliTerminationGraceMs).then(()=>({kind:'timeout' as const}))]);
+        if(terminated.kind==='timeout'){
+          if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
+          terminated=await Promise.race([closed.then(value=>({kind:'closed' as const,value})),wait(cliTerminationGraceMs).then(()=>({kind:'timeout' as const}))]);
+        }
+        if(terminated.kind!=='closed')throw new Error('HUMAN_ACTION_REQUIRED: owned CLI exit unconfirmed; fixture preserved');
+        didClose=true;throw new Error('CLI_OUTPUT_TIMEOUT');
+      }finally{if(didClose||child.exitCode!==null||child.signalCode!==null)children.delete(child);}
     }
     async function request(path:string,body?:unknown,name='installer') {
       const identity=activeSupervisor.registered().find(i=>i.role==='api');if(!identity||!matchesProcess(identity,await observeProcess(identity.pid))||!ownsListener(identity.pid,metadata.port))throw new Error('TEST_ENDPOINT_UNCONFIRMED');
       const token=await secrets.get(metadata.installationId,name);
       return h.fetch(`http://127.0.0.1:${metadata.port}${path}`,{method:body===undefined?'GET':'POST',headers:{authorization:`Bearer ${token}`,...(body===undefined?{}:{'content-type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
     }
-    return {h,parent,out,selection,secrets,metadata,build,entries,options,supervisor:activeSupervisor,runCli,request,temporaryNames,cleanup};
+    return {h,parent,out,selection,secrets,metadata,build,entries,options,supervisor:activeSupervisor,runCli,request,temporaryNames,activeCliChildren:()=>children.size,cleanup};
   }catch(error){await cleanup();throw error;}
 }

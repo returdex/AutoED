@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.46 invalidated during ambiguous first R3 two-build-upgrade failure; active candidate none; bounded R0 diagnosis required
-last_updated: "2026-09-13T02:59:05+10:00"
+stopped_at: beta.47 invalidated during R3 CLI/client-wiring chain timeout; active candidate none; corrective R0 complete and fresh unnumbered R1 required
+last_updated: "2026-09-13T21:10:00+10:00"
 last_activity: 2026-09-13
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.46 as immutable invalidated history. The post-beta.45 fresh R1 passed and beta.46 was selected once, but its first formal R3 stopped at `PRE_SOURCE / COMMAND_PROCESS_FAILED_INTEGRATION_TWO_BUILD_UPGRADE`. The exact file then passed independently 9/9, while the failed bounded run exposed no attributable environment cause; ambiguity therefore invalidates beta.46 under the stabilization policy. `active update candidate: none`; bounded R0 diagnosis and a complete fresh unnumbered R1 are required before any beta.47 authorization/selection. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.47 as immutable invalidated history. beta.47 was selected once after a fresh R1, but its first formal R3 stopped in the fixed client-wiring chain. Bounded diagnosis located a contradictory CLI lifecycle timeout and a close-unconfirmed cleanup cascade; the corrective R0 now passes the forced timeout regression and fixed integration chain 400/400. `active update candidate: none`; a complete fresh unnumbered R1 is required before any separate beta.48 authorization/selection. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.46 R3; beta.46 is invalidated before signing/publication after an ambiguous two-build-upgrade failure; 19 of 41 have completion summaries
-Status: beta.31, beta.37–beta.40 and beta.44–beta.45 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46 are immutable unpublished consumed history. `active update candidate: none`; beta.47 requires bounded R0 diagnosis, a complete fresh unnumbered R1 and separate authorization.
-Last activity: 2026-09-13 - Selected beta.46 once, stopped at the first R3 two-build-upgrade failure, and invalidated it because the transient cause remained unproven
+Plan: Post-02-14 release stabilization reached beta.47 R3; beta.47 is invalidated before signing/publication after the CLI/client-wiring timeout and cleanup cascade; 19 of 41 have completion summaries
+Status: beta.31, beta.37–beta.40 and beta.44–beta.45 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 are immutable unpublished consumed history. `active update candidate: none`; the corrective commit requires a complete fresh unnumbered R1 before beta.48 can be separately authorized.
+Last activity: 2026-09-13 - Diagnosed beta.47 R3, corrected CLI timeout/reap and containing workflow budgets, and passed the fixed integration chain 400/400
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -135,6 +135,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: The first post-beta.42 fresh R1 on `40abd99…` passed the focused slow boundaries through recovery, then stopped at the first complete integration file with `PRE_RUNNER / PROCESS_GROUP_REMAINS`. The failed group disappeared, no owned process remained and three full focused `artifact-assembly` runs passed. Source inspection proved the observer merged zombie-only and unknown observation states with live descendants and omitted the step name; release scripts still had bare git/gh lookup. — Pin validated absolute git/gh/ps paths and versions beside tar in the local 0600 environment file, classify process states separately, add exact step codes, then run another complete fresh R1 before any beta.43 authorization.
 - [Release]: `dd446af…` passed a fresh unnumbered R1 and beta.43 was selected once, but its first formal R3 stopped at the fixed `two-build-upgrade` step; the exact file independently reproduced an 8/9 result followed by the same 300-second timeout. No tag, signed artifact or release exists. — Permanently invalidate beta.43, bound native secret-store calls, isolate explicit synthetic credentials from the OS Keychain, reclaim only strict exited-owner synthetic services after every fixed step, and require a fresh unnumbered R1 plus separate authorization before beta.44.
 - [Release]: beta.45 passed R2-R5 and availability, but its real signed macOS recovery stopped at `INSTALLATION_RECOVERY_UNCONFIRMED_CLIENTS`; bounded diagnosis proved two unrelated PID reuses among 214 valid leases and zero owned running clients. The updater task also violated projectless/one-shot/no-workspace-write boundaries, but this does not erase the product attempt. — Permanently invalidate beta.45, correct ownership comparison and full confirmation-time revalidation in R0, then require a separately authorized complete fresh R1 before any beta.46 selection.
+- [Release]: beta.47 was selected once after the `523bd009…` fresh R1, then R3 stopped in the fixed client-wiring chain. A detached long prefix reproduced the primary 60-second CLI whole-test timeout and secondary `INVALID_INSTALLATION` cleanup cascade. — Permanently invalidate beta.47 as unpublished `POST_SOURCE`; use separate bounded normal/lifecycle CLI budgets and require TERM/KILL/observed-close exact-child cleanup before error return. The forced timeout regression and fixed integration chain pass 400/400; a fresh unnumbered R1 and separate authorization remain mandatory before beta.48.
 
 ### Pending Todos
 
@@ -187,7 +188,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-13T00:00:00+10:00
-Stopped at: beta.45 HUMAN_PRODUCT invalidated and client PID-reuse recovery corrective R0 complete; `active update candidate: none`, fresh unnumbered R1 not authorized
+Stopped at: beta.47 unpublished POST_SOURCE invalidated and CLI/client-wiring timeout corrective R0 complete; `active update candidate: none`, fresh unnumbered R1 authorized and pending
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`; beta.38 through beta.43 failures are recorded by immutable invalidation documents. `active update candidate: none`; beta.44 and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`; later failures are recorded by immutable invalidation documents. `active update candidate: none`; beta.48 and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.

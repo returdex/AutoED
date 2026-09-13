@@ -187,6 +187,7 @@ it('rehearsal reporter accepts title words but requires pure Vitest and Playwrig
 
 it('classifies bounded nonzero runner output without returning sensitive child text',()=>{
   expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:'Error: Test timed out in 300000ms. /Users/example/Profile secret'})).toBe('TEST_TIMEOUT');
+  expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:'Error: CLI_OUTPUT_TIMEOUT\n Test Files  1 failed (1)'})).toBe('TEST_TIMEOUT');
   expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:' Test Files  1 failed | 8 passed (9)\n Tests  1 failed | 8 passed (9)'})).toBe('TEST_ASSERTION_FAILED');
   expect(classifyPhase2RehearsalFailure({runner:'vitest',exitCode:1,stdout:' Test Files  8 passed (9)\n Tests  8 passed (9)'})).toBe('TEST_RUN_INCOMPLETE');
   expect(classifyPhase2RehearsalFailure({runner:'playwright',exitCode:1,signal:'SIGTERM',stderr:'password=hunter2'})).toBe('PROCESS_SIGNALLED');
