@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.49 immutable unpublished POST_SOURCE after stale beta.48 prompt blocked R4; active candidate none; bounded corrective R0 and fresh R1 required
-last_updated: "2026-09-14T02:10:00+10:00"
+stopped_at: beta.49 immutable unpublished POST_SOURCE; stale-pointer correction and fresh R1 passed; active candidate none; separate beta.50 authorization required
+last_updated: "2026-09-14T03:20:00+10:00"
 last_activity: 2026-09-14
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.49 as immutable invalidated history. beta.49 passed R2 and the complete R3 gate, then its first R4 invocation stopped before build/signing because the beta.48 invalidation had left a tracked active install prompt. This is deterministic release-state/R1-contract drift, so beta.49 is unpublished `POST_SOURCE` history. `active update candidate: none`; bounded corrective R0 must retire the stale prompt and make fresh R1 reject every pre-existing active R2–R5 pointer. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.49 as immutable invalidated history. beta.49 remains unpublished `POST_SOURCE`; corrective R0 retired the stale beta.48 prompt and made R1 reject all six canonical active R2–R5 pointers at initial and final snapshots. One complete fresh R1 passed on `accc799…` / `e6e3e243…` with build `423e5c1a…`. `active update candidate: none`; beta.50 is unselected and requires separate authorization. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
 Plan: Post-02-14 release stabilization reached beta.49 R4; beta.49 is immutable unpublished POST_SOURCE history after stale beta.48 prompt collision; 19 of 41 have completion summaries
-Status: beta.31, beta.37–beta.40 and beta.44–beta.45 plus beta.48 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 plus beta.49 are immutable unpublished consumed history. `active update candidate: none`; bounded corrective R0 and fresh unnumbered R1 are required before any later authorization.
-Last activity: 2026-09-14 - beta.49 passed R2/R3 and stopped before R4 build/signing on the retained beta.48 install prompt; recorded immutable POST_SOURCE invalidation
+Status: beta.31, beta.37–beta.40 and beta.44–beta.45 plus beta.48 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 plus beta.49 are immutable unpublished consumed history. `active update candidate: none`; stale-pointer correction and fresh unnumbered R1 pass are preserved, while beta.50 remains unauthorized.
+Last activity: 2026-09-14 - Retired the stale beta.48 prompt, added initial/final active-pointer rejection, and passed fresh unnumbered R1 after beta.49 invalidation
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -138,6 +138,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.47 was selected once after the `523bd009…` fresh R1, then R3 stopped in the fixed client-wiring chain. A detached long prefix reproduced the primary 60-second CLI whole-test timeout and secondary `INVALID_INSTALLATION` cleanup cascade. — Permanently invalidate beta.47 as unpublished `POST_SOURCE`; use separate bounded normal/lifecycle CLI budgets and require TERM/KILL/observed-close exact-child cleanup before error return. The forced timeout regression and fixed integration chain pass 400/400; a fresh unnumbered R1 and separate authorization remain mandatory before beta.48.
 - [Release]: beta.48 passed R2–R5 and one anonymous availability verifier, but its single real macOS projectless updater ran the signed bootstrap noninteractively and stopped at the valid recovery preview because closed stdin could not carry exact `RECOVER` and later `INSTALL` confirmations. — Permanently invalidate beta.48 as published `HUMAN_PRODUCT`; preserve public history, retire active pointers, require a pre-mutation TTY guard plus one-live-PTY prompt relay contract. Fresh unnumbered R1 passed on `78db757…` / `bc08b986…` with build `5ad0e07a…`, focused 35, quality 1/154/401/34/24, dual 8-asset closures and zero sensitive/remote findings; separate authorization remains mandatory before any later candidate.
 - [Release]: beta.49 passed exact R2 and complete R3 (1/154/401/34/24, zero disabled/sensitive), then its first R4 stopped before build/signing with `PHASE2_ASSEMBLY_OUTPUT_EXISTS`; the beta.48 invalidation had left its tracked install prompt, and R1 checked only unchanged state rather than pointer absence. — Permanently invalidate beta.49 as unpublished `POST_SOURCE`; retire the stale prompt and harden R1 in bounded R0, then require a fresh unnumbered R1 and separate beta.50 authorization.
+- [Release]: The post-beta.49 correction deletes only the stale beta.48 prompt and makes R1 reject every canonical R2–R5 active pointer at both snapshots. — Focused release gates pass 48/48; fresh unnumbered R1 passed on `accc799…` / `e6e3e243…` / build `423e5c1a…` with 1/154/402/34/24 and zero sensitive/remote findings. The canonical binding digest is `2f2dca83…`; beta.50 remains separately gated.
 
 ### Pending Todos
 
@@ -190,7 +191,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-14T00:30:00+10:00
-Stopped at: beta.49 unpublished POST_SOURCE invalidated before R4 build/signing because the stale beta.48 install prompt remained tracked; `active update candidate: none`, bounded corrective R0 and fresh unnumbered R1 required
+Stopped at: beta.49 unpublished POST_SOURCE preserved; stale-pointer correction and fresh unnumbered R1 passed; `active update candidate: none`, separate beta.50 authorization required
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
 Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`; later failures are recorded by immutable invalidation documents. `active update candidate: none`; any later candidate and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.

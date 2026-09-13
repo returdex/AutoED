@@ -174,3 +174,11 @@ relabelled. Corrective R0 must retire the stale prompt and make R1 reject every
 pre-existing active R2–R5 pointer before a fresh complete rehearsal. No later
 candidate may be selected without separate authorization; installation, login,
 02-15 and Phase 3 remain blocked.
+
+The corrective source now retires only the stale prompt and records the exact
+ordered active-pointer subset in both R1 snapshots. Focused release gates pass
+48/48, and one complete fresh unnumbered R1 passed on `accc799…` / `e6e3e243…`
+with build `423e5c1a…`, quality 1/154/402/34/24, dual eight-asset closures,
+zero sensitive findings and zero remote mutations. The canonical R2 rehearsal
+binding digest is `2f2dca83…`. `active update candidate: none`; beta.50 requires
+separate authorization.
