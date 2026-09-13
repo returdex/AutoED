@@ -97,8 +97,14 @@ describe('legacy installation ownership recovery',()=>{
     Object.defineProperty(process,'stdin',{configurable:true,value:input});
     const write=vi.spyOn(process.stdout,'write').mockImplementation(((chunk:string|Uint8Array)=>{const text=String(chunk);for(const line of text.trim().split('\n'))if(line.startsWith('{')){const event=JSON.parse(line);events.push(event.type);if(event.type==='installation_identity_recovery_preview')queueMicrotask(()=>input.write('RECOVER '+event.recovery.scopeHash+'\n'));if(event.type==='install_preview')queueMicrotask(()=>input.write('INSTALL '+event.preview.scopeHash+'\n'));}return true;}) as typeof process.stdout.write);
     try{
-      const result=await runInstallerCLI({verify:fixture.verify,store:fixture.secrets,acquire:async()=>fixture.target.archives},['--preview','--manifest',manifestPath,'--signature',signaturePath,'--root',fixture.selection.root]);
+      const result=await runInstallerCLI({verify:fixture.verify,store:fixture.secrets,acquire:async()=>fixture.target.archives,interactive:()=>true},['--preview','--manifest',manifestPath,'--signature',signaturePath,'--root',fixture.selection.root]);
       expect(result.state).toBe('complete');expect(events.slice(0,3)).toEqual(['installation_identity_recovery_preview','installation_identity_recovered','install_preview']);expect(readInstallation(fixture.selection).schema).toBe(2);
     }finally{write.mockRestore();input.end();if(descriptor)Object.defineProperty(process,'stdin',descriptor);else delete (process as unknown as Record<string,unknown>).stdin;}
   },180000);
+
+  it('rejects a noninteractive confirmation transport before recovery preview or installation mutation',async()=>{
+    const{fixture,current}=await legacyDeviceMismatch(),path=join(fixture.selection.root,'installation.json'),before=readFileSync(path);
+    await expect(runInstallerCLI({interactive:()=>false},['--preview','--manifest','invalid','--signature','invalid','--root',fixture.selection.root])).rejects.toThrow('INTERACTIVE_SESSION_REQUIRED');
+    expect(readFileSync(path)).toEqual(before);writeFileSync(path,JSON.stringify(current));protectPath(path);
+  },120000);
 });

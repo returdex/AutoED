@@ -389,6 +389,9 @@ it('two-layer install prompt signs an archive-independent core and externally bi
   expect(external).not.toContain(release.externalPromptSha256);
   expect(core).toContain('local projectless Codex task');
   expect(core).toContain('Run the selected bootstrap exactly once');
+  expect(core).toContain('exactly one live interactive PTY/session');
+  expect(core).toContain('same still-running PTY/session');
+  expect(core).toContain('INTERACTIVE_SESSION_REQUIRED');
 });
 
 it('external install prompt provides one verified executable updater entrypoint per native target',()=>{
@@ -396,7 +399,10 @@ it('external install prompt provides one verified executable updater entrypoint 
   expect(external).toContain('local projectless Codex task');
   expect(external).toContain('must not read, edit, commit, or push the current task workspace');
   expect(external).toContain('Run the selected bootstrap exactly once');
-  expect(external).toContain('do not rerun it after any nonzero, interrupted, uncertain, or human-needed result');
+  expect(external).toContain('exactly one live interactive PTY/session');
+  expect(external).toContain('same still-running PTY/session');
+  expect(external).toContain('INTERACTIVE_SESSION_REQUIRED');
+  expect(external).toContain('Do not rerun after any nonzero, interrupted, uncertain, malformed, or human-needed result');
   expect(external).toContain("curl -fL --proto '=https'");
   expect(external).toContain('shasum -a 256 -c -');
   expect(external).toContain('/bin/sh autoed-bootstrap.sh --root');
