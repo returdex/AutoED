@@ -47,6 +47,8 @@ next_action: "Resolved: preserve the sanitized R1 attestation and final debug re
   observation: "After the targeted snapshot-schema change, the managed focused release-gates integration file passes 48/48, including each of the six initial-pointer cases and the final prompt-introduction case. Managed typecheck also passes."
 - timestamp: 2026-09-14T03:10:00+10:00
   observation: "The single fresh unnumbered R1 passed on correction commit accc799619e4aa1050bea739920b87a579805cef/tree e6e3e243288a03242d42f16c0d320d9b2644d59c/build 423e5c1a4f728b49fcc72f971246d382ce65acd8216349efa12aa7fc3c733233. Its sanitized attestation records focused 35, typecheck 1, unit 154, integration 402, UI 34, native 24, two eight-asset closures, zero sensitive findings, and zero remote mutations."
+- timestamp: 2026-09-14T03:15:00+10:00
+  observation: "The attestation's raw file-byte SHA-256 is a0687f4eae0861c9717dc37e71f3bf426033aefcb7cc78426abf792fcc02f005. Its canonical JSON digest, which is the value a later R2 selection must bind, is 2f2dca8374d7c3afe81e96c98a2edfed24bd6f07259eb2a88c8c8a2f11bfa64c."
 
 ## Eliminated
 
@@ -59,7 +61,7 @@ next_action: "Resolved: preserve the sanitized R1 attestation and final debug re
 
 - root_cause: "The beta.48 invalidation omitted the tracked canonical R4 install prompt, and R1's receiptDigest/sameSnapshot contract reduced the six active R2–R5 paths to a single equality-only hash. A stable nonempty active release-output set therefore passed R1 until R4 correctly refused its pre-existing prompt."
 - fix: "Deleted only release/phase2-install-prompt.md (the stale beta.48 canonical R4 pointer). R1 snapshots now carry a strictly ordered subset of the six canonical R2–R5 paths and fail PRE_SOURCE with ACTIVE_RELEASE_POINTER_INITIAL or ACTIVE_RELEASE_POINTER_FINAL when nonempty."
-- verification: "Focused managed release-gates integration passed 48/48 and managed typecheck passed. One complete fresh unnumbered R1 passed with attestation SHA-256 a0687f4eae0861c9717dc37e71f3bf426033aefcb7cc78426abf792fcc02f005; no canonical R2–R5 pointer remained before rehearsal and no remote mutation occurred."
+- verification: "Focused managed release-gates integration passed 48/48 and managed typecheck passed. One complete fresh unnumbered R1 passed; the attestation file-byte SHA-256 is a0687f4eae0861c9717dc37e71f3bf426033aefcb7cc78426abf792fcc02f005 and its R2 canonical binding digest is 2f2dca8374d7c3afe81e96c98a2edfed24bd6f07259eb2a88c8c8a2f11bfa64c. No canonical R2–R5 pointer remained before rehearsal and no remote mutation occurred."
 - files_changed:
   - release/phase2-install-prompt.md
   - scripts/release/phase2-rehearsal.mjs
