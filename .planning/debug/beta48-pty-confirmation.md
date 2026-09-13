@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: awaiting_human_verify
 trigger: "授权在当前 AutoED 本地项目执行 beta.48 human-update 失败后的 bounded R0 诊断和必要修复，包括保证 bootstrap 单一 PTY 进程跨恢复/安装两个人工确认门持续运行，并完成修复提交后的 fresh unnumbered R1；不选择 beta.49、不签名、不发布、不安装、不登录、不推进 02-15/Phase 3。"
 created: 2026-09-13T23:50:09+10:00
-updated: 2026-09-14T00:38:00+10:00
+updated: 2026-09-14T01:00:00+10:00
 ---
 
 # Debug Session: beta.48 PTY confirmation handoff
@@ -27,7 +27,7 @@ reasoning_checkpoint:
   falsification_test: "A synthetic non-TTY bootstrap/installer invocation must fail before recovery or installation mutation, while a synthetic interactive session that forwards RECOVER and INSTALL through one live stdin stream must emit recovery preview, recovered, install preview, and complete in order."
   fix_rationale: "Reject non-interactive invocation before any installer state change and bind the signed/external prompt to one persistent PTY session that pauses for, then relays, each exact user confirmation to the same still-running process."
   blind_spots: "Synthetic tests cannot prove Codex UI preserves a PTY; the future human gate must verify that behavior. They can prove the updater now rejects the failed transport mode and that the prompt cannot omit the required relay contract."
-next_action: "Run exactly `node scripts/dev/runtime.mjs node scripts/release/phase2-rehearsal.mjs --run` from clean commit 5c1a46a; preserve its one sanitized unnumbered attestation only if every fixed R1 gate completes."
+next_action: "Preserve the fresh R1 attestation and await separate user authorization before any later candidate selection; do not select, sign, publish, install or invoke a human update."
 
 ## Evidence
 
@@ -49,6 +49,10 @@ next_action: "Run exactly `node scripts/dev/runtime.mjs node scripts/release/pha
   observation: An earlier overlapping Vitest owner was identified as this task's exact process group and scoped-terminated. The corrected focused runs left no synthetic services or owned process groups; no rehearsal has started or been claimed.
 - timestamp: 2026-09-14T00:38:00+10:00
   observation: Corrective source/test commit `ea2cc60` and beta.48 status/invalidation/pointer-retirement commit `5c1a46a` are complete. The worktree is clean; active selection, test, artifact, publication and availability pointers are absent. The fixed R1 command is local-only and its source reads no release coordinate or external update path.
+- timestamp: 2026-09-14T01:00:00+10:00
+  observation: The exact one-shot unnumbered R1 passed on commit `78db7570e64f9f1fd18712becd588b6007bf7559`, tree `bc08b986e2a5d0caa96c5b0793c3bc282c2780a3`, build `5ad0e07a8dc1c1df45a85017eadb3374552a7e7b64b8b1fa56b935e540e04dd9` and source SHA-256 `45e75bf1ee9efccfb63f0d2507fce97a29c6a78d652ca69119328f40cf011c35`.
+- timestamp: 2026-09-14T01:00:00+10:00
+  observation: The sanitized R1 attestation records managed Node 24.20.0/npm 11.19.0, focused 35 tests, typecheck 1, unit 154, integration 401, UI 34, native 24, two 8-asset closures (3943 macOS and 3914 Windows files), zero sensitive findings, 9 local publication-contract checks, zero remote mutations, one in-memory verifier invocation and no failure history. The rehearsal exited 0 with no remaining R1/vitest owned process.
 
 ## Eliminated
 
@@ -63,7 +67,7 @@ next_action: "Run exactly `node scripts/dev/runtime.mjs node scripts/release/pha
 
 - root_cause: "The signed beta.48 external prompt permitted a non-interactive bootstrap. The bootstrap inherited closed standard input into an installer that requires two sequential exact confirmations from one invocation, so it stopped after the valid recovery preview before any recovery or installation mutation."
 - fix: "Require an interactive stdin/stdout/stderr transport before installer processing; bind both signed-core and external prompt rendering to one live PTY/session that surfaces each preview, waits for a real exact confirmation, and relays it to the same still-running process; preserve those requirements with synthetic transport and prompt regressions."
-- verification: "Managed typecheck and focused synthetic integration suites pass; the exact clean-source unnumbered R1 is the next required verification and has not started."
+- verification: "Managed typecheck and focused synthetic integration suites pass. Fresh unnumbered R1 passed once on the exact corrective commit/tree/build and wrote sanitized attestation `78db7570e64f9f1fd18712becd588b6007bf7559-5ad0e07a8dc1c1df45a85017eadb3374552a7e7b64b8b1fa56b935e540e04dd9.json` with SHA-256 `979b65d10bf88ecf6f293c3fd915fd2157590a2ea1ab97914b495e33a7fbfaaa`; no release coordinate, remote mutation, installation or live action occurred."
 - files_changed:
   - packages/installer/src/install.ts
   - packages/test-support/src/upgrade-fixture.ts

@@ -54,6 +54,8 @@ both gates, complete preview surfacing, a real exact user reply and forwarding
 only that reply plus newline to the same process. Focused synthetic regressions
 prove the noninteractive rejection precedes recovery mutation, a single stream
 can carry both confirmations in order, and both prompt layers retain the
-contract. The source must complete a fresh unnumbered R1 before any later
-candidate can be separately authorized or selected. No signing, publication,
-installation, login, 02-15 or Phase 3 action is authorized by this record.
+contract. Fresh unnumbered R1 passed on `78db757…` / `bc08b986…` with build
+`5ad0e07a…`, focused 35, quality 1/154/401/34/24, dual 8-asset closures,
+zero sensitive findings and zero remote mutations. No later candidate has been
+authorized or selected. No signing, publication, installation, login, 02-15 or
+Phase 3 action is authorized by this record.

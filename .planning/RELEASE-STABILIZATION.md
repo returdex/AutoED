@@ -154,5 +154,7 @@ occurred. Corrective R0 rejects non-TTY transport before mutation and binds futu
 signed-core and external prompts to one live PTY/session that surfaces every
 preview, pauses for genuine exact input and relays it to the same still-running
 process. Retire active selection, test, artifact, publication, availability and
-prompt pointers. A fresh complete unnumbered R1 and separate authorization are
-required before any later candidate selection.
+prompt pointers. A fresh complete unnumbered R1 passed on `78db757…` /
+`bc08b986…` with build `5ad0e07a…`, focused 35, quality 1/154/401/34/24,
+dual 8-asset closures, zero sensitive findings and zero remote mutations.
+Separate authorization remains required before any later candidate selection.
