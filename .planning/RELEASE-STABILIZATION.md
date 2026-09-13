@@ -133,3 +133,26 @@ Beta.46 was selected exactly once from the fresh post-beta.45 R1 identity, then 
 ## Beta.47 CLI chain timeout and cleanup cascade
 
 Beta.47 was selected exactly once from the fresh post-beta.46 corrective R1 identity, then its first formal R3 stopped in the fixed per-file integration chain at client-wiring. Bounded reproduction located the primary failure at the preceding CLI lifecycle test: a 60-second whole-test timeout expired while asynchronous fixture work continued, followed by a secondary `INVALID_INSTALLATION` during later fixture provisioning/cleanup. The synthetic CLI adapter had a contradictory 15-second timeout for lifecycle commands that can sequentially wait on two owned services, and it rejected after `SIGTERM` without first proving that the exact child closed. Correcting those source/test/release-tool boundaries makes beta.47 immutable unpublished `POST_SOURCE` history. No tag, release, signed/public asset, canonical R3 or later receipt, installation, login or live action exists. The correction gives lifecycle operations honest bounded budgets, requires TERM/KILL/close-confirmed exact-child cleanup, expands only the containing workflow budgets, and classifies `CLI_OUTPUT_TIMEOUT` explicitly. A forced timeout regression and the fixed complete integration chain pass with no residual owned process. A complete fresh unnumbered R1 and separate authorization are required before any beta.48 selection; 02-15/Phase 3 remain blocked.
+
+## Beta.48 noninteractive confirmation-transport failure
+
+Beta.48 completed R2–R5, was published once with 16 immutable assets, and its one
+permitted anonymous full verifier produced a valid availability receipt. Its single
+real macOS projectless updater passed immutable-coordinate verification and all
+bounded legacy-recovery checks, then emitted the recovery preview. The external
+prompt nevertheless allowed a noninteractive bootstrap with closed standard input.
+Because the signed installer needs `RECOVER <scopeHash>` and then `INSTALL
+<scopeHash>` from the same invocation, it stopped before recovery migration,
+install preview or activation.
+
+This is `HUMAN_PRODUCT`: beta.48 is permanently invalidated for the update gate
+and its tag, release, assets and availability history are immutable. Do not retry,
+overwrite, delete, relabel, resign, republish or use it as an active candidate.
+beta.19 remained staged; beta.48 was not activated; no AutoED process remained;
+no school source, login, Profile access, course change, 02-15 or Phase 3 action
+occurred. Corrective R0 rejects non-TTY transport before mutation and binds future
+signed-core and external prompts to one live PTY/session that surfaces every
+preview, pauses for genuine exact input and relays it to the same still-running
+process. Retire active selection, test, artifact, publication, availability and
+prompt pointers. A fresh complete unnumbered R1 and separate authorization are
+required before any later candidate selection.
