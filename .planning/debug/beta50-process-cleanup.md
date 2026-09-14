@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T20:44:00+10:00
+updated: 2026-09-14T20:48:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T20:44:00+10:00
 
 ## Current Focus
 
-- hypothesis: The R1 evidence is an external execution-session interruption, not a repository release-tool failure; therefore no source repair is warranted from this attempt.
-- test: Confirm the exact owned wrapper group has no remaining members and preserve only sanitized evidence of the empty R1 output and absence of current-identity receipts.
-- expecting: No remaining exact owned group plus no terminal R1 record confirms safe cleanup and incomplete status, but cannot be treated as a run failure classification or a pass.
-- next_action: Commit the persistent debug record and report this bounded diagnosis to the controller; a later R1 must be launched in an execution session whose declared lifecycle can outlast the 1200-second focused ceiling and cleanup grace.
+- hypothesis: The prior R1 was interrupted by an approximately 20-minute external controller/session ceiling rather than a release-tool defect; with no source drift, one clean retry in a persistent session whose outer lifetime is at least 3600 seconds is the valid differentiating experiment.
+- test: Launch the exact repository-owned unnumbered R1 command from clean committed identity in one persistent PTY/unified session with a 3600-second outer allowance, preserving all fixed-step ceilings.
+- expecting: A terminal R1 result from this session distinguishes a real suite/release-tool outcome from the eliminated outer-session cutoff; lack of a current-identity attestation remains non-passing.
+- next_action: Read the exact R1 entrypoint, verify clean identity, then start one persistent R1 session and report its PID/session identifier and source commit immediately.
 - reasoning_checkpoint:
     hypothesis: "When no `exit` event is emitted, `runPhase2Detached` never installs its existing close watchdog. Its timeout calls `terminate`, but an already-absent owned group makes both signals no-ops and leaves the only promise unsettled."
     confirming_evidence:
@@ -189,6 +189,10 @@ updated: 2026-09-14T20:44:00+10:00
   checked: Complete `runPhase2Detached` timeout/event ordering, exact remaining PGID 1668 membership, repository-owned R1 output artifacts, and current Git status.
   found: The timeout watchdog remains armed after a late `exit` and is not cancelled before its owned-group verification/terminal rejection; no tested source ordering explains the observed simultaneous controller/outer loss. The exact PGID 1668 has no remaining member. The two R1 captured-output files are zero bytes, no current-identity terminal receipt exists, and the only working-tree change is this debug record.
   implication: The runner-defect hypothesis is eliminated for this occurrence. The shared outer/controller loss with a formerly reparented detached wrapper is bounded evidence of execution-session interruption; it is neither an R1 pass nor a classified source/test failure and does not authorize a code repair or release progression.
+- timestamp: 2026-09-14T20:48:00+10:00
+  checked: Controller authorization and repository identity after the external-session diagnosis.
+  found: The controller authorizes exactly one clean retry because the interruption had zero source/test/tool/artifact drift and the former exact owned group is absent; it requires a persistent PTY/unified outer lifetime of at least 3600 seconds while retaining internal fixed-step ceilings.
+  implication: The retry is a differentiating runner/setup experiment, not a beta selection or release action. Its source identity must be recorded at launch and its terminal result assessed without retrying again.
 
 ## Eliminated
 
