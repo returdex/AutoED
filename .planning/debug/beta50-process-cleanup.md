@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T12:50:00+10:00
+updated: 2026-09-14T13:51:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T12:50:00+10:00
 
 ## Current Focus
 
-- hypothesis: The first fresh R1 attempt stopped before tests because the active debug file is untracked, causing the snapshot's required clean-state identity check to fail. The R0 source repair remains verified.
-- test: Commit the current persistent debug record as documentation, then rerun one fresh unnumbered R1 from the resulting clean source identity.
-- expecting: The initial snapshot passes clean-state validation; any later failure identifies a real R1 boundary rather than controller documentation drift.
-- next_action: Commit `.planning/debug/beta50-process-cleanup.md`, confirm a clean worktree, and rerun the managed R1 command once.
+- hypothesis: The fresh R1 passed the initial clean-state and managed-runtime boundaries, then its focused `two-build-upgrade` child exited nonzero; the process-observer repair itself did not produce a complete R1 pass.
+- test: Read the existing managed npm log and attestation directories without rerunning any command.
+- expecting: A nonzero npm exit at the fixed `two-build-upgrade` step plus no identity-matching attestation refutes a fresh R1 pass; the retained child output would be required to classify the nonzero subcategory further.
+- next_action: Preserve this blocked state. Diagnose the `two-build-upgrade` nonzero in a separately authorized bounded R0 session before any later fresh R1; do not select a candidate or advance release/live gates.
 - reasoning_checkpoint:
     hypothesis: "The observer classification collapse causes R3's generic PROCESS_GROUP_OBSERVATION_FAILED because the runner cannot distinguish EPERM, timeout, or executable failure after a group probe."
     confirming_evidence:
@@ -62,6 +62,10 @@ updated: 2026-09-14T12:50:00+10:00
   checked: First fresh managed R1 invocation at source commit `24915d6`.
   found: It stopped before the fixed suites with sanitized `PRE_RUNNER / IDENTITY_INVALID`; the only worktree entry was this untracked active debug record.
   implication: This is controller-documentation clean-state drift, not an R1 product/test result. The next R1 must use a committed persistent record and a clean snapshot.
+- timestamp: 2026-09-14T13:51:00+10:00
+  checked: Repository-owned post-`da531b9` managed-runtime npm log, current Git identity, and R1-attestation directories; no command was rerun.
+  found: The committed debug record left `git status --porcelain` clean. The fresh R1 invoked `npm run test:integration -- --run tests/integration/two-build-upgrade.test.ts` at the fixed focused boundary; npm recorded exit 1 at 2026-09-14T13:45:59+10:00. No `.planning/release-rehearsals` artifact newer than `da531b9` exists, and no attestation binds the current commit/tree.
+  implication: Fresh R1 did not pass and must not authorize any candidate selection or later release/live action. Repository state proves a nonzero focused child at `two-build-upgrade`, but does not retain that child's sanitized final category, so no more-specific code is inferred.
 
 ## Eliminated
 
@@ -69,10 +73,12 @@ updated: 2026-09-14T12:50:00+10:00
   reason: The formal and focused failures differed, so stabilization policy permanently invalidated beta.50.
 - hypothesis: A signed or public beta.50 object must be recovered.
   reason: No R3 report, artifact, signature, tag, release, publication, or availability receipt exists.
+- hypothesis: The fresh R1 passed after the debug record was committed.
+  reason: The only post-commit R1 command log records a nonzero exit at `two-build-upgrade`, and the required current-identity R1 attestation was not written.
 
 ## Resolution
 
 - root_cause: The process-group observer collapsed permission, timeout, execution, and invalid outcomes to a single null value, so the detached runner always emitted `PROCESS_GROUP_OBSERVATION_FAILED`; the manually spawned synthetic test host also had no bounded close proof.
 - fix: Return closed allowlisted process-group states, map each failure state to an allowlisted runner code, treat zombie-only groups as closed, and bound the test-owned host's EOF/TERM/KILL close sequence.
-- verification: Focused observer red→green, managed typecheck, targeted managed-cleanup host regression, and full release-gate 48/48 pass; the first R1 attempt was pre-suite clean-state invalid and a clean rerun is pending.
+- verification: Focused observer red→green, managed typecheck, targeted managed-cleanup host regression, and full release-gate 48/48 pass. The first R1 attempt was pre-suite clean-state invalid; the subsequent clean R1 reached focused `two-build-upgrade` but its managed child exited 1 and no new attestation exists. R1 is therefore not passed.
 - files_changed: [scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/integration/managed-cleanup.test.ts]
