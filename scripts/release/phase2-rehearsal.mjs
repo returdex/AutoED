@@ -17,6 +17,7 @@ import {verifyPhase2AvailabilityAfterReadiness} from './verify-availability.mjs'
 
 const scanReachableHistory=(root,treeish='HEAD')=>scanSensitiveReachableHistory(root,treeish,{isReviewedException:isReviewedFixtureException});
 const SCRIPT_PATH=fileURLToPath(import.meta.url),ROOT=resolve(dirname(SCRIPT_PATH),'../..'),HASH=/^[a-f0-9]{64}$/,GIT=/^[a-f0-9]{40}$/,ISO=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&/(?:Z|[+-]\d\d:\d\d)$/.test(value),PRIVATE=/(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN (?:OPENSSH|EC|RSA|PRIVATE) PRIVATE KEY-----|\/(?:Users|home)\/|Profile|Cookies?|password|mfa|authorization)/i;
+const R1_STAGE_IDS=new Set(['runtime','snapshot_initial','build','command_focused','command_typecheck','command_unit','command_integration','command_ui','command_native','assembly','prompt','publication','scan','cleanup','snapshot_final','now','write']);
 export const INTEGRATION_TEST_FILES=Object.freeze(readdirSync(join(ROOT,'tests/integration')).filter(name=>name.endsWith('.test.ts')).sort().map(name=>`tests/integration/${name}`));
 function fail(code){throw new Error(code);}
 function exact(value,keys){return value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).sort().join(',')===[...keys].sort().join(',');}
@@ -74,6 +75,30 @@ function phase2RehearsalFailurePath(root){
     if(realpathSync(parent)!==parent||!stat.isDirectory()||stat.isSymbolicLink())throw new Error();
     return join(parent,'last-failure.json');
   }catch{fail('PHASE2_REHEARSAL_FAILURE_PATH_INVALID');}
+}
+function phase2RehearsalStagePath(root){
+  try{
+    const base=realpathSync(root),parent=join(base,'.runtime','r1-diagnostics');
+    if(!existsSync(parent))mkdirSync(parent,{recursive:true,mode:0o700});
+    const stat=lstatSync(parent);
+    if(realpathSync(parent)!==parent||!stat.isDirectory()||stat.isSymbolicLink())throw new Error();
+    return join(parent,'current-stage.json');
+  }catch{fail('PHASE2_REHEARSAL_STAGE_PATH_INVALID');}
+}
+function validatePhase2RehearsalStage(value){
+  try{
+    if(!exact(value,['schema','status','kind','releaseCoordinate','stage','startedAt'])||value.schema!==1||value.status!=='running'||value.kind!=='unnumbered_release_rehearsal_stage'||value.releaseCoordinate!==null||!R1_STAGE_IDS.has(value.stage)||!ISO(value.startedAt)||PRIVATE.test(canonical(value)))throw new Error();
+    return Object.freeze(value);
+  }catch{fail('PHASE2_REHEARSAL_STAGE_INVALID');}
+}
+/** @param {{root?:string,stage:string,startedAt?:string}} options Persist the current allowlisted boundary before it can execute. */
+export function createPhase2RehearsalStage({root=ROOT,stage,startedAt=new Date().toISOString()}={}){
+  const checked=validatePhase2RehearsalStage({schema:1,status:'running',kind:'unnumbered_release_rehearsal_stage',releaseCoordinate:null,stage,startedAt}),target=phase2RehearsalStagePath(root),temporary=join(dirname(target),`.stage-${randomUUID()}`);let fd;
+  try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(checked)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;renameSync(temporary,target);if(process.platform==='darwin'){const directory=openSync(dirname(target),'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch{if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}fail('PHASE2_REHEARSAL_STAGE_WRITE_FAILED');}
+  return Object.freeze({status:'running',stage:checked.stage});
+}
+export function readPhase2RehearsalStage({root=ROOT}={}){
+  try{const target=phase2RehearsalStagePath(root),stat=lstatSync(target);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<2||stat.size>4096||realpathSync(target)!==target)throw new Error();return validatePhase2RehearsalStage(JSON.parse(readFileSync(target,'utf8')));}catch(error){if(error instanceof Error&&error.message==='PHASE2_REHEARSAL_STAGE_INVALID')throw error;fail('PHASE2_REHEARSAL_STAGE_READ_INVALID');}
 }
 /** Persist only the normalized R1 failure boundary; child output never reaches disk. */
 export function writePhase2RehearsalFailure(value,{root=ROOT}={}){
@@ -163,6 +188,34 @@ export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outp
   if(stopReason==='timeout')runnerFail('PRE_RUNNER','COMMAND_TIMEOUT');
   if(stopReason==='output')runnerFail('PRE_RUNNER','COMMAND_OUTPUT_LIMIT');
   return Object.freeze({exitCode:result.code,signal:result.signal,stdout:Buffer.concat(chunks)});
+}
+function scanStageFailure(error){
+  const code=/^PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=([A-Z0-9_]{1,96})$/.exec(error?.message??'')?.[1];
+  if(code==='COMMAND_TIMEOUT')runnerFail('PRE_SOURCE','SCAN_STAGE_TIMEOUT');
+  if(code==='COMMAND_OUTPUT_LIMIT')runnerFail('PRE_SOURCE','SCAN_STAGE_OUTPUT_LIMIT');
+  if(code?.startsWith('PROCESS_GROUP_'))runnerFail('PRE_SOURCE','SCAN_STAGE_PROCESS_GROUP_FAILURE');
+  runnerFail('PRE_SOURCE','SCAN_STAGE_PROCESS_FAILED');
+}
+function parsePhase2RehearsalScanStage(stdout){
+  try{
+    const bytes=Buffer.isBuffer(stdout)?stdout:Buffer.from(stdout??'');
+    if(bytes.length<2||bytes.length>4096)throw new Error();
+    const value=JSON.parse(bytes.toString('utf8'));
+    if(!exact(value,['schema','status','findings','reportSha256'])||value.schema!==1||value.status!=='pass'||value.findings!==0||!HASH.test(value.reportSha256)||PRIVATE.test(canonical(value)))throw new Error();
+    return Object.freeze(value);
+  }catch{runnerFail('PRE_SOURCE','SCAN_STAGE_REPORT_INVALID');}
+}
+/** @param {{root?:string,scanner:{finish:()=>unknown},runDetached?:(options:any)=>Promise<{exitCode:number,signal:string|null,stdout:Buffer}>}} options Run the coordinator-only repository scan in a bounded owned child. */
+export async function runPhase2RehearsalScanStage({root=ROOT,scanner,runDetached=runPhase2Detached}={}){
+  if(!scanner||typeof scanner.finish!=='function'||typeof runDetached!=='function')runnerFail('PRE_RUNNER','SCAN_STAGE_ARGUMENT_INVALID');
+  createPhase2RehearsalStage({root,stage:'scan'});
+  let captured;try{captured=scanner.finish();}catch{runnerFail('PRE_SOURCE','SENSITIVE_SCAN_INVALID');}
+  if(!captured||captured.status!=='pass'||captured.findings!==0||!HASH.test(captured.reportSha256))runnerFail('PRE_SOURCE','SENSITIVE_SCAN_INVALID');
+  const node=join(root,'.runtime/dev-toolchain/node-v24.20.0-darwin-arm64/bin/node'),script=join(root,'scripts/release/phase2-rehearsal-scan.mjs');
+  let child;try{child=await runDetached({program:node,args:[script],cwd:root,timeoutMs:300000,scanner:{write:()=>true}});}catch(error){scanStageFailure(error);}
+  if(!child||child.exitCode!==0||child.signal)runnerFail('PRE_SOURCE','SCAN_STAGE_PROCESS_FAILED');
+  const scanned=parsePhase2RehearsalScanStage(child.stdout);
+  return Object.freeze({status:'pass',findings:0,reportSha256:canonicalSha256({captured:captured.reportSha256,repository:scanned.reportSha256})});
 }
 function commandDigestArgs(spec){return ['scripts/dev/runtime.mjs',...spec.steps.flatMap(step=>['--phase2-fixed-step',step.name,...step.args])];}
 async function runFixedCommand(root,id,scanner,ledger){
@@ -342,7 +395,7 @@ export function createProductionPhase2RehearsalOps({root=ROOT}={}){
   const capture=async(program,args,timeout=300000,failureClass='PRE_RUNNER')=>requirePhase2ProcessSuccess(await runPhase2Detached({program,args,cwd:root,timeoutMs:timeout,scanner}),failureClass).stdout;
   // Actual long commands deliberately live behind the internal fixed command
   // adapter; direct callers never receive a program/argument escape hatch.
-  return Object.freeze({runtime:async()=>{if(!existsSync(node)||realpathSync(process.execPath)!==realpathSync(node))runnerFail('PRE_RUNNER','HOST_RUNTIME');await capture(node,['scripts/dev/runtime.mjs','--check']);const actualNode=(await capture(node,['-p','process.versions.node'])).toString().trim(),npmCli=process.platform==='win32'?join(dirname(node),'node_modules/npm/bin/npm-cli.js'):join(dirname(dirname(node)),'lib/node_modules/npm/bin/npm-cli.js'),actualNpm=(await capture(node,[npmCli,'--version'])).toString().trim();if(actualNode!=='24.20.0'||actualNpm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');return {verified:true,node:actualNode,npm:actualNpm};},snapshot,build:async before=>{await capture(node,['scripts/dev/runtime.mjs','npm','run','build'],120000,'PRE_SOURCE');const identity=JSON.parse(readFileSync(join(root,'build/identity.json'),'utf8'));return {version:identity.version,commit:identity.commit,tree:identity.tree,buildId:identity.buildId,sourceSha256:before.sourceSha256};},command:async id=>runFixedCommand(root,id,scanner,ledger),assembly:async identity=>assembleManagedUpdaterRehearsalPair({projectRoot:root,temporaryRoot:join(owned,'assembly'),identity}),prompt:async({core,assembly})=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async({identity,assembly})=>exercisePhase2PublicationContract({identity,assembly,now:new Date().toISOString(),commandLedger:ledger.map(item=>item.id)}),scan:async()=>{const captured=scanner.finish(),combined=scanPhase2RehearsalSources(root,captured);return {status:combined.status,findings:combined.findings,reportSha256:combined.reportSha256};},cleanup:async()=>{try{rmSync(owned,{recursive:true,force:false,maxRetries:1});return !existsSync(owned);}catch{return false;}},now:async()=>new Date().toISOString()});
+  return Object.freeze({runtime:async()=>{if(!existsSync(node)||realpathSync(process.execPath)!==realpathSync(node))runnerFail('PRE_RUNNER','HOST_RUNTIME');await capture(node,['scripts/dev/runtime.mjs','--check']);const actualNode=(await capture(node,['-p','process.versions.node'])).toString().trim(),npmCli=process.platform==='win32'?join(dirname(node),'node_modules/npm/bin/npm-cli.js'):join(dirname(dirname(node)),'lib/node_modules/npm/bin/npm-cli.js'),actualNpm=(await capture(node,[npmCli,'--version'])).toString().trim();if(actualNode!=='24.20.0'||actualNpm!=='11.19.0')runnerFail('PRE_RUNNER','RUNTIME_INVALID');return {verified:true,node:actualNode,npm:actualNpm};},snapshot,build:async before=>{await capture(node,['scripts/dev/runtime.mjs','npm','run','build'],120000,'PRE_SOURCE');const identity=JSON.parse(readFileSync(join(root,'build/identity.json'),'utf8'));return {version:identity.version,commit:identity.commit,tree:identity.tree,buildId:identity.buildId,sourceSha256:before.sourceSha256};},command:async id=>runFixedCommand(root,id,scanner,ledger),assembly:async identity=>assembleManagedUpdaterRehearsalPair({projectRoot:root,temporaryRoot:join(owned,'assembly'),identity}),prompt:async({core,assembly})=>renderPhase2RehearsalPromptEnvelope({core,assembly}),publication:async({identity,assembly})=>exercisePhase2PublicationContract({identity,assembly,now:new Date().toISOString(),commandLedger:ledger.map(item=>item.id)}),scan:async()=>runPhase2RehearsalScanStage({root,scanner}),cleanup:async()=>{try{rmSync(owned,{recursive:true,force:false,maxRetries:1});return !existsSync(owned);}catch{return false;}},now:async()=>new Date().toISOString()});
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===SCRIPT_PATH){const args=process.argv.slice(2);if(args.length!==1||args[0]!=='--run'){process.stderr.write('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=ARGUMENT_INVALID\n');process.exitCode=1;}else runPhase2Rehearsal({root:ROOT,ops:createProductionPhase2RehearsalOps({root:ROOT})}).then(result=>process.stdout.write(canonical(result)+'\n')).catch(error=>{const message=typeof error?.message==='string'&&error.message.startsWith('PHASE2_REHEARSAL_FAILED class=')?error.message:'PHASE2_REHEARSAL_FAILED class=PRE_SOURCE code=UNEXPECTED';process.stderr.write(message+'\n');process.exitCode=1;});}

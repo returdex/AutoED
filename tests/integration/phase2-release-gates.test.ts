@@ -33,7 +33,7 @@ import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/rel
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {phase2ClosureBytes,preparePhase2CandidateBuild} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,readPhase2RehearsalFailure,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal,writePhase2RehearsalFailure} from '../../scripts/release/phase2-rehearsal.mjs';
+import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createPhase2RehearsalStage,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,readPhase2RehearsalFailure,readPhase2RehearsalStage,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,runPhase2RehearsalScanStage,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal,writePhase2RehearsalFailure} from '../../scripts/release/phase2-rehearsal.mjs';
 import {classifyPhase2RehearsalFailure,phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
@@ -79,6 +79,14 @@ it('retains an orchestration command failure after cleanup',async()=>{
   const failure=Object.assign(new Error('PHASE2_REHEARSAL_FAILED class=PRE_SOURCE code=COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE'),{rehearsal:true});
   await expect(runPhase2Rehearsal({root,ops:{runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,build:async()=>({version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:snapshot.sourceSha256}),command:async()=>{throw failure;},cleanup:async()=>true}})).rejects.toThrow(failure.message);
   expect(readPhase2RehearsalFailure({root})).toMatchObject({status:'fail',class:'PRE_SOURCE',code:'COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE'});
+});
+
+it('persists a running scan boundary and fails closed when its owned stage times out',async()=>{
+  const root=makeRoot(),scanner={write:()=>true,finish:()=>({status:'pass',surface:'captured_output',objects:1,bytes:1,findings:0,reportSha256:hash('a')})};
+  await expect(runPhase2RehearsalScanStage({root,scanner,runDetached:async()=>{throw Object.assign(new Error('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=COMMAND_TIMEOUT'),{rehearsal:true});}})).rejects.toThrow('PHASE2_REHEARSAL_FAILED class=PRE_SOURCE code=SCAN_STAGE_TIMEOUT');
+  expect(readPhase2RehearsalStage({root})).toMatchObject({schema:1,status:'running',kind:'unnumbered_release_rehearsal_stage',releaseCoordinate:null,stage:'scan'});
+  expect(JSON.stringify(readPhase2RehearsalStage({root}))).not.toMatch(/(?:\/Users|Profile|password|mfa|authorization)/i);
+  expect(createPhase2RehearsalStage({root,stage:'scan'})).toMatchObject({status:'running',stage:'scan'});
 });
 
 const roots:string[]=[];
