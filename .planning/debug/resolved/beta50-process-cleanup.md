@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: resolved
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T21:24:00+10:00
+updated: 2026-09-14T22:40:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T21:24:00+10:00
 
 ## Current Focus
 
-- hypothesis: The 60257 persistent-session run was invalidated by controller-coordination clean-snapshot drift, not a source/test outcome: an uncommitted mandatory debug record was created after launch while a concurrent duplicate 60279 also existed.
-- test: Commit the sanitized debug record after all exact owned processes are absent, confirm clean `HEAD`, and stop all repository writes before the controller launches the one replacement persistent R1.
-- expecting: A clean committed identity prevents repeat final-snapshot contamination; the interrupted 60257 run remains unusable regardless of test progress.
-- next_action: Report committed clean identity to the controller and make no further repository writes while its next R1 is active.
+- hypothesis: Confirmed resolved: the R1 coordinator did not have a release-tool timeout-settlement defect; the recurrent incomplete runs were external session/controller-lifecycle and coordination contamination, eliminated by a clean persistent session.
+- test: Validate the terminal attestation binding and absence of owned residual processes without rerunning R1.
+- expecting: The receipt must bind exactly to clean commit/tree/build identity and no phase2-rehearsal or synthetic process may remain.
+- next_action: Archive this resolved debug session and commit only the validated R1 receipt and debug documentation. Do not select a candidate or advance R2+.
 - reasoning_checkpoint:
     hypothesis: "When no `exit` event is emitted, `runPhase2Detached` never installs its existing close watchdog. Its timeout calls `terminate`, but an already-absent owned group makes both signals no-ops and leaves the only promise unsettled."
     confirming_evidence:
@@ -201,6 +201,10 @@ updated: 2026-09-14T21:24:00+10:00
   checked: Controller-directed termination and repository-owned cleanup following the contaminated concurrent R1 attempt.
   found: The active coordinator PID/PGID 60257 and detached exact group 41177 were TERM-scoped. The repository-owned synthetic-process reclamation completed; the named reparented fixture PIDs 52646 and 52822 and validated disposable root `autoed-synthetic-Gw2Vjv` are absent, and no R1 coordinator remains. The concurrent 60279 launch was an invalid setup duplicate with no terminal receipt or residual. The 60257 run cannot attest because this debug record became an uncommitted working-tree change after it launched.
   implication: This is controller-coordination/setup drift, not a release-tool/source/test classification and not an R1 result. The sole authorized next experiment must start only after this record is committed and the working tree is clean; no code change is justified.
+- timestamp: 2026-09-14T22:40:00+10:00
+  checked: Replacement persistent-session R1 terminal receipt, its exact source binding, and final read-only owned-process check.
+  found: Session 50377 completed with sanitized `status: pass`, binding commit `1d5c421e388ba4d20a81ccff63b9411c5c890ec0`, tree `328ca8a33fec4f213a5716054b21cb86735ec0`, and build `4f735fbbd05ceec804c44f7c6ad4fc3bb4426f7d9a5f1af1de1b251b52869312` at `.planning/release-rehearsals/1d5c421e388ba4d20a81ccff63b9411c5c890ec0-4f735fbbd05ceec804c44f7c6ad4fc3bb4426f7d9a5f1af1de1b251b52869312.json`. No `phase2-rehearsal` or `autoed-synthetic` residual process exists.
+  implication: This is the required fresh complete unnumbered R1 evidence. It verifies the persistent-session remediation without changing the permanent beta.50 invalidation and does not authorize selection or later release/live work.
 
 ## Eliminated
 
@@ -221,7 +225,7 @@ updated: 2026-09-14T21:24:00+10:00
 
 ## Resolution
 
-- root_cause: The observer previously collapsed process-group states, and the detached adapter subsequently had two independent missing-terminal-event waits: after `exit` without `close`, and after neither event. In the latter path, its declared timeout only sent scoped signals; when the exact group was already absent, no timer could settle the promise, allowing the R1 coordinator to outlive its ceiling while childless.
-- fix: Return closed allowlisted process-group states, preserve bounded test-host closure, bound post-exit missing `close`, and now after timeout wait one bounded terminal-event grace before re-verifying the exact group and rejecting `COMMAND_TERMINAL_EVENT_TIMEOUT` if no event arrives.
-- verification: The new no-terminal-event test was RED before repair (`pending` after timeout). After repair, managed release gates pass 53/53, including ordinary child timeout and both missing-event branches; managed typecheck passes. `5fdf2ae` is committed. The next required evidence is one fresh complete unnumbered R1; no prior incomplete R1 is a pass.
+- root_cause: The release runner had distinct bounded missing-terminal-event defects, repaired in `5fdf2ae`; subsequent incomplete R1 attempts were separately caused by an approximately 20-minute external execution-session cutoff and then controller-coordination working-tree contamination, not by a remaining release-tool timeout-settlement defect.
+- fix: Retained the bounded runner repairs and launched the final fresh R1 only from clean committed identity in a persistent session whose lifecycle exceeded the focused 1200-second ceiling. No additional source change was needed after the external-session diagnosis.
+- verification: Managed release-gates and typecheck passed for `5fdf2ae`; final persistent session 50377 produced a validated pass attestation binding commit `1d5c421e388ba4d20a81ccff63b9411c5c890ec0`, tree `328ca8a33fec4f213a5716054b21cb86735ec0`, build `4f735fbbd05ceec804c44f7c6ad4fc3bb4426f7d9a5f1af1de1b251b52869312`, with no release-runner or synthetic-process residual.
 - files_changed: [scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/integration/managed-cleanup.test.ts]
