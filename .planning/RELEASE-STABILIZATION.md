@@ -182,3 +182,19 @@ with build `423e5c1a…`, quality 1/154/402/34/24, dual eight-asset closures,
 zero sensitive findings and zero remote mutations. The canonical R2 rehearsal
 binding digest is `2f2dca83…`. `active update candidate: none`; beta.50 requires
 separate authorization.
+
+## Beta.50 ambiguous process-observation and managed-cleanup failure
+
+Beta.50 was selected once from the passing post-beta.49 corrective R1 identity.
+Its first formal R3 passed managed typecheck 1/1 and unit 154/154, then stopped
+in the per-file integration chain at `managed-cleanup` with
+`PRE_RUNNER / PROCESS_GROUP_OBSERVATION_FAILED`. Bounded diagnosis found no
+source/test/tool/artifact/remote drift or residual owned process. The first
+independent exact-file run instead exited nonzero after a normally observed
+closed group; a second exact-file run passed 7/7 with zero skip/todo. These
+different outcomes do not identify the one environmental transient required by
+the `POST_TRANSIENT` retention exception. Ambiguity therefore permanently
+consumes beta.50 before canonical R3 reporting, signing or publication. Active
+selection is retired; return to bounded R0 and then a complete fresh unnumbered
+R1 before beta.51 may be separately authorized or selected. Installation,
+login, Windows/live evidence, 02-15 and Phase 3 remain blocked.
