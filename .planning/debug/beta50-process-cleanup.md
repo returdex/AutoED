@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T20:23:00+10:00
+updated: 2026-09-14T20:44:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T20:23:00+10:00
 
 ## Current Focus
 
-- hypothesis: `runPhase2Detached` can still wait forever when the owned group disappears but Node emits neither `exit` nor `close`: the existing watchdog is installed only in the `exit` callback, while the primary timeout only sends signals and never re-probes or settles the awaiting promise.
-- test: Add one fake-child RED regression that emits no terminal event, has an absent owned group after the declared timeout, and requires a finite allowlisted terminal-event failure.
-- expecting: Before the repair, the fake-child promise remains pending after its timeout; after the repair, a post-timeout owned-group verification rejects with a classified failure without resolving success.
-- next_action: Commit this debug record, confirm a clean committed identity and no fixture residuals, then run exactly one fresh complete unnumbered R1. Do not retry it or perform R2+ action under any outcome.
+- hypothesis: The R1 evidence is an external execution-session interruption, not a repository release-tool failure; therefore no source repair is warranted from this attempt.
+- test: Confirm the exact owned wrapper group has no remaining members and preserve only sanitized evidence of the empty R1 output and absence of current-identity receipts.
+- expecting: No remaining exact owned group plus no terminal R1 record confirms safe cleanup and incomplete status, but cannot be treated as a run failure classification or a pass.
+- next_action: Commit the persistent debug record and report this bounded diagnosis to the controller; a later R1 must be launched in an execution session whose declared lifecycle can outlast the 1200-second focused ceiling and cleanup grace.
 - reasoning_checkpoint:
     hypothesis: "When no `exit` event is emitted, `runPhase2Detached` never installs its existing close watchdog. Its timeout calls `terminate`, but an already-absent owned group makes both signals no-ops and leaves the only promise unsettled."
     confirming_evidence:
@@ -177,6 +177,18 @@ updated: 2026-09-14T20:23:00+10:00
   checked: Minimal source/test diff and atomic Git commit.
   found: Only `scripts/release/phase2-rehearsal.mjs` and `tests/integration/phase2-release-gates.test.ts` changed; they were committed as `5fdf2ae` (`fix(release): bound missing child terminal events`).
   implication: The repair identity is fixed. This debug record is the only remaining local change before the one authorized fresh R1.
+- timestamp: 2026-09-14T20:35:00+10:00
+  checked: Sole fresh R1 after `5fdf2ae`, its exact owned wrapper/coordinator PIDs, current-identity attestation/stage records, and exact owned child topology.
+  found: The attempt exceeded its declared 1200-second ceiling with only wrapper PID 21528 and coordinator PID 21596 remaining; no current-identity attestation, terminal stage record, test child, or synthetic service existed. TERM was sent only to exact owned coordinator PID 21596, which exited; wrapper PID 21528 subsequently disappeared.
+  implication: This R1 attempt is incomplete and cannot authorize selection or later gates. The prior timeout terminal-event repair did not settle this distinct real ordering; diagnosis must identify the remaining adapter or orchestrator wait before any source change.
+- timestamp: 2026-09-14T20:39:00+10:00
+  checked: Parent-coordinator lifecycle and surviving exact owned process topology after the fresh R1 lost its controller result.
+  found: At approximately 1,017 seconds, coordinator PID 21596 and outer PID 21528 disappeared together, while exact managed wrapper PID/PGID 1668 remained live, reparented to PID 1, with only its owned npm/Vitest/worker chain and validated fixture processes.
+  implication: The new topology is incompatible with a coordinator-only unsettled child promise as the immediate terminal event. It makes an outer execution-session cutoff the leading falsifiable cause; source repair is not justified until launch/session evidence is checked.
+- timestamp: 2026-09-14T20:44:00+10:00
+  checked: Complete `runPhase2Detached` timeout/event ordering, exact remaining PGID 1668 membership, repository-owned R1 output artifacts, and current Git status.
+  found: The timeout watchdog remains armed after a late `exit` and is not cancelled before its owned-group verification/terminal rejection; no tested source ordering explains the observed simultaneous controller/outer loss. The exact PGID 1668 has no remaining member. The two R1 captured-output files are zero bytes, no current-identity terminal receipt exists, and the only working-tree change is this debug record.
+  implication: The runner-defect hypothesis is eliminated for this occurrence. The shared outer/controller loss with a formerly reparented detached wrapper is bounded evidence of execution-session interruption; it is neither an R1 pass nor a classified source/test failure and does not authorize a code repair or release progression.
 
 ## Eliminated
 
@@ -190,6 +202,8 @@ updated: 2026-09-14T20:23:00+10:00
   reason: Its childless coordinator was terminated after more than 25 minutes without a final sanitized result, and no current-identity attestation or durable terminal classification was written.
 - hypothesis: The current fresh R1 is stalled in synchronous scan or assembly work.
   reason: It has not reached the scan-stage record, its managed-cleanup child group is absent, and a direct coordinator sample is idle in Node event-loop polling.
+- hypothesis: The `5fdf2ae` terminal-event watchdog failed because a late child `exit` cancels its timeout settlement timer.
+  reason: Source inspection proves the timeout watchdog remains assigned until it settles or the promise finishes; the observed simultaneous outer/coordinator disappearance and reparented wrapper instead identify an external lifecycle cutoff.
 
 ## Resolution
 
