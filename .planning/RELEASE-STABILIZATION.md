@@ -198,3 +198,15 @@ consumes beta.50 before canonical R3 reporting, signing or publication. Active
 selection is retired; return to bounded R0 and then a complete fresh unnumbered
 R1 before beta.51 may be separately authorized or selected. Installation,
 login, Windows/live evidence, 02-15 and Phase 3 remain blocked.
+
+## Post-beta.50 persistent-session R1 pass
+
+The beta.50 invalidation is permanent and unchanged. Its bounded runner repair
+then completed a clean persistent-session unnumbered R1 on commit `1d5c421e…`,
+tree `328ca8a3…`, and build `4f735fbb…`: focused 35; quality
+1/154/407/34/24; dual eight-asset closures; zero sensitive findings; zero
+remote mutations; and no residual release-runner or synthetic process. This
+receipt is automated rehearsal evidence only. `active update candidate: none`;
+beta.51 is unselected and requires separate authorization. Do not select a
+candidate, begin R2+, sign, publish, install, log in, or advance live work from
+this record.

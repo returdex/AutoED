@@ -167,6 +167,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；随后按策略回到R0/R1并选择了beta.38，beta.38也已记录为公开后失效。
 - 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
 - 2026-09-03 beta.38 在新的精确树上完成 R0/R1、R2 选择和 R3 自动质量报告：selection/build/test-report 均通过严格绑定；尚未进入签名、发布、更新或登录。
+- 2026-09-14 beta.50 已永久失效的前提不变。其后 clean persistent-session 无编号 R1 在 commit `1d5c421e…` / tree `328ca8a3…` / build `4f735fbb…` 通过：focused 35、quality 1/154/407/34/24、双平台各8项闭包、sensitive 0、remote mutations 0 且无残留进程。这只是自动演练证据；`active update candidate: none`，beta.51 尚未选择并仍需单独授权。不得据此执行 R2+、选择、签名、发布、安装、登录或 live 工作。
 - 2026-09-03/04 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后 beta.39 完成新的 R0/R1、R2、R3、R4 并发布，但匿名校验未产生 sanitized result 或 availability receipt。beta.39 是不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史；其后 beta.40 的独立生命周期另见 2026-09-07 记录。01-14 与 Windows 仍 `not_run / human_needed`，真实 L evidence 仍 pending，02-15 与 Phase 3 仍 blocked。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
@@ -192,8 +193,8 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 
 ## Session Continuity
 
-Last session: 2026-09-14T00:30:00+10:00
-Stopped at: beta.50 unpublished and permanently invalidated after ambiguous R3 process-observation/managed-cleanup failures; `active update candidate: none`, bounded R0 and fresh unnumbered R1 required
+Last session: 2026-09-14T22:40:00+10:00
+Stopped at: beta.50 remains unpublished and permanently invalidated; a clean persistent-session R1 passed on `1d5c421e…` / `328ca8a3…` / `4f735fbb…`. `active update candidate: none`; beta.51 remains unselected and needs separate authorization before any R2–R5 work.
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`; later failures are recorded by immutable invalidation documents. `active update candidate: none`; any later candidate and any human update prompt remain unauthorized before the fresh R1 passes and the user separately authorizes R2–R5.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`, `.planning/debug/resolved/beta50-process-cleanup.md`; beta.50 remains an immutable invalidation. `active update candidate: none`; any later candidate and any human update prompt remain unauthorized until separate authorization for R2–R5.
