@@ -257,18 +257,22 @@ it('detached runner merges stderr, enforces limits and removes descendants befor
   expect(stderr.stdout.toString()).toContain('stderr-canary');expect(Buffer.concat(scanner.chunks).toString()).toContain('stderr-canary');
   await expect(runPhase2Detached({program:process.execPath,args:['-e','setInterval(()=>{},1000)'],cwd:process.cwd(),timeoutMs:25,scanner:{write(){}}})).rejects.toThrow('COMMAND_TIMEOUT');
   await expect(runPhase2Detached({program:process.execPath,args:['-e',"process.stdout.write('x'.repeat(512))"],cwd:process.cwd(),timeoutMs:1000,outputLimit:64,scanner:{write(){}}})).rejects.toThrow('COMMAND_OUTPUT_LIMIT');
+  await expect(runPhase2Detached({program:process.execPath,args:['-e',''],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}},groupProbe:()=> 'permission'})).rejects.toThrow('PROCESS_GROUP_PERMISSION_DENIED');
   const descendant=await runPhase2Detached({program:process.execPath,args:['-e',"const {spawn}=require('node:child_process');const child=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)\"],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(0),10)"],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}}}),pid=Number(descendant.stdout.toString());
   expect(pid).toBeGreaterThan(1);expect(()=>process.kill(pid,0)).toThrow();
 });
 
-it('process-group observation distinguishes live, zombie-only, absent and observer failure',()=>{
+it('process-group observation distinguishes live, zombie-only, absent, permission, timeout and execution failure',()=>{
   const alive=()=>{},absent=()=>{const error:any=new Error('absent');error.code='ESRCH';throw error;},denied=()=>{const error:any=new Error('denied');error.code='EPERM';throw error;};
   const ps=(text:string)=>()=>text;
-  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 S\n 321 Z\n') as any,observer:'/bin/ps'})).toBe(true);
-  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 Z\n') as any,observer:'/bin/ps'})).toBe(false);
-  expect(observePhase2ProcessGroup(321,{kill:absent as any,execFile:ps('') as any,observer:'/bin/ps'})).toBe(false);
-  expect(observePhase2ProcessGroup(321,{kill:denied as any,execFile:ps(' 321 S\n') as any,observer:'/bin/ps'})).toBe(null);
-  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:(()=>{throw new Error('ps');}) as any,observer:'/bin/ps'})).toBe(null);
+  const timedOut=()=>{const error:any=new Error('timeout');error.code='ETIMEDOUT';throw error;};
+  const unavailable=()=>{const error:any=new Error('observer unavailable');error.code='ENOENT';throw error;};
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 S\n 321 Z\n') as any,observer:'/bin/ps'})).toBe('live');
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:ps(' 321 Z\n') as any,observer:'/bin/ps'})).toBe('zombie');
+  expect(observePhase2ProcessGroup(321,{kill:absent as any,execFile:ps('') as any,observer:'/bin/ps'})).toBe('absent');
+  expect(observePhase2ProcessGroup(321,{kill:denied as any,execFile:ps(' 321 S\n') as any,observer:'/bin/ps'})).toBe('permission');
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:timedOut as any,observer:'/bin/ps'})).toBe('timeout');
+  expect(observePhase2ProcessGroup(321,{kill:alive as any,execFile:unavailable as any,observer:'/bin/ps'})).toBe('execution');
 });
 
 it('classifies failures by operation boundary without parsing arbitrary error text',async()=>{

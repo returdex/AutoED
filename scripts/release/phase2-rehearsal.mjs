@@ -88,14 +88,15 @@ const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds))
  * @param {{kill?:typeof process.kill,execFile?:typeof execFileSync,observer?:string}} options
  */
 export function observePhase2ProcessGroup(pgid,{kill=process.kill,execFile=execFileSync,observer}={}){
-  if(!Number.isSafeInteger(pgid)||pgid<2||typeof kill!=='function'||typeof execFile!=='function')return null;
-  try{kill(-pgid,0);}catch(error){return error?.code==='ESRCH'?false:null;}
+  if(!Number.isSafeInteger(pgid)||pgid<2||typeof kill!=='function'||typeof execFile!=='function')return 'invalid';
+  try{kill(-pgid,0);}catch(error){return error?.code==='ESRCH'?'absent':error?.code==='EPERM'?'permission':'execution';}
   try{
     const executable=observer??runtimeProcessObserver(),output=execFile(executable,['-axo','pgid=,state='],{encoding:'utf8',timeout:3000,maxBuffer:4*1024*1024,stdio:['ignore','pipe','ignore']});
     const states=String(output).split('\n').map(line=>line.trim().split(/\s+/)).filter(parts=>parts.length>=2&&Number(parts[0])===pgid).map(parts=>parts[1]);
-    return states.some(state=>typeof state==='string'&&!state.startsWith('Z'));
-  }catch{return null;}
+    return states.some(state=>typeof state==='string'&&!state.startsWith('Z'))?'live':states.some(state=>typeof state==='string'&&state.startsWith('Z'))?'zombie':'absent';
+  }catch(error){return error?.code==='ETIMEDOUT'||error?.signal==='SIGTERM'?'timeout':error?.code==='ENOENT'?'execution':'failure';}
 }
+function processGroupFailureCode(state){return Object.freeze({invalid:'PROCESS_GROUP_ARGUMENT_INVALID',permission:'PROCESS_GROUP_PERMISSION_DENIED',timeout:'PROCESS_GROUP_OBSERVER_TIMEOUT',execution:'PROCESS_GROUP_OBSERVER_EXECUTION_FAILED',failure:'PROCESS_GROUP_OBSERVATION_FAILED'})[state]??'PROCESS_GROUP_OBSERVATION_FAILED';}
 
 /**
  * The sole detached-child adapter for R1 runtime checks, builds, and fixed
@@ -126,12 +127,12 @@ export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outp
     // A parent can close while an owned descendant retains the process group.
     // Keep the group scoped to this child and prove it has disappeared.
     let group=groupProbe(child.pid,{kill});
-    if(group===null)runnerFail('PRE_RUNNER','PROCESS_GROUP_OBSERVATION_FAILED');
-    if(group===true)terminate(stopReason??'descendant');
+    if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
+    if(group==='live')terminate(stopReason??'descendant');
     const deadline=Date.now()+PROCESS_GROUP_GRACE_MS+1000;
-    while(group===true&&Date.now()<deadline){await delay(100);group=groupProbe(child.pid,{kill});}
-    if(group===null)runnerFail('PRE_RUNNER','PROCESS_GROUP_OBSERVATION_FAILED');
-    if(group===true)runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
+    while(group==='live'&&Date.now()<deadline){await delay(100);group=groupProbe(child.pid,{kill});}
+    if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
+    if(group==='live')runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
   }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER','SPAWN_FAILED');
   }finally{clearTimers();}
   if(!closed||spawnError)runnerFail('PRE_RUNNER','SPAWN_FAILED');
