@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T20:48:00+10:00
+updated: 2026-09-14T21:24:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T20:48:00+10:00
 
 ## Current Focus
 
-- hypothesis: The prior R1 was interrupted by an approximately 20-minute external controller/session ceiling rather than a release-tool defect; with no source drift, one clean retry in a persistent session whose outer lifetime is at least 3600 seconds is the valid differentiating experiment.
-- test: Launch the exact repository-owned unnumbered R1 command from clean committed identity in one persistent PTY/unified session with a 3600-second outer allowance, preserving all fixed-step ceilings.
-- expecting: A terminal R1 result from this session distinguishes a real suite/release-tool outcome from the eliminated outer-session cutoff; lack of a current-identity attestation remains non-passing.
-- next_action: Read the exact R1 entrypoint, verify clean identity, then start one persistent R1 session and report its PID/session identifier and source commit immediately.
+- hypothesis: The 60257 persistent-session run was invalidated by controller-coordination clean-snapshot drift, not a source/test outcome: an uncommitted mandatory debug record was created after launch while a concurrent duplicate 60279 also existed.
+- test: Commit the sanitized debug record after all exact owned processes are absent, confirm clean `HEAD`, and stop all repository writes before the controller launches the one replacement persistent R1.
+- expecting: A clean committed identity prevents repeat final-snapshot contamination; the interrupted 60257 run remains unusable regardless of test progress.
+- next_action: Report committed clean identity to the controller and make no further repository writes while its next R1 is active.
 - reasoning_checkpoint:
     hypothesis: "When no `exit` event is emitted, `runPhase2Detached` never installs its existing close watchdog. Its timeout calls `terminate`, but an already-absent owned group makes both signals no-ops and leaves the only promise unsettled."
     confirming_evidence:
@@ -193,6 +193,14 @@ updated: 2026-09-14T20:48:00+10:00
   checked: Controller authorization and repository identity after the external-session diagnosis.
   found: The controller authorizes exactly one clean retry because the interruption had zero source/test/tool/artifact drift and the former exact owned group is absent; it requires a persistent PTY/unified outer lifetime of at least 3600 seconds while retaining internal fixed-step ceilings.
   implication: The retry is a differentiating runner/setup experiment, not a beta selection or release action. Its source identity must be recorded at launch and its terminal result assessed without retrying again.
+- timestamp: 2026-09-14T20:50:00+10:00
+  checked: Persistent PTY retry launch identity and exact current R1 coordinators.
+  found: The requested PTY session is ID 4009, coordinator PID/PGID 60279, launched on clean commit `a71200ab521db9f9376f1b39cc3c493b96b7f768`. At the same observation time, another exact `phase2-rehearsal.mjs --run` coordinator PID/PGID 60257 existed under the same outer parent.
+  implication: Concurrent R1 runs invalidate independent terminal interpretation until the controller identifies ownership and directs a scoped cleanup. No process is terminated by this debugger because the duplicate's ownership is not yet resolved.
+- timestamp: 2026-09-14T21:24:00+10:00
+  checked: Controller-directed termination and repository-owned cleanup following the contaminated concurrent R1 attempt.
+  found: The active coordinator PID/PGID 60257 and detached exact group 41177 were TERM-scoped. The repository-owned synthetic-process reclamation completed; the named reparented fixture PIDs 52646 and 52822 and validated disposable root `autoed-synthetic-Gw2Vjv` are absent, and no R1 coordinator remains. The concurrent 60279 launch was an invalid setup duplicate with no terminal receipt or residual. The 60257 run cannot attest because this debug record became an uncommitted working-tree change after it launched.
+  implication: This is controller-coordination/setup drift, not a release-tool/source/test classification and not an R1 result. The sole authorized next experiment must start only after this record is committed and the working tree is clean; no code change is justified.
 
 ## Eliminated
 
@@ -208,6 +216,8 @@ updated: 2026-09-14T20:48:00+10:00
   reason: It has not reached the scan-stage record, its managed-cleanup child group is absent, and a direct coordinator sample is idle in Node event-loop polling.
 - hypothesis: The `5fdf2ae` terminal-event watchdog failed because a late child `exit` cancels its timeout settlement timer.
   reason: Source inspection proves the timeout watchdog remains assigned until it settles or the promise finishes; the observed simultaneous outer/coordinator disappearance and reparented wrapper instead identify an external lifecycle cutoff.
+- hypothesis: The persistent-session 60257 attempt can supply a clean R1 terminal result.
+  reason: A debug-record change made after launch left the working tree dirty before its final snapshot, and a concurrent 60279 coordinator independently violated the one-run constraint; both were stopped and all exact owned residuals were reclaimed.
 
 ## Resolution
 
