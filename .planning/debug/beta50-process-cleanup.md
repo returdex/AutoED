@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T18:34:22+10:00
+updated: 2026-09-14T19:06:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,19 @@ updated: 2026-09-14T18:34:22+10:00
 
 ## Current Focus
 
-- hypothesis: The single authorized post-repair clean R1 did not complete; its childless coordinator remained live for more than 25 minutes and was then TERM-signalled only as the exact owned PID, so it produced neither a final sanitized result nor a current-identity attestation.
-- test: Read only the terminated coordinator's sanitized process outcome, repository status, and release-rehearsal directory; do not rerun the command or any test.
-- expecting: An absent PID together with no newer current-identity attestation confirms cleanup but cannot establish R1 success, failure classification, or a product-test root cause.
-- next_action: Stop. Preserve this incomplete R1 evidence for a separately authorized bounded R0 investigation; do not retry R1, select beta.51, sign, publish, install, log in, access sources/Profile, or advance phases.
+- hypothesis: The childless coordinator could remain unclassified because the post-command sensitive scan runs synchronously in the coordinator and has neither a durable stage boundary nor a whole-stage timeout; the lost PID 54703 cannot be uniquely back-attributed because no such boundary existed.
+- test: Add a regression that requires a durable allowlisted scan-stage record and execute the scan in an exact managed detached child bounded by a stage deadline.
+- expecting: The regression is RED before the repair. Afterward, an overlong or invalid scan child produces only a normalized `SCAN_STAGE_*` failure and no R1 pass attestation; a successful child creates no external disclosure.
+- next_action: Run the complete phase2-release-gates suite, inspect the staged diff, and commit the bounded scan repair if it passes.
+- reasoning_checkpoint:
+    hypothesis: "PID 54703 was stranded in the coordinator's post-command synchronous scan boundary because scanPhase2RehearsalSources invokes synchronous history/tree scans without a stage record or stage-level timeout."
+    confirming_evidence:
+      - "The historical run has no final output, failure record, current-identity attestation, or durable per-stage record, so no old stage can be directly observed."
+      - "After all fixed command children, production scan calls scanner.finish() and scanPhase2RehearsalSources synchronously; scanReachableHistory executes one bounded git child per reachable object but has no aggregate deadline."
+      - "The coordinator was observed childless and live for more than 25 minutes, which is compatible with coordinator-only synchronous scan work and is not compatible with a final completed R1."
+    falsification_test: "If the current runner already persists a stage before scan and runs that scan behind an independently bounded owned child, the new regression will pass before the repair."
+    fix_rationale: "Persisting an allowlisted stage boundary and isolating the synchronous scan behind the existing owned detached-child adapter makes a future stall terminate as a classified failure without exposing scanned content or weakening scan results."
+    blind_spots: "No retained stage evidence can prove which exact operation PID 54703 was in; the repair prevents recurrence and classifies future attempts rather than retroactively fabricating a diagnosis."
 - reasoning_checkpoint:
     hypothesis: "The R1 orchestrator drops its only allowlisted failure category at process exit because it writes successful attestations only and returns the failure only via transient stderr."
     confirming_evidence:
@@ -100,6 +109,14 @@ updated: 2026-09-14T18:34:22+10:00
   checked: The one authorized post-repair clean R1 coordinator's owned-PID outcome (54703), current repository status, and release-rehearsal attestation directory; no command or test was rerun.
   found: After remaining childless and live for more than 25 minutes without a final sanitized result, PID 54703 received TERM as the exact owned coordinator and exited. A subsequent exact PID check finds it absent; the working tree is clean and no newer current-identity R1 attestation exists.
   implication: This attempt is incomplete and blocked, not an R1 pass and not a classified product/test failure. Its termination confirms only scoped coordinator cleanup; it supplies no basis to retry the attempt, select beta.51, or progress any release/live gate.
+- timestamp: 2026-09-14T19:02:00+10:00
+  checked: Complete post-command production R1 path and retained coordinator diagnostics.
+  found: No durable per-stage record existed for PID 54703. The production `scan` operation synchronously calls captured-output finalization plus tracked/history/working-tree scanning; history scanning invokes bounded git probes per object but lacks an aggregate stage deadline.
+  implication: The historical PID cannot be uniquely attributed without inventing evidence. The scan boundary is a concrete, falsifiable coordinator-only stall candidate and requires a bounded child plus durable allowlisted progress for future classification.
+- timestamp: 2026-09-14T19:06:00+10:00
+  checked: New scan-boundary regression and managed typecheck.
+  found: The regression was RED before implementation because the scan-stage API was absent. It is GREEN after implementation; an injected owned-child timeout records only `status: running, stage: scan` and returns `PRE_SOURCE / SCAN_STAGE_TIMEOUT`. Typecheck passes.
+  implication: The repair has direct regression coverage for the missing classification boundary without accepting a timeout as success or retaining child output.
 
 ## Eliminated
 
