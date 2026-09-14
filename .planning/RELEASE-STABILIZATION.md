@@ -210,3 +210,28 @@ receipt is automated rehearsal evidence only. `active update candidate: none`;
 beta.51 is unselected and requires separate authorization. Do not select a
 candidate, begin R2+, sign, publish, install, log in, or advance live work from
 this record.
+
+## Beta.51 availability-proven R2–R5 completion
+
+After the controller-only documentation commits changed the checkout identity,
+a second complete fresh unnumbered R1 passed on commit `9ed6074…`, tree
+`78515099…` and build `9a39bccc…`: focused 35; quality 1/154/407/34/24;
+dual eight-asset closures; zero sensitive findings; zero remote mutations; and
+no residual owned process. beta.51 was then selected exactly once with selection
+SHA-256 `a08a6a8c…`. Its complete R3 passed 1/154/407/34/24 with zero
+skip/todo and zero sensitive findings; test-report SHA-256 is `5d34ff2a…`.
+
+R4 rebuilt the exact selected version, produced and Ed25519-signed 16 assets,
+proved both complete target archives locally and passed the final read-only
+preflight. R5 published `v0.1.0-beta.51` once, then its single permitted
+anonymous full verifier downloaded all 16 assets and verified the byte counts,
+SHA-256 values, signatures, canonical capability closure, signed prompt core
+and updater graph. A valid availability receipt exists. `active update
+candidate: 0.1.0-beta.51 (availability-proven, human update not run)`.
+
+No installation, OS confirmation, login, school/Profile access, live evidence,
+02-15 or Phase 3 action occurred or is authorized. The repository task remains
+the non-updating controller. Any later real update requires separate permission
+and must use the exact tracked install prompt in a same-host/account local
+projectless Codex task with one live PTY and one bootstrap invocation across
+both genuine human confirmation gates.
