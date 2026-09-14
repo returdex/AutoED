@@ -5,6 +5,7 @@ import {isIPv4} from 'node:net';
 import {createHash,createPublicKey,verify} from 'node:crypto';
 import {gunzipSync,inflateRawSync,crc32} from 'node:zlib';
 import {posix,join} from 'node:path';
+import {spawn,type ChildProcess} from 'node:child_process';
 import {lstatSync,realpathSync,readdirSync,statfsSync,openSync,closeSync,fsyncSync,writeFileSync,mkdirSync,symlinkSync,chmodSync,readFileSync,readlinkSync,writeSync,fstatSync,unlinkSync,existsSync} from 'node:fs';
 export const LIMITS=Object.freeze({manifestBytes:8*1024*1024,archiveBytes:2*1024*1024*1024,unpackedBytes:8*1024*1024*1024,tarUnpackedBytes:512*1024*1024,files:100000,links:256,artifacts:8});
 export type ArchiveFile={path:string;sha256:string;bytes:number;type?:'file'|undefined;executable?:boolean|undefined}|{path:string;sha256:string;bytes:number;type:'symlink';target:string};
@@ -186,9 +187,20 @@ const permissions=await import(pathToFileURL(join(root,'permissions.mjs')).href)
 const core=await import(pathToFileURL(join(root,'archive-core.mjs')).href);
 const version=process.platform==='darwin'?execFileSync('/usr/bin/sw_vers',['-productVersion'],{encoding:'utf8',timeout:5000}).trim():execFileSync(join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','powershell.exe'),['-NoProfile','-NonInteractive','-Command','[Environment]::OSVersion.Version.ToString(3)'],{encoding:'utf8',timeout:5000}).trim();
 const prepared=await core.prepareBootstrapInstaller(${JSON.stringify(config)},root,{os:process.platform,arch:process.arch,version},{verify:permissions.verifyProtectedPath,protect:permissions.protectPath});
-execFileSync(process.execPath,[prepared.entry,'--preview','--manifest',prepared.manifestPath,'--signature',prepared.signaturePath,...(selectedRoot?['--root',selectedRoot]:[])],{cwd:root,env:process.env,stdio:'inherit',timeout:300000});
+await core.runInteractiveInstaller(prepared,root,selectedRoot);
 `;
   return {source,sha256:digest(Buffer.from(source)),moduleHashes:modules.map(m=>({name:m.name,sha256:m.sha256}))};
+}
+type InstallerLaunch=(command:string,args:string[],options:{cwd:string;env:NodeJS.ProcessEnv;stdio:'inherit';windowsHide:true})=>ChildProcess;
+/**
+ * The installer owns bounded network and stage deadlines.  The bootstrap must
+ * not impose a wall-clock deadline that includes human recovery/install gates:
+ * doing so kills the same verified PTY child with ETIMEDOUT/SIGTERM after an
+ * otherwise valid confirmation.
+ */
+export async function runInteractiveInstaller(prepared:{entry:string;manifestPath:string;signaturePath:string},root:string,selectedRoot?:string,launch:InstallerLaunch=spawn){
+  const args=[prepared.entry,'--preview','--manifest',prepared.manifestPath,'--signature',prepared.signaturePath,...(selectedRoot?['--root',selectedRoot]:[])];
+  await new Promise<void>((resolve,reject)=>{let child:ChildProcess;try{child=launch(process.execPath,args,{cwd:root,env:process.env,stdio:'inherit',windowsHide:true});}catch{return reject(new Error('INSTALLER_SPAWN_FAILED'));}let settled=false;const finish=(error?:Error)=>{if(settled)return;settled=true;error?reject(error):resolve();};child.once('error',()=>finish(new Error('INSTALLER_SPAWN_FAILED')));child.once('close',(code,signal)=>finish(signal?new Error('INSTALLER_SIGNALLED'):code===0?undefined:new Error('INSTALLER_EXIT_NONZERO')));});
 }
 /** A non-installing local bootstrap payload used exclusively by R1 closure tests. */
 export function renderRehearsalBootstrapPayload(coreJavaScript:string,permissionsJavaScript:string,config:{publicKey:string;fingerprint:string;manifestName:string;signatureName:string}){

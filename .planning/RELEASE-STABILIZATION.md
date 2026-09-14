@@ -235,3 +235,36 @@ the non-updating controller. Any later real update requires separate permission
 and must use the exact tracked install prompt in a same-host/account local
 projectless Codex task with one live PTY and one bootstrap invocation across
 both genuine human confirmation gates.
+
+## Beta.51 aggregate interactive deadline failure
+
+Beta.51 completed R2–R5 and its single anonymous full verifier, then its one
+real macOS projectless update completed the legacy identity migration and
+accepted the exact INSTALL scope. The published bootstrap subsequently exited
+1 with `ETIMEDOUT` and `SIGTERM`, without completion, readiness or cleanup
+evidence. Read-only decoding of the exact published bootstrap proves that its
+verified core invoked the interactive installer with `execFileSync(...,
+timeout:300000)`. That deadline covered both human gates and the whole upgrade,
+so the bootstrap—not an inner bounded install operation—sent SIGTERM at five
+minutes. A bounded process-only observation found two beta.51 target API/Worker
+processes, proving the product transition reached at least `started`; it does
+not prove feature verification, cleanup, reopen or completion.
+
+This is `HUMAN_PRODUCT`. beta.51 and all public bytes remain immutable and must
+not be rerun, overwritten, deleted, relabelled or promoted. Active R2–R5
+pointers are retired. Corrective R0 removes the aggregate deadline from the
+interactive child on macOS and Windows while retaining bounded OS-version,
+network and product-stage operations. The installer now emits allowlisted stage
+intent/done events and a structured allowlisted error. An abandoned journal is
+classified read-only against the signed current and target manifests plus its
+hash-chain tip, exposed without paths or arbitrary error text, and requires an
+exact `CONTINUE <scopeHash>` or `ROLLBACK <scopeHash>` response. The whole proof
+is repeated before adopting the lock or changing maintenance/database/launcher
+state. Exact cleanup/finalization states continue idempotently; activated but
+not cleaned states use the verified rollback engine; exact pre-mutation states
+retire only the stale lock and retain data.
+
+No actual managed-root or Profile read/write, beta.51 rerun, beta.52 selection,
+signing, publication, installation, login, 02-15 or Phase 3 action is authorized
+by this correction. A complete fresh unnumbered R1 on the final corrective
+commit is mandatory before beta.52 may be separately authorized.

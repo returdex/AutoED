@@ -71,6 +71,7 @@ export function activateCandidate(preview:InstallPreview,manifest:VerifiedManife
 export interface UpgradeOptions {
   archives:Record<string,Buffer>;oldManifest?:VerifiedManifest;store?:SecretStore;
   fault?:(stage:typeof JOURNAL_STAGES[number],phase:'intent'|'done')=>Promise<void>;
+  progress?:(stage:typeof JOURNAL_STAGES[number],phase:'intent'|'done')=>void;
   cleanup?:(context:{selection:RootSelection;manifest:VerifiedManifest;oldManifest?:VerifiedManifest;journal:UpgradeJournal;snapshot:Snapshot;activationRoot:string})=>Promise<{complete:boolean;code?:string}>;
 }
 const stageMap:Record<typeof JOURNAL_STAGES[number],InstallProjection['stage']>={preview:'preview',confirmed:'preview',download_verified:'verify',quiesced:'quiesce',snapshot_ready:'backup',migrated:'migrate',activated:'activate',started:'selfcheck',feature_verified:'selfcheck',cleaned:'cleanup',reopened:'selfcheck',normal_verified:'selfcheck',complete:'complete'};
@@ -104,7 +105,7 @@ export async function upgradeConfirmed(preview:InstallPreview,confirmation:Insta
   const db=openDatabase(assertManagedPath(managedPaths(selection.root),'data/jobs.sqlite'));protectPath(db.name);let journal:UpgradeJournal|undefined;
   let supervisor=old?runtimeSupervisor(selection,old):undefined,client:HttpClient|undefined,snapshot:Snapshot|undefined,activationRoot='',actual:VerifiedManifest|undefined=old,cleanup:'pending'|'complete'|'cleanup_pending'='pending';
   try{
-    if(old)await recoverQuiescedHostReload(selection,old,db);const gate=readGate(db);if(gate.state!=='open')throw new Error('MAINTENANCE_RECOVERY_REQUIRED');const operationId=randomUUID();journal=await UpgradeJournal.create(selection,{operationId,scopeHash:preview.scopeHash,manifestHash:manifest.manifestHash,target:preview.target,platform:{os:process.platform as 'darwin'|'win32',arch:process.arch as 'arm64'|'x64',version:release()},previousInstallation:preview.previousInstallation,generation:gate.generation});
+    if(old)await recoverQuiescedHostReload(selection,old,db);const gate=readGate(db);if(gate.state!=='open')throw new Error('MAINTENANCE_RECOVERY_REQUIRED');preserveEnvelope(selection,manifest);if(old)preserveEnvelope(selection,old);const operationId=randomUUID();journal=await UpgradeJournal.create(selection,{operationId,scopeHash:preview.scopeHash,manifestHash:manifest.manifestHash,target:preview.target,platform:{os:process.platform as 'darwin'|'win32',arch:process.arch as 'arm64'|'x64',version:release()},previousInstallation:preview.previousInstallation,generation:gate.generation});
     if(supervisor?.hasPendingLaunch())throw new Error('PROCESS_START_IN_PROGRESS');
     if(old&&supervisor?.registered().some(i=>i.role==='api')){const identity=supervisor.registered().find(i=>i.role==='api')!;const status=await supervisor.inspect(identity);if(status==='running')client=verifiedInstallerClient(selection,old);else if(status!=='exited')throw new Error('PROCESS_OWNERSHIP_UNCONFIRMED');}
     const j=journal;
@@ -113,7 +114,7 @@ export async function upgradeConfirmed(preview:InstallPreview,confirmation:Insta
       if(client){const g=readGate(db);await client.call('/api/control/status-projection',{kind:'install',operationId:g.operationId,expectedGeneration:g.generation,value});}
       else await writeJournalProjection(db,j,value);
     }
-    async function step(stage:typeof JOURNAL_STAGES[number],run:()=>Promise<void>){await j.append(stage,'intent');if(stage!=='complete')await project(stageMap[stage]);await options.fault?.(stage,'intent');await run();await j.append(stage,'done');await project(stageMap[stage],stage==='complete'?'succeeded':'running');await options.fault?.(stage,'done');}
+    async function step(stage:typeof JOURNAL_STAGES[number],run:()=>Promise<void>){await j.append(stage,'intent');options.progress?.(stage,'intent');if(stage!=='complete')await project(stageMap[stage]);await options.fault?.(stage,'intent');await run();await j.append(stage,'done');options.progress?.(stage,'done');await project(stageMap[stage],stage==='complete'?'succeeded':'running');await options.fault?.(stage,'done');}
     await step('preview',async()=>{});await step('confirmed',async()=>{});
     await step('download_verified',async()=>{
       const parts=manifest.manifest.artifacts.filter(a=>a.role!=='installer');if(parts.length!==3||['program','node','browser'].some(role=>parts.filter(a=>a.role===role).length!==1))throw new Error('ARTIFACT_LAYOUT_INVALID');

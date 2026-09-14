@@ -1,5 +1,7 @@
 import {expect,it} from 'vitest';
-import {pendingCleanupRecovery,recoverUpgrade,resumeCleanupUpgrade,RecoveryError} from '../../packages/installer/src/recovery.js';
+import {join} from 'node:path';
+import {readFileSync} from 'node:fs';
+import {pendingCleanupRecovery,recoverUpgrade,resumeCleanupUpgrade,prepareInterruptedUpgradeRecovery,confirmInterruptedUpgradeRecovery,RecoveryError} from '../../packages/installer/src/recovery.js';
 import {createRecoveryFixture} from '../../packages/test-support/src/upgrade-fixture.js';
 
 it('restores a verified old snapshot only before any new-generation business write and probes the old build twice',async()=>{
@@ -7,11 +9,24 @@ it('restores a verified old snapshot only before any new-generation business wri
 },180000);
 
 it('dispatches an exact cleaned-intent continuation before preview or download',async()=>{
-  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);const dispatch=await f.runUpgradeCLI(true);expect(dispatch).toMatchObject({type:'install_result',state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});}finally{await f.cleanup();}
+  const f=await createRecoveryFixture();try{const failed=await f.failCleanup();expect(pendingCleanupRecovery(f.selection)).toBe(failed.operationId);f.orphanPendingOperation();const dispatch=await f.runUpgradeCLI(true);expect(dispatch).toMatchObject({type:'install_result',state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});}finally{await f.cleanup();}
 },180000);
 
 it('resumes the feature-verified target and preserves archives and profile data',async()=>{
   const f=await createRecoveryFixture();try{const failed=await f.failCleanup();const result=await resumeCleanupUpgrade(f.selection,failed.operationId,{verify:f.verify,secrets:f.secrets});expect(result).toMatchObject({state:'complete',operationId:failed.operationId,build:f.target.build,cleanup:'complete',resumed:true});expect(pendingCleanupRecovery(f.selection)).toBeNull();expect(await f.status()).toMatchObject({install:{result:'succeeded',actualBuild:{buildId:f.target.build.buildId}},selfcheck:{featureResult:'pass'}});expect(f.archiveCanary()).toBe('retained');expect(f.profileCanary()).toBe('retained');}finally{await f.cleanup();}
+},180000);
+
+it('binds explicit continuation and rollback to signed manifests plus the exact journal tip',async()=>{
+  const cleanup=await createRecoveryFixture();try{const failed=await cleanup.failCleanup(),preview=await prepareInterruptedUpgradeRecovery(cleanup.selection,cleanup.verify,cleanup.secrets);expect(preview).toMatchObject({reason:'INTERRUPTED_UPDATE',action:'continue',currentVersion:cleanup.target.build.version,targetVersion:cleanup.target.build.version,lastStage:'cleaned',lastPhase:'intent',signedBinding:expect.stringMatching(/^[a-f0-9]{64}$/),scopeHash:expect.stringMatching(/^[a-f0-9]{64}$/)});await expect(confirmInterruptedUpgradeRecovery(preview!,'CONTINUE '+preview!.scopeHash+'x')).rejects.toThrow('RECOVERY_CONFIRMATION_REQUIRED');expect(pendingCleanupRecovery(cleanup.selection)).toBe(failed.operationId);const result=await confirmInterruptedUpgradeRecovery(preview!,'CONTINUE '+preview!.scopeHash);expect(result).toMatchObject({state:'complete',resumed:true,cleanup:'complete'});expect(await prepareInterruptedUpgradeRecovery(cleanup.selection,cleanup.verify,cleanup.secrets)).toBeNull();}finally{await cleanup.cleanup();}
+  const rollback=await createRecoveryFixture();try{await rollback.failUpgrade('feature_verified','intent');const preview=await prepareInterruptedUpgradeRecovery(rollback.selection,rollback.verify,rollback.secrets);expect(preview).toMatchObject({action:'rollback',lastStage:'feature_verified',lastPhase:'intent'});const result=await confirmInterruptedUpgradeRecovery(preview!,'ROLLBACK '+preview!.scopeHash);expect(result).toMatchObject({code:'UPGRADE_FAILED_ROLLED_BACK',automaticRetry:false});expect(await prepareInterruptedUpgradeRecovery(rollback.selection,rollback.verify,rollback.secrets)).toBeNull();expect(rollback.archiveCanary()).toBe('retained');expect(rollback.profileCanary()).toBe('retained');}finally{await rollback.cleanup();}
+},300000);
+
+it('retires an exact pre-mutation abrupt interruption without touching data or the active build',async()=>{
+  const f=await createRecoveryFixture();try{const failed=await f.failUpgrade('download_verified','done');f.removeFailureReceipt(failed.operationId);const activeBefore=JSON.parse(readFileSync(join(f.selection.root,'active.json'),'utf8')),data=f.dataCanary(),profile=f.profileCanary(),preview=await prepareInterruptedUpgradeRecovery(f.selection,f.verify,f.secrets);expect(preview).toMatchObject({action:'rollback',lastStage:'download_verified',lastPhase:'done',currentVersion:f.old.build.version,targetVersion:f.target.build.version});await expect(confirmInterruptedUpgradeRecovery({...preview!} as never,'ROLLBACK '+preview!.scopeHash)).rejects.toThrow('RECOVERY_CONFIRMATION_REQUIRED');const result=await confirmInterruptedUpgradeRecovery(preview!,'ROLLBACK '+preview!.scopeHash);expect(result).toEqual({state:'recovered',action:'rollback',code:'INTERRUPTED_PRE_MUTATION_RETIRED',automaticRetry:false});expect(JSON.parse(readFileSync(join(f.selection.root,'active.json'),'utf8'))).toEqual(activeBefore);expect(f.dataCanary()).toBe(data);expect(f.profileCanary()).toBe(profile);expect(await prepareInterruptedUpgradeRecovery(f.selection,f.verify,f.secrets)).toBeNull();}finally{await f.cleanup();}
+},180000);
+
+it('idempotently completes a signed target interrupted after cleanup and reopen',async()=>{
+  const f=await createRecoveryFixture();try{await f.failUpgrade('normal_verified','intent');const preview=await prepareInterruptedUpgradeRecovery(f.selection,f.verify,f.secrets);expect(preview).toMatchObject({action:'continue',lastStage:'normal_verified',lastPhase:'intent',currentVersion:f.target.build.version,targetVersion:f.target.build.version});const result=await confirmInterruptedUpgradeRecovery(preview!,'CONTINUE '+preview!.scopeHash);expect(result).toMatchObject({state:'complete',build:f.target.build,cleanup:'complete',resumed:true});expect(await f.status()).toMatchObject({install:{result:'succeeded',actualBuild:{buildId:f.target.build.buildId}},selfcheck:{featureResult:'pass'}});expect(f.archiveCanary()).toBe('retained');expect(f.profileCanary()).toBe('retained');expect(await prepareInterruptedUpgradeRecovery(f.selection,f.verify,f.secrets)).toBeNull();}finally{await f.cleanup();}
 },180000);
 
 it('renews an expired exclusive recovery lease before rollback selfcheck',async()=>{

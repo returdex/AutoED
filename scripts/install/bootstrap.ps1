@@ -55,11 +55,13 @@ $node=Join-Path $stage 'node.exe';$archive=[IO.Compression.ZipFile]::OpenRead($z
 try { $entries=@($archive.Entries | Where-Object FullName -ceq 'node-v24.20.0-win-x64/node.exe'); if ($entries.Count -ne 1 -or $entries[0].Length -gt 134217728 -or $entries[0].Length -lt 1) { throw 'NODE_ARCHIVE_INVALID' };$input=$entries[0].Open();$output=[IO.File]::Open($node,'CreateNew','Write','None');try { $buffer=New-Object byte[] 65536;$total=0;while (($n=$input.Read($buffer,0,$buffer.Length)) -gt 0) { $total+=$n;if ($total -gt $entries[0].Length) { throw 'NODE_ARCHIVE_INVALID' };$output.Write($buffer,0,$n) };if ($total -ne $entries[0].Length) { throw 'NODE_ARCHIVE_INVALID' };$output.Flush($true) } finally { $output.Dispose();$input.Dispose() } } finally { $archive.Dispose() }
 $core=Join-Path $stage 'bootstrap-core.mjs';[IO.File]::WriteAllBytes($core,[Convert]::FromBase64String($CoreBase64))
 if ((Get-FileHash -LiteralPath $core -Algorithm SHA256).Hash.ToLowerInvariant() -ne $CoreSha256) { throw 'BOOTSTRAP_CORE_INTEGRITY' }
-function Invoke-VerifiedNode([string[]]$NodeArguments,[bool]$Capture) {
+function Invoke-VerifiedNode([string[]]$NodeArguments,[bool]$Capture,[bool]$Interactive) {
   $start=New-Object Diagnostics.ProcessStartInfo;$start.FileName=$node;$start.UseShellExecute=$false;$start.Arguments=($NodeArguments | ForEach-Object { '"'+$_+'"' }) -join ' ';$start.EnvironmentVariables.Clear()
   foreach ($item in @{SystemRoot=$windows;WINDIR=$windows;PATH=$system;TEMP=$stage;TMP=$stage;USERPROFILE=$homePath;LOCALAPPDATA=$localData}.GetEnumerator()) { $start.EnvironmentVariables[$item.Key]=$item.Value }
   $start.RedirectStandardOutput=$Capture;$child=New-Object Diagnostics.Process;$child.StartInfo=$start
-  if (!$child.Start()) { throw 'NODE_START_FAILED' };if (!$child.WaitForExit(300000)) { $child.Kill();$child.WaitForExit();throw 'NODE_TIMEOUT' };if ($child.ExitCode -ne 0) { throw 'BOOTSTRAP_FAILED' };if ($Capture) { return $child.StandardOutput.ReadToEnd().Trim() }
+  if (!$child.Start()) { throw 'NODE_START_FAILED' }
+  if ($Interactive) { $child.WaitForExit() } elseif (!$child.WaitForExit(300000)) { $child.Kill();$child.WaitForExit();throw 'NODE_TIMEOUT' }
+  if ($child.ExitCode -ne 0) { throw 'BOOTSTRAP_FAILED' };if ($Capture) { return $child.StandardOutput.ReadToEnd().Trim() }
 }
-if ((Invoke-VerifiedNode @('--version') $true) -ne 'v24.20.0') { throw 'NODE_VERSION_MISMATCH' }
-Invoke-VerifiedNode @($core,$stage) $false
+if ((Invoke-VerifiedNode @('--version') $true $false) -ne 'v24.20.0') { throw 'NODE_VERSION_MISMATCH' }
+Invoke-VerifiedNode @($core,$stage) $false $true

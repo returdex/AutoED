@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.51 passed R2-R5 and anonymous full availability verification; active candidate beta.51; human update requires separate authorization and a local projectless task
-last_updated: "2026-09-15T00:25:09+10:00"
+stopped_at: beta.51 human update failed after INSTALL because the bootstrap aggregate 300-second deadline sent SIGTERM; bounded corrective R0 in verification; active candidate none
+last_updated: "2026-09-15T02:40:00+10:00"
 last_activity: 2026-09-15
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.50 as immutable invalidated history. A final-identity fresh R1 passed at commit `9ed6074…`, tree `78515099…`, build `9a39bccc…`; beta.51 then passed R2–R5, was signed and published once with 16 assets, and its one permitted anonymous full verifier produced a valid availability receipt. `active update candidate: 0.1.0-beta.51 (availability-proven, human update not run)`. Installation remains separately gated to a same-host/account local projectless task and one live PTY/bootstrap invocation; login/live/02-15/Phase 3 remain blocked.
+**Current focus:** Preserve beta.31–beta.51 as immutable invalidated history. beta.51 passed R2–R5 and availability, but its one real macOS update completed identity migration and then failed after INSTALL when the bootstrap's aggregate 300-second child timeout sent SIGTERM. Read-only process evidence proves beta.51 reached at least `started`; completion/readiness/cleanup remain unproved. Corrective bounded R0 is implementing no aggregate human-gate deadline, signed/journal-bound `CONTINUE`/`ROLLBACK`, and staged sanitized diagnostics. `active update candidate: none`; beta.52 is not selected or authorized; login/live/02-15/Phase 3 remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization completed beta.51 R2–R5 after the final-identity fresh unnumbered R1; beta.50 remains immutable unpublished history; 19 of 41 have completion summaries
-Status: beta.31, beta.37–beta.40 and beta.44–beta.45 plus beta.48 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 plus beta.49–beta.50 are immutable unpublished consumed history. beta.51 is immutable, published once and availability-proven; `active update candidate: 0.1.0-beta.51 (human update not run)`.
-Last activity: 2026-09-15 - Completed beta.51 R2–R5, signed and published 16 assets once, and passed the single anonymous full availability verifier; preserved all installation/live gates
+Plan: Bounded R0 after beta.51 human-update failure; 19 of 41 have completion summaries
+Status: beta.51 is immutable published `HUMAN_PRODUCT` invalidated history after its aggregate bootstrap deadline killed a post-INSTALL updater that had reached at least `started`. `active update candidate: none`; beta.52 is unselected and unauthorized.
+Last activity: 2026-09-15 - Diagnosed beta.51's exact terminating boundary, added bounded signed/journal recovery and staged diagnostics, and began focused verification without touching the actual root
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -140,6 +140,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - [Release]: beta.49 passed exact R2 and complete R3 (1/154/401/34/24, zero disabled/sensitive), then its first R4 stopped before build/signing with `PHASE2_ASSEMBLY_OUTPUT_EXISTS`; the beta.48 invalidation had left its tracked install prompt, and R1 checked only unchanged state rather than pointer absence. — Permanently invalidate beta.49 as unpublished `POST_SOURCE`; retire the stale prompt and harden R1 in bounded R0, then require a fresh unnumbered R1 and separate beta.50 authorization.
 - [Release]: The post-beta.49 correction deletes only the stale beta.48 prompt and makes R1 reject every canonical R2–R5 active pointer at both snapshots. — Focused release gates pass 48/48; fresh unnumbered R1 passed on `accc799…` / `e6e3e243…` / build `423e5c1a…` with 1/154/402/34/24 and zero sensitive/remote findings. The canonical binding digest is `2f2dca83…`; beta.50 remains separately gated.
 - [Release]: beta.50 passed exact R2, managed typecheck 1/1 and unit 154/154, then formal R3 stopped at `integration-managed-cleanup` with `PRE_RUNNER / PROCESS_GROUP_OBSERVATION_FAILED`; the first exact-file diagnosis instead exited nonzero after normal group observation and the next passed 7/7. — No single environmental transient was proven, so permanently invalidate beta.50 before R4/R5, retire its active selection, and require bounded R0 plus a fresh unnumbered R1 before any separately authorized beta.51.
+- [Release]: beta.51 passed R2–R5 and availability, then its single real macOS updater completed identity recovery and reached at least target-process `started` before the published bootstrap's aggregate 300-second `execFileSync` timeout killed the installer with `ETIMEDOUT`/`SIGTERM`. — Permanently invalidate beta.51 as `HUMAN_PRODUCT`, retire active pointers, remove the interactive aggregate deadline on both platforms, add stage-safe diagnostics and exact signed/journal-bound continuation or rollback, then require a fresh unnumbered R1 before any separately authorized beta.52.
 
 ### Pending Todos
 
@@ -167,7 +168,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 - 2026-09-03 beta.37 发布后唯一允许的匿名完整可用性校验返回 `PHASE2_AVAILABILITY_FAILED`，未生成 availability receipt；远端只读元数据、16项资产大小与服务器SHA-256与本地发布回执一致，但未暴露更窄的非敏感原因。beta.37按`POST_PUBLIC`永久消耗，禁止重试/覆盖/删除/改标签；随后按策略回到R0/R1并选择了beta.38，beta.38也已记录为公开后失效。
 - 2026-09-03 修复可用性校验的错误可诊断性：仅输出白名单阶段、资产名和固定原因码，过滤任意网络/归档异常文本；30/30 release-gates 与 managed typecheck 通过。beta.37仍不可重试，下一步必须从新的无编号R0/R1开始。
 - 2026-09-03 beta.38 在新的精确树上完成 R0/R1、R2 选择和 R3 自动质量报告：selection/build/test-report 均通过严格绑定；尚未进入签名、发布、更新或登录。
-- 2026-09-15 最终提交身份 fresh R1 在 `9ed6074…` / `78515099…` / `9a39bccc…` 通过；beta.51 随后完成 R2–R5、完整候选测试 1/154/407/34/24、双平台 16 资产签名与本地证明、一次性发布及唯一一次匿名全量可用性验证。`active update candidate: 0.1.0-beta.51 (human update not run)`；未安装、未登录、未访问学校/Profile，02-15 与 Phase 3 仍 blocked。
+- 2026-09-15 最终提交身份 fresh R1 在 `9ed6074…` / `78515099…` / `9a39bccc…` 通过；beta.51 随后完成 R2–R5、完整候选测试 1/154/407/34/24、双平台 16 资产签名与本地证明、一次性发布及唯一一次匿名全量可用性验证。其后单次 human update 的失败与永久失效由后续记录取代当时的 active 状态；未登录、未访问学校/Profile，02-15 与 Phase 3 仍 blocked。
 - 2026-09-03/04 beta.38 完成 R4 双平台组装、签名、闭包验证和只读 preflight；随后仅发布一次并执行一次匿名完整可用性校验，校验在 macOS target-proof/archive_or_signature 失败。无 availability receipt、更新、安装、登录或 live 证据；随后 beta.39 完成新的 R0/R1、R2、R3、R4 并发布，但匿名校验未产生 sanitized result 或 availability receipt。beta.39 是不可重试、覆盖、删除或改标签的 `POST_PUBLIC` 永久失效历史；其后 beta.40 的独立生命周期另见 2026-09-07 记录。01-14 与 Windows 仍 `not_run / human_needed`，真实 L evidence 仍 pending，02-15 与 Phase 3 仍 blocked。
 - 本次发布前默认与受保护隔离gh配置均观测为returdex；Plan 02-13仍只使用受保护隔离配置并独立核对repo-local author/committer、repository ID与origin。后续远程操作仍须重复隔离身份检查，绝不能假定默认账号或回退到ywan1303。
 
@@ -194,7 +195,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-15T00:25:09+10:00
-Stopped at: beta.51 passed R2–R5 and the single anonymous full verifier. `active update candidate: 0.1.0-beta.51 (availability-proven, human update not run)`; installation requires separate authorization and a same-host/account local projectless task.
+Stopped at: beta.51 human update is an immutable failed `HUMAN_PRODUCT` attempt; bounded corrective R0 is under focused verification and `active update candidate: none`.
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`, `.planning/debug/resolved/beta50-process-cleanup.md`; beta.50 remains an immutable invalidation. beta.51 is availability-proven and active only for a separately authorized human update; do not install from this repository controller task.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`, `.planning/debug/resolved/beta50-process-cleanup.md`; beta.50 remains an immutable invalidation. beta.51 is availability-proven public history but its human update is permanently invalidated; the active candidate is none and the current beta.51 timeout debug remains open until fresh R1 completes.
