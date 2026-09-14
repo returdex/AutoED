@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T14:43:00+10:00
+updated: 2026-09-14T14:49:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T14:43:00+10:00
 
 ## Current Focus
 
-- hypothesis: The R1 CLI dropped the only allowlisted child-failure category after cleanup; the new failure record preserves just that normalized boundary and must not weaken the failed command or pass-attestation contracts.
-- test: Run the full phase2 release-gates suite and managed typecheck after the red-to-green regression.
-- expecting: All release-gate tests pass, including orchestration cleanup followed by a readable failure category; typecheck passes with no raw outputs exposed.
-- next_action: Execute the managed full release-gates suite and typecheck with only sanitized exit summaries, then inspect the diff before committing.
+- hypothesis: The corrected R1 runner preserves allowlisted failure classification without changing failure semantics; a complete fresh R1 from this clean committed identity is required to validate the complete release gate.
+- test: Run exactly one managed, unnumbered `phase2-rehearsal.mjs --run` invocation from the clean committed checkout and read only its final sanitized result/attestation status.
+- expecting: Exit 0 plus a current-identity sanitized attestation proves R1; any nonzero code or absent current attestation preserves the blocked state and ends this authorized attempt.
+- next_action: Start the single fresh R1 invocation after committing this state update; do not retry it, select a beta, or advance release/live gates.
 - reasoning_checkpoint:
     hypothesis: "The R1 orchestrator drops its only allowlisted failure category at process exit because it writes successful attestations only and returns the failure only via transient stderr."
     confirming_evidence:
