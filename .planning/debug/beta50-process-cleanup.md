@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T13:51:00+10:00
+updated: 2026-09-14T14:43:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,19 @@ updated: 2026-09-14T13:51:00+10:00
 
 ## Current Focus
 
-- hypothesis: The fresh R1 passed the initial clean-state and managed-runtime boundaries, then its focused `two-build-upgrade` child exited nonzero; the process-observer repair itself did not produce a complete R1 pass.
-- test: Read the existing managed npm log and attestation directories without rerunning any command.
-- expecting: A nonzero npm exit at the fixed `two-build-upgrade` step plus no identity-matching attestation refutes a fresh R1 pass; the retained child output would be required to classify the nonzero subcategory further.
-- next_action: Preserve this blocked state. Diagnose the `two-build-upgrade` nonzero in a separately authorized bounded R0 session before any later fresh R1; do not select a candidate or advance release/live gates.
+- hypothesis: The R1 CLI dropped the only allowlisted child-failure category after cleanup; the new failure record preserves just that normalized boundary and must not weaken the failed command or pass-attestation contracts.
+- test: Run the full phase2 release-gates suite and managed typecheck after the red-to-green regression.
+- expecting: All release-gate tests pass, including orchestration cleanup followed by a readable failure category; typecheck passes with no raw outputs exposed.
+- next_action: Execute the managed full release-gates suite and typecheck with only sanitized exit summaries, then inspect the diff before committing.
+- reasoning_checkpoint:
+    hypothesis: "The R1 orchestrator drops its only allowlisted failure category at process exit because it writes successful attestations only and returns the failure only via transient stderr."
+    confirming_evidence:
+      - "The historical R1 command record retains npm exit 1 at two-build-upgrade but no category or identity-matching attestation."
+      - "runFixedCommand computes an allowlisted category and immediately throws it; writePhase2Rehearsal accepts only status: pass."
+      - "The new focused regression is RED (exit 1) because the proposed persistent failure-record API is absent."
+    falsification_test: "If a current R1 failure already writes a validated allowlisted-only record readable after completion, the red regression would pass before the repair."
+    fix_rationale: "Persisting only the normalized class/code and completion timestamp after cleanup lets later bounded diagnosis distinguish the failed stage without retaining raw child output or weakening any failure gate."
+    blind_spots: "The historical beta.50 child output is permanently unavailable, so this repair cannot retroactively determine whether that exact nonzero was assertion, timeout, incomplete run, signal, or generic exit."
 - reasoning_checkpoint:
     hypothesis: "The observer classification collapse causes R3's generic PROCESS_GROUP_OBSERVATION_FAILED because the runner cannot distinguish EPERM, timeout, or executable failure after a group probe."
     confirming_evidence:
@@ -33,6 +42,27 @@ updated: 2026-09-14T13:51:00+10:00
 - tdd_checkpoint: red_pending
 
 ## Evidence
+
+- timestamp: 2026-09-14T14:16:00+10:00
+  checked: One release-owned detached focused `two-build-upgrade` invocation configured to print only an allowlisted JSON result.
+  found: The automation returned after 30 seconds with no sanitized result payload.
+  implication: The test outcome is not yet interpretable; process ownership/liveness must be checked before a further experiment.
+- timestamp: 2026-09-14T14:18:00+10:00
+  checked: Exact process-table match for the wrapper's `two-build-upgrade` child after the empty automation response.
+  found: No matching test-owned process remained.
+  implication: No live process requires cleanup, but the invocation emitted no usable outcome; it cannot be used as a reproduction result.
+- timestamp: 2026-09-14T14:24:00+10:00
+  checked: Complete R1 orchestration and reporter paths plus current `.planning/release-rehearsals` records.
+  found: `runFixedCommand` maps a nonzero child to an allowlisted class/code only in a thrown error. The only writer persists a successful `status: pass` attestation; no durable failed-command record exists.
+  implication: The historic npm exit cannot be distinguished as assertion, timeout, incomplete run, signal, or generic exit after the runner terminates. This confirms the missing durable sanitized classification mechanism.
+- timestamp: 2026-09-14T14:34:00+10:00
+  checked: New one-test managed regression for a validated `COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE` failure record.
+  found: RED, exit 1, with no child output exposed.
+  implication: The regression accurately captures the absent durable-record capability and is ready for the minimal repair.
+- timestamp: 2026-09-14T14:42:00+10:00
+  checked: Managed red-to-green regression for an allowlisted-only failure record.
+  found: GREEN, exit 0, after adding atomic record validation, a bounded reader, and the post-cleanup R1 failure-path write.
+  implication: Future failed R1 runs retain a safe class/code diagnostic without retaining child stdout/stderr or converting a failure into a pass.
 
 - timestamp: 2026-09-14T11:43:00+10:00
   observation: Formal R3 stopped at `integration-managed-cleanup` with allowlisted class PRE_RUNNER and code PROCESS_GROUP_OBSERVATION_FAILED.
