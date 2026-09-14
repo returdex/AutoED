@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import {createHash,randomUUID} from 'node:crypto';
 import {execFileSync,spawn} from 'node:child_process';
-import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,mkdtempSync,openSync,readFileSync,readdirSync,realpathSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
+import {closeSync,existsSync,fsyncSync,linkSync,lstatSync,mkdirSync,mkdtempSync,openSync,readFileSync,readdirSync,realpathSync,renameSync,rmSync,unlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {basename,dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -59,6 +59,30 @@ export function readPhase2RehearsalBinding(selection,{root=ROOT}={}){
 }
 export function writePhase2Rehearsal(path,value,{root=ROOT}={}){
   const checked=validatePhase2Rehearsal(value);verifyPhase2RehearsalBuild(checked,{root});const parent=join(realpathSync(root),'.planning/release-rehearsals'),name=`${checked.commit}-${checked.buildId}.json`,target=resolve(path);if(target!==join(parent,name)||existsSync(target))fail('PHASE2_REHEARSAL_OUTPUT_INVALID');if(!existsSync(parent))mkdirSync(parent,{recursive:true,mode:0o700});if(realpathSync(parent)!==parent||!lstatSync(parent).isDirectory()||lstatSync(parent).isSymbolicLink())fail('PHASE2_REHEARSAL_OUTPUT_INVALID');const temporary=join(parent,`.rehearsal-${randomUUID()}`);let fd;try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(checked)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;linkSync(temporary,target);unlinkSync(temporary);if(process.platform==='darwin'){const directory=openSync(parent,'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch(error){if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}if(error?.code==='EEXIST')fail('PHASE2_REHEARSAL_OUTPUT_EXISTS');fail('PHASE2_REHEARSAL_WRITE_FAILED');}return Object.freeze({status:'pass',path:basename(target),rehearsalSha256:canonicalSha256(checked),commit:checked.commit,tree:checked.tree,buildId:checked.buildId});
+}
+function validatePhase2RehearsalFailure(value){
+  try{
+    if(!exact(value,['schema','status','kind','releaseCoordinate','class','code','completedAt'])||value.schema!==1||value.status!=='fail'||value.kind!=='unnumbered_release_rehearsal_failure'||value.releaseCoordinate!==null||!['PRE_SOURCE','PRE_RUNNER'].includes(value.class)||typeof value.code!=='string'||!/^[A-Z0-9_]{1,96}$/.test(value.code)||!ISO(value.completedAt)||PRIVATE.test(canonical(value)))throw new Error();
+    return Object.freeze(value);
+  }catch{fail('PHASE2_REHEARSAL_FAILURE_INVALID');}
+}
+function phase2RehearsalFailurePath(root){
+  try{
+    const base=realpathSync(root),parent=join(base,'.runtime','r1-diagnostics');
+    if(!existsSync(parent))mkdirSync(parent,{recursive:true,mode:0o700});
+    const stat=lstatSync(parent);
+    if(realpathSync(parent)!==parent||!stat.isDirectory()||stat.isSymbolicLink())throw new Error();
+    return join(parent,'last-failure.json');
+  }catch{fail('PHASE2_REHEARSAL_FAILURE_PATH_INVALID');}
+}
+/** Persist only the normalized R1 failure boundary; child output never reaches disk. */
+export function writePhase2RehearsalFailure(value,{root=ROOT}={}){
+  const checked=validatePhase2RehearsalFailure(value),target=phase2RehearsalFailurePath(root),temporary=join(dirname(target),`.failure-${randomUUID()}`);let fd;
+  try{fd=openSync(temporary,'wx',0o600);writeFileSync(fd,canonical(checked)+'\n');fsyncSync(fd);closeSync(fd);fd=undefined;renameSync(temporary,target);if(process.platform==='darwin'){const directory=openSync(dirname(target),'r');try{fsyncSync(directory);}finally{closeSync(directory);}}}catch{if(fd!==undefined)try{closeSync(fd);}catch{}try{if(existsSync(temporary))unlinkSync(temporary);}catch{}fail('PHASE2_REHEARSAL_FAILURE_WRITE_FAILED');}
+  return Object.freeze({status:'fail',class:checked.class,code:checked.code});
+}
+export function readPhase2RehearsalFailure({root=ROOT}={}){
+  try{const target=phase2RehearsalFailurePath(root),stat=lstatSync(target);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.size<2||stat.size>4096||realpathSync(target)!==target)throw new Error();return validatePhase2RehearsalFailure(JSON.parse(readFileSync(target,'utf8')));}catch(error){if(error instanceof Error&&error.message==='PHASE2_REHEARSAL_FAILURE_INVALID')throw error;fail('PHASE2_REHEARSAL_FAILURE_READ_INVALID');}
 }
 
 const PHASE2_REHEARSAL_ORDER=Object.freeze(['runtime','freeze','build','focused','typecheck','unit','integration','ui','native','assembly','prompt','publication','scan','finalize','cleanup','write']);
@@ -150,7 +174,8 @@ async function runFixedCommand(root,id,scanner,ledger){
   return Object.freeze({schema:1,runner:spec.steps.length===1?spec.steps[0].runner:'vitest',status:'pass',passed,failed:0,skipped:0,todo:0,commandSha256});
 }
 export function phase2StepFailureCode(prefix,name){if(!['COMMAND_PROCESS_FAILED','COMMAND_REPORT_INVALID','COMMAND_TEST_TIMEOUT','COMMAND_TEST_ASSERTION_FAILED','COMMAND_TEST_RUN_INCOMPLETE','COMMAND_PROCESS_SIGNALLED','COMMAND_PROCESS_EXIT_NONZERO'].includes(prefix)||typeof name!=='string'||!/^[a-z0-9-]{1,64}$/.test(name))runnerFail('PRE_RUNNER','COMMAND_ID_INVALID');return `${prefix}_${name.toUpperCase().replaceAll('-','_')}`;}
-function runnerFail(kind,code){const error=new Error(`PHASE2_REHEARSAL_FAILED class=${kind} code=${code}`);error.rehearsal=true;throw error;}
+function rehearsalError(kind,code){const error=new Error(`PHASE2_REHEARSAL_FAILED class=${kind} code=${code}`);error.rehearsal=true;return error;}
+function runnerFail(kind,code){throw rehearsalError(kind,code);}
 const OPERATION_FAILURE_CODES=Object.freeze({runtime:'RUNTIME_OPERATION_FAILED',snapshot:'SNAPSHOT_OPERATION_FAILED',build:'BUILD_OPERATION_FAILED',command:'COMMAND_OPERATION_FAILED',assembly:'ASSEMBLY_OPERATION_FAILED',prompt:'PROMPT_OPERATION_FAILED',publication:'PUBLICATION_OPERATION_FAILED',scan:'SCAN_OPERATION_FAILED',cleanup:'CLEANUP_OPERATION_FAILED',now:'NOW_OPERATION_FAILED'});
 function operationFailureCode(name,stage){if(name==='snapshot')return stage==='final'?'SNAPSHOT_FINAL_OPERATION_FAILED':'SNAPSHOT_INITIAL_OPERATION_FAILED';return OPERATION_FAILURE_CODES[name]??'OPERATION_FAILED';}
 export function requirePhase2ProcessSuccess(result,failureClass){
@@ -283,7 +308,14 @@ export async function runPhase2Rehearsal({root=ROOT,ops={}}={}){
       if(error?.message==='PHASE2_REHEARSAL_BUILD_INVALID')runnerFail('PRE_SOURCE','FINAL_SOURCE_DRIFT');
       runnerFail('PRE_RUNNER','ATTESTATION_WRITE_FAILED');
     }
-  }catch(error){if(!cleanupAttempted){cleanupAttempted=true;try{if(await call('cleanup')!==true)runnerFail('PRE_RUNNER','CLEANUP_FAILED');}catch(cleanupError){if(cleanupError?.rehearsal)throw cleanupError;runnerFail('PRE_RUNNER','CLEANUP_FAILED');}}if(error?.rehearsal)throw error;runnerFail('PRE_SOURCE','UNEXPECTED');}
+  }catch(error){
+    let failure=error?.rehearsal?error:rehearsalError('PRE_SOURCE','UNEXPECTED');
+    if(!cleanupAttempted){cleanupAttempted=true;try{if(await call('cleanup')!==true)failure=rehearsalError('PRE_RUNNER','CLEANUP_FAILED');}catch{failure=rehearsalError('PRE_RUNNER','CLEANUP_FAILED');}}
+    const match=/^PHASE2_REHEARSAL_FAILED class=(PRE_RUNNER|PRE_SOURCE) code=([A-Z0-9_]{1,96})$/.exec(failure?.message??'');
+    if(!match)throw rehearsalError('PRE_RUNNER','FAILURE_RECORD_INVALID');
+    try{writePhase2RehearsalFailure({schema:1,status:'fail',kind:'unnumbered_release_rehearsal_failure',releaseCoordinate:null,class:match[1],code:match[2],completedAt:new Date().toISOString()},{root});}catch{throw rehearsalError('PRE_RUNNER','FAILURE_RECORD_WRITE_FAILED');}
+    throw failure;
+  }
 }
 
 export function scanPhase2RehearsalSources(root,captured){

@@ -33,7 +33,7 @@ import {isAbsentPhase2CommitLookup,publishPhase2Release} from '../../scripts/rel
 import {formatPhase2AvailabilityError,verifyPhase2Availability,verifyPhase2AvailabilityAfterReadiness} from '../../scripts/release/verify-availability.mjs';
 import {phase2ClosureBytes,preparePhase2CandidateBuild} from '../../scripts/release/assemble-phase2.mjs';
 import {verifyPhase2UpdateGate} from '../../scripts/release/verify-phase2-update-gate.mjs';
-import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal} from '../../scripts/release/phase2-rehearsal.mjs';
+import {FIXED_COMMANDS,INTEGRATION_TEST_FILES,createProductionPhase2RehearsalOps,exercisePhase2PublicationContract,normalizePhase2RehearsalOwnedRoot,observePhase2ProcessGroup,phase2StepFailureCode,readPhase2RehearsalBinding,readPhase2RehearsalFailure,renderPhase2RehearsalPromptEnvelope,requirePhase2ProcessSuccess,runPhase2Detached,runPhase2Rehearsal,scanPhase2RehearsalSources,validatePhase2Rehearsal,verifyPhase2RehearsalBinding,verifyPhase2RehearsalPromptEnvelope,writePhase2Rehearsal,writePhase2RehearsalFailure} from '../../scripts/release/phase2-rehearsal.mjs';
 import {classifyPhase2RehearsalFailure,phase2RehearsalCommandSha256,reportPhase2RehearsalCommand} from '../../scripts/release/phase2-rehearsal-reporter.mjs';
 import {scanSensitiveBytes} from '../../scripts/release/sensitive-scan.mjs';
 
@@ -64,6 +64,21 @@ it('isolates the complete integration inventory without omitting a test file',()
 
 it('reports a fixed failing step without exposing raw child output',()=>{
   expect(phase2StepFailureCode('COMMAND_PROCESS_FAILED','upgrade-recovery')).toBe('COMMAND_PROCESS_FAILED_UPGRADE_RECOVERY');expect(phase2StepFailureCode('COMMAND_REPORT_INVALID','integration-phase2-release-gates')).toBe('COMMAND_REPORT_INVALID_INTEGRATION_PHASE2_RELEASE_GATES');expect(phase2StepFailureCode('COMMAND_TEST_TIMEOUT','integration-two-build-upgrade')).toBe('COMMAND_TEST_TIMEOUT_INTEGRATION_TWO_BUILD_UPGRADE');expect(()=>phase2StepFailureCode('COMMAND_PROCESS_FAILED','../../outside')).toThrow('COMMAND_ID_INVALID');
+});
+
+it('persists only an allowlisted R1 command-failure category for post-run diagnosis',()=>{
+  const root=makeRoot(),failure={schema:1,status:'fail',kind:'unnumbered_release_rehearsal_failure',releaseCoordinate:null,class:'PRE_SOURCE',code:'COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE',completedAt:now};
+  const written=writePhase2RehearsalFailure(failure,{root});
+  expect(written).toEqual({status:'fail',class:'PRE_SOURCE',code:'COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE'});
+  expect(readPhase2RehearsalFailure({root})).toEqual(failure);
+  expect(JSON.stringify(readPhase2RehearsalFailure({root}))).not.toMatch(/(?:\/Users|Profile|password|mfa|authorization)/i);
+});
+
+it('retains an orchestration command failure after cleanup',async()=>{
+  const root=makeRoot(),snapshot={commit:commit('a'),tree:commit('b'),sourceSha256:hash('a'),refsSha256:hash('c'),remotesSha256:hash('d'),receiptsSha256:hash('e'),activePointers:[],clean:true};
+  const failure=Object.assign(new Error('PHASE2_REHEARSAL_FAILED class=PRE_SOURCE code=COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE'),{rehearsal:true});
+  await expect(runPhase2Rehearsal({root,ops:{runtime:async()=>({verified:true,node:'24.20.0',npm:'11.19.0'}),snapshot:async()=>snapshot,build:async()=>({version:'0.1.0',commit:snapshot.commit,tree:snapshot.tree,buildId:hash('f'),sourceSha256:snapshot.sourceSha256}),command:async()=>{throw failure;},cleanup:async()=>true}})).rejects.toThrow(failure.message);
+  expect(readPhase2RehearsalFailure({root})).toMatchObject({status:'fail',class:'PRE_SOURCE',code:'COMMAND_TEST_ASSERTION_FAILED_TWO_BUILD_UPGRADE'});
 });
 
 const roots:string[]=[];
