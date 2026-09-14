@@ -29,5 +29,8 @@ retained in synthetic fixtures.
 
 The real managed root and Profile were not read or modified by this diagnosis.
 No beta.51 rerun, beta.52 selection, signing, publication, installation, login,
-02-15, or Phase 3 action occurred. `active update candidate: none`. A complete
-fresh unnumbered R1 is required before beta.52 may be separately authorized.
+02-15, or Phase 3 action occurred. A complete fresh unnumbered R1 passed on
+`b7b49e34…` / tree `32a7169d…` / build `2b7be53a…`, with focused 38, quality
+1/154/411/34/24, zero skip/todo, two eight-asset closures, zero sensitive
+findings, zero remote mutations, and no rehearsal-owned process. `active update
+candidate: none`; beta.52 remains unselected and requires separate authorization.

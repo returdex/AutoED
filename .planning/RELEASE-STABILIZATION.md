@@ -265,6 +265,9 @@ not cleaned states use the verified rollback engine; exact pre-mutation states
 retire only the stale lock and retain data.
 
 No actual managed-root or Profile read/write, beta.51 rerun, beta.52 selection,
-signing, publication, installation, login, 02-15 or Phase 3 action is authorized
-by this correction. A complete fresh unnumbered R1 on the final corrective
-commit is mandatory before beta.52 may be separately authorized.
+signing, publication, installation, login, 02-15 or Phase 3 action was performed
+by this correction. A complete fresh unnumbered R1 passed on corrective commit
+`b7b49e34…`, tree `32a7169d…`, build `2b7be53a…`: focused 38; quality
+1/154/411/34/24; zero skip/todo; dual eight-asset closures; zero sensitive
+findings; zero remote mutations; and no rehearsal-owned process. beta.52 remains
+unselected and requires separate authorization.

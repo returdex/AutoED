@@ -1,8 +1,8 @@
 ---
-status: verifying
+status: resolved
 trigger: "授权在当前 AutoED 本地项目执行 beta.51 human-update 失败后的 bounded R0 诊断和必要修复，包括查明 INSTALL 确认后 ETIMEDOUT/SIGTERM 的精确阶段、为已完成身份迁移但未完成安装的状态提供签名绑定且幂等的恢复/继续/回滚流程，并改进阶段化脱敏诊断；允许源码、测试、发布工具及必要失效状态记录，并完成修复提交后的 fresh unnumbered R1；不得修改实际安装根、不得重跑 beta.51、不选择 beta.52、不签名、不发布、不安装、不登录、不访问或备份 Profile、不推进 02-15/Phase 3。"
 created: 2026-09-15T00:35:00+10:00
-updated: 2026-09-15T02:40:00+10:00
+updated: 2026-09-15T03:43:02+10:00
 ---
 
 # Debug Session: beta.51 post-confirmation installation timeout
@@ -49,6 +49,10 @@ updated: 2026-09-15T02:40:00+10:00
   checked: Repository-only synthetic bootstrap and upgrade recovery fixtures.
   found: Typecheck passes. Focused tests pass for an unlimited interactive child, bounded sanitized child errors, explicit signed cleanup continuation, activated rollback, exact pre-mutation retirement, and post-reopen finalization continuation. A deliberately concurrent multi-file run caused fixture compilers to fail and is classified as runner saturation; the release lifecycle runs integration files serially.
   implication: The product correction is green at focused boundaries; the mandated serial fresh R1 remains the final proof.
+- timestamp: 2026-09-15T03:42:09+10:00
+  checked: Complete serial fresh unnumbered R1 on the final clean corrective commit.
+  found: Commit `b7b49e34ce2bdf0fc768822ba6b63594b5e63564`, tree `32a7169d4cb319c13ffd66c97eae8d6a3f4f3d64`, and build `2b7be53a6630917d2d4e805a10fc6a3dc4ed6fc4c12fca9168529c41eaf9352c` passed focused 38, typecheck 1, unit 154, integration 411, UI 34, and native 24 with zero skip/todo; macOS and Windows each produced eight valid rehearsal assets, sensitive findings and remote mutations were zero, and no rehearsal-owned process remained.
+  implication: The bounded R0 repair and its final source tree have complete R1 evidence. beta.52 remains unselected and requires separate authorization.
 
 ## Eliminated
 
@@ -61,5 +65,5 @@ updated: 2026-09-15T02:40:00+10:00
 
 - root_cause: "The signed beta.51 bootstrap imposed a 300-second aggregate timeout on the same interactive installer child that owned two human gates and all install stages. It sent SIGTERM after INSTALL; the wrapper surfaced only ETIMEDOUT/SIGTERM and discarded the journal stage."
 - fix: "Await the one inherited-PTY installer child without an aggregate human deadline on macOS and Windows; keep internal bounded operations; emit allowlisted stage/error events; preserve signed envelopes before journaling; bind recovery to signed current/target manifests plus journal tip; require exact single-use CONTINUE or ROLLBACK with full revalidation; resume cleanup/finalization or use verified rollback according to the exact durable boundary."
-- verification: "Managed typecheck and focused synthetic regression tests pass; full fresh unnumbered R1 pending on the final clean corrective commit."
+- verification: "Managed typecheck and focused synthetic regressions passed. A complete fresh unnumbered R1 passed on b7b49e34ce2bdf0fc768822ba6b63594b5e63564 / tree 32a7169d4cb319c13ffd66c97eae8d6a3f4f3d64 / build 2b7be53a6630917d2d4e805a10fc6a3dc4ed6fc4c12fca9168529c41eaf9352c with focused 38, quality 1/154/411/34/24, zero skip/todo, dual eight-asset closures, zero sensitive findings, zero remote mutations, and no rehearsal-owned process."
 - files_changed: ["packages/installer/src/archive-core.ts", "packages/installer/src/install.ts", "packages/installer/src/journal.ts", "packages/installer/src/recovery.ts", "packages/installer/src/upgrade.ts", "packages/test-support/src/upgrade-fixture.ts", "scripts/install/bootstrap.ps1", "tests/integration/bootstrap.test.ts", "tests/integration/upgrade-recovery.test.ts"]

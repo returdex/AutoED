@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.51 human update failed after INSTALL because the bootstrap aggregate 300-second deadline sent SIGTERM; bounded corrective R0 in verification; active candidate none
-last_updated: "2026-09-15T02:40:00+10:00"
+stopped_at: beta.51 human update failure is corrected and fresh unnumbered R1 passed; active candidate none; beta.52 unselected and unauthorized
+last_updated: "2026-09-15T03:43:02+10:00"
 last_activity: 2026-09-15
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.51 as immutable invalidated history. beta.51 passed R2–R5 and availability, but its one real macOS update completed identity migration and then failed after INSTALL when the bootstrap's aggregate 300-second child timeout sent SIGTERM. Read-only process evidence proves beta.51 reached at least `started`; completion/readiness/cleanup remain unproved. Corrective bounded R0 is implementing no aggregate human-gate deadline, signed/journal-bound `CONTINUE`/`ROLLBACK`, and staged sanitized diagnostics. `active update candidate: none`; beta.52 is not selected or authorized; login/live/02-15/Phase 3 remain blocked.
+**Current focus:** Preserve beta.31–beta.51 as immutable invalidated history. beta.51 passed R2–R5 and availability, but its one real macOS update completed identity migration and then failed after INSTALL when the bootstrap's aggregate 300-second child timeout sent SIGTERM. Read-only process evidence proves beta.51 reached at least `started`; completion/readiness/cleanup remain unproved. Corrective bounded R0 removed the aggregate interactive deadline, added signed/journal-bound `CONTINUE`/`ROLLBACK` and staged sanitized diagnostics, and passed a complete fresh unnumbered R1 on `b7b49e3…` / tree `32a7169d…` / build `2b7be53a…`. `active update candidate: none`; beta.52 is not selected or authorized; login/live/02-15/Phase 3 remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
 Plan: Bounded R0 after beta.51 human-update failure; 19 of 41 have completion summaries
 Status: beta.51 is immutable published `HUMAN_PRODUCT` invalidated history after its aggregate bootstrap deadline killed a post-INSTALL updater that had reached at least `started`. `active update candidate: none`; beta.52 is unselected and unauthorized.
-Last activity: 2026-09-15 - Diagnosed beta.51's exact terminating boundary, added bounded signed/journal recovery and staged diagnostics, and began focused verification without touching the actual root
+Last activity: 2026-09-15 - Completed beta.51 bounded R0 repair and fresh unnumbered R1 without touching the actual root
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
@@ -195,7 +195,7 @@ Full decisions: PROJECT.md Key Decisions; acceptance rules: VALIDATION-STRATEGY.
 ## Session Continuity
 
 Last session: 2026-09-15T00:25:09+10:00
-Stopped at: beta.51 human update is an immutable failed `HUMAN_PRODUCT` attempt; bounded corrective R0 is under focused verification and `active update candidate: none`.
+Stopped at: beta.51 human update is immutable failed `HUMAN_PRODUCT` history; corrective R0 and fresh unnumbered R1 passed, `active update candidate: none`, beta.52 unselected and unauthorized.
 Resume file: None
 Forensic report: `.planning/forensics/report-20260902-051348.md`; its pre-update findings remain historical context.
-Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`, `.planning/debug/resolved/beta50-process-cleanup.md`; beta.50 remains an immutable invalidation. beta.51 is availability-proven public history but its human update is permanently invalidated; the active candidate is none and the current beta.51 timeout debug remains open until fresh R1 completes.
+Resolved debug: `.planning/debug/beta31-entrypoint-mismatch.md`, `.planning/debug/beta33-runner-instability.md`, `.planning/debug/beta37-public-availability.md`, `.planning/debug/resolved/beta47-cli-chain-timeout.md`, `.planning/debug/beta48-pty-confirmation.md`, `.planning/debug/resolved/beta50-process-cleanup.md`, `.planning/debug/beta51-install-timeout.md`. beta.51 is availability-proven public history but its human update is permanently invalidated; the correction has fresh R1 evidence, the active candidate is none, and beta.52 remains separately gated.
