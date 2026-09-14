@@ -127,7 +127,7 @@ export const FIXED_COMMANDS=Object.freeze({
   ui:{ceiling:600,steps:Object.freeze([Object.freeze({name:'ui',runner:'playwright',args:Object.freeze(['npm','run','test:ui'])})])},
   native:{ceiling:600,steps:Object.freeze([Object.freeze({name:'native',runner:'vitest',args:Object.freeze(['npm','run','test:native','--','--run'])})])},
 });
-const MAX_CAPTURE_BYTES=64*1024*1024,PROCESS_GROUP_GRACE_MS=5000;
+const MAX_CAPTURE_BYTES=64*1024*1024,PROCESS_GROUP_GRACE_MS=5000,CLOSE_EVENT_WATCHDOG_MS=PROCESS_GROUP_GRACE_MS+1000;
 const digestBytes=value=>createHash('sha256').update(value).digest('hex');
 const delay=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 
@@ -151,13 +151,13 @@ function processGroupFailureCode(state){return Object.freeze({invalid:'PROCESS_G
  * The sole detached-child adapter for R1 runtime checks, builds, and fixed
  * suites. It is deliberately bufferless apart from the bounded report copy:
  * stdout and stderr enter the same sensitive scanner in arrival order.
- * @param {{program:string,args:string[],cwd:string,timeoutMs:number,scanner:{write:(value:Buffer)=>unknown},outputLimit?:number,kill?:typeof process.kill,spawnImpl?:typeof spawn,groupProbe?:typeof observePhase2ProcessGroup}} options
+ * @param {{program:string,args:string[],cwd:string,timeoutMs:number,scanner:{write:(value:Buffer)=>unknown},outputLimit?:number,closeWatchdogMs?:number,kill?:typeof process.kill,spawnImpl?:typeof spawn,groupProbe?:typeof observePhase2ProcessGroup}} options
  */
-export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outputLimit=MAX_CAPTURE_BYTES,kill=process.kill,spawnImpl=spawn,groupProbe=observePhase2ProcessGroup}={}){
-  if(typeof program!=='string'||!Array.isArray(args)||args.some(value=>typeof value!=='string')||typeof cwd!=='string'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||!scanner||typeof scanner.write!=='function'||!Number.isSafeInteger(outputLimit)||outputLimit<1||outputLimit>MAX_CAPTURE_BYTES||typeof kill!=='function'||typeof spawnImpl!=='function'||typeof groupProbe!=='function')runnerFail('PRE_RUNNER','SPAWN_ARGUMENT_INVALID');
-  let child,timeoutTimer=null,killTimer=null,stopReason=null,bytes=0,spawnError=false,closed=false;
+export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outputLimit=MAX_CAPTURE_BYTES,closeWatchdogMs=CLOSE_EVENT_WATCHDOG_MS,kill=process.kill,spawnImpl=spawn,groupProbe=observePhase2ProcessGroup}={}){
+  if(typeof program!=='string'||!Array.isArray(args)||args.some(value=>typeof value!=='string')||typeof cwd!=='string'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||!scanner||typeof scanner.write!=='function'||!Number.isSafeInteger(outputLimit)||outputLimit<1||outputLimit>MAX_CAPTURE_BYTES||!Number.isSafeInteger(closeWatchdogMs)||closeWatchdogMs<1||closeWatchdogMs>60000||typeof kill!=='function'||typeof spawnImpl!=='function'||typeof groupProbe!=='function')runnerFail('PRE_RUNNER','SPAWN_ARGUMENT_INVALID');
+  let child,timeoutTimer=null,killTimer=null,closeTimer=null,stopReason=null,bytes=0,spawnError=false,closed=false;
   const chunks=[];
-  const clearTimers=()=>{if(timeoutTimer){clearTimeout(timeoutTimer);timeoutTimer=null;}if(killTimer){clearTimeout(killTimer);killTimer=null;}};
+  const clearTimers=()=>{if(timeoutTimer){clearTimeout(timeoutTimer);timeoutTimer=null;}if(killTimer){clearTimeout(killTimer);killTimer=null;}if(closeTimer){clearTimeout(closeTimer);closeTimer=null;}};
   const terminate=reason=>{
     if(stopReason!==null||!child?.pid)return;
     stopReason=reason;
@@ -171,17 +171,25 @@ export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outp
     if(!child||!Number.isSafeInteger(child.pid)||!child.stdout||!child.stderr)runnerFail('PRE_RUNNER','SPAWN_FAILED');
     const take=chunk=>{const value=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);bytes+=value.length;scanner.write(value);if(bytes<=outputLimit)chunks.push(value);if(bytes>outputLimit)terminate('output');};
     child.stdout.on('data',take);child.stderr.on('data',take);
-    const close=await new Promise(resolve=>{child.once('close',(code,signal)=>resolve({code:code??1,signal:signal??null}));child.once('error',()=>{spawnError=true;});timeoutTimer=setTimeout(()=>terminate('timeout'),timeoutMs);timeoutTimer.unref?.();});
+    const verifyOwnedGroupClosed=async()=>{
+      let group=groupProbe(child.pid,{kill});
+      if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
+      if(group==='live')terminate(stopReason??'descendant');
+      const deadline=Date.now()+PROCESS_GROUP_GRACE_MS+1000;
+      while(group==='live'&&Date.now()<deadline){await delay(100);group=groupProbe(child.pid,{kill});}
+      if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
+      if(group==='live')runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
+    };
+    const close=await new Promise((resolve,reject)=>{
+      let closeResult=null,groupVerified=false,settled=false;
+      const settle=(action,value)=>{if(settled)return;settled=true;action(value);};
+      const settleClose=()=>{if(groupVerified&&closeResult!==null)settle(resolve,closeResult);};
+      child.once('close',(code,signal)=>{closeResult={code:code??1,signal:signal??null};settleClose();});
+      child.once('error',()=>{spawnError=true;settle(reject,rehearsalError('PRE_RUNNER','SPAWN_FAILED'));});
+      child.once('exit',()=>{void verifyOwnedGroupClosed().then(()=>{groupVerified=true;settleClose();if(!settled){closeTimer=setTimeout(()=>settle(reject,rehearsalError('PRE_RUNNER','COMMAND_CLOSE_TIMEOUT')),closeWatchdogMs);closeTimer.unref?.();}}).catch(error=>settle(reject,error));});
+      timeoutTimer=setTimeout(()=>terminate('timeout'),timeoutMs);timeoutTimer.unref?.();
+    });
     closed=true;result=close;
-    // A parent can close while an owned descendant retains the process group.
-    // Keep the group scoped to this child and prove it has disappeared.
-    let group=groupProbe(child.pid,{kill});
-    if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
-    if(group==='live')terminate(stopReason??'descendant');
-    const deadline=Date.now()+PROCESS_GROUP_GRACE_MS+1000;
-    while(group==='live'&&Date.now()<deadline){await delay(100);group=groupProbe(child.pid,{kill});}
-    if(!['live','zombie','absent'].includes(group))runnerFail('PRE_RUNNER',processGroupFailureCode(group));
-    if(group==='live')runnerFail('PRE_RUNNER','PROCESS_GROUP_REMAINS');
   }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER','SPAWN_FAILED');
   }finally{clearTimers();}
   if(!closed||spawnError)runnerFail('PRE_RUNNER','SPAWN_FAILED');

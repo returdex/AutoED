@@ -1,5 +1,6 @@
 import {createHash,generateKeyPairSync,sign,verify} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
+import {EventEmitter} from 'node:events';
 import {lstatSync,mkdirSync,mkdtempSync,readFileSync,readdirSync,realpathSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname,join} from 'node:path';
@@ -283,6 +284,16 @@ it('detached runner merges stderr, enforces limits and removes descendants befor
   await expect(runPhase2Detached({program:process.execPath,args:['-e',''],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}},groupProbe:()=> 'permission'})).rejects.toThrow('PROCESS_GROUP_PERMISSION_DENIED');
   const descendant=await runPhase2Detached({program:process.execPath,args:['-e',"const {spawn}=require('node:child_process');const child=spawn(process.execPath,['-e',\"process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000)\"],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(0),10)"],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}}}),pid=Number(descendant.stdout.toString());
   expect(pid).toBeGreaterThan(1);expect(()=>process.kill(pid,0)).toThrow();
+});
+
+it('fails closed when an exited, group-absent child never emits close',async()=>{
+  const child:any=new EventEmitter();child.pid=321;child.stdout=new EventEmitter();child.stderr=new EventEmitter();
+  queueMicrotask(()=>child.emit('exit',0,null));
+  const outcome=await Promise.race([
+    runPhase2Detached({program:'fake',args:[],cwd:process.cwd(),timeoutMs:1000,scanner:{write(){}},spawnImpl:()=>child,groupProbe:()=> 'absent',closeWatchdogMs:20}).then(()=> 'resolved',error=>error.message),
+    new Promise(resolve=>setTimeout(()=>resolve('pending'),50)),
+  ]);
+  expect(outcome).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=COMMAND_CLOSE_TIMEOUT');
 });
 
 it('process-group observation distinguishes live, zombie-only, absent, permission, timeout and execution failure',()=>{
