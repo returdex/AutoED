@@ -186,8 +186,12 @@ export async function runPhase2Detached({program,args,cwd,timeoutMs,scanner,outp
       const settleClose=()=>{if(groupVerified&&closeResult!==null)settle(resolve,closeResult);};
       child.once('close',(code,signal)=>{closeResult={code:code??1,signal:signal??null};settleClose();});
       child.once('error',()=>{spawnError=true;settle(reject,rehearsalError('PRE_RUNNER','SPAWN_FAILED'));});
-      child.once('exit',()=>{void verifyOwnedGroupClosed().then(()=>{groupVerified=true;settleClose();if(!settled){closeTimer=setTimeout(()=>settle(reject,rehearsalError('PRE_RUNNER','COMMAND_CLOSE_TIMEOUT')),closeWatchdogMs);closeTimer.unref?.();}}).catch(error=>settle(reject,error));});
-      timeoutTimer=setTimeout(()=>terminate('timeout'),timeoutMs);timeoutTimer.unref?.();
+      child.once('exit',()=>{void verifyOwnedGroupClosed().then(()=>{groupVerified=true;settleClose();if(!settled&&closeTimer===null){closeTimer=setTimeout(()=>settle(reject,rehearsalError('PRE_RUNNER','COMMAND_CLOSE_TIMEOUT')),closeWatchdogMs);closeTimer.unref?.();}}).catch(error=>settle(reject,error));});
+      timeoutTimer=setTimeout(()=>{
+        terminate('timeout');
+        closeTimer=setTimeout(()=>void verifyOwnedGroupClosed().then(()=>settle(reject,rehearsalError('PRE_RUNNER','COMMAND_TERMINAL_EVENT_TIMEOUT'))).catch(error=>settle(reject,error)),closeWatchdogMs);
+        closeTimer.unref?.();
+      },timeoutMs);timeoutTimer.unref?.();
     });
     closed=true;result=close;
   }catch(error){if(error?.rehearsal)throw error;runnerFail('PRE_RUNNER','SPAWN_FAILED');

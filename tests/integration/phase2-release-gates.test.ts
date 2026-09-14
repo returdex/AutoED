@@ -296,6 +296,16 @@ it('fails closed when an exited, group-absent child never emits close',async()=>
   expect(outcome).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=COMMAND_CLOSE_TIMEOUT');
 });
 
+it('fails closed when a group-absent child emits no terminal event after timeout',async()=>{
+  const child:any=new EventEmitter();child.pid=321;child.stdout=new EventEmitter();child.stderr=new EventEmitter();
+  const esrch=()=>{const error:any=new Error('absent');error.code='ESRCH';throw error;};
+  const outcome=await Promise.race([
+    runPhase2Detached({program:'fake',args:[],cwd:process.cwd(),timeoutMs:20,scanner:{write(){}},spawnImpl:()=>child,groupProbe:()=> 'absent',kill:esrch,closeWatchdogMs:20}).then(()=> 'resolved',error=>error.message),
+    new Promise(resolve=>setTimeout(()=>resolve('pending'),80)),
+  ]);
+  expect(outcome).toBe('PHASE2_REHEARSAL_FAILED class=PRE_RUNNER code=COMMAND_TERMINAL_EVENT_TIMEOUT');
+});
+
 it('process-group observation distinguishes live, zombie-only, absent, permission, timeout and execution failure',()=>{
   const alive=()=>{},absent=()=>{const error:any=new Error('absent');error.code='ESRCH';throw error;},denied=()=>{const error:any=new Error('denied');error.code='EPERM';throw error;};
   const ps=(text:string)=>()=>text;
