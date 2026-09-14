@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T19:06:00+10:00
+updated: 2026-09-14T19:10:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -20,7 +20,7 @@ updated: 2026-09-14T19:06:00+10:00
 - hypothesis: The childless coordinator could remain unclassified because the post-command sensitive scan runs synchronously in the coordinator and has neither a durable stage boundary nor a whole-stage timeout; the lost PID 54703 cannot be uniquely back-attributed because no such boundary existed.
 - test: Add a regression that requires a durable allowlisted scan-stage record and execute the scan in an exact managed detached child bounded by a stage deadline.
 - expecting: The regression is RED before the repair. Afterward, an overlong or invalid scan child produces only a normalized `SCAN_STAGE_*` failure and no R1 pass attestation; a successful child creates no external disclosure.
-- next_action: Run the complete phase2-release-gates suite, inspect the staged diff, and commit the bounded scan repair if it passes.
+- next_action: Run exactly one fresh complete unnumbered R1 from clean committed identity `edab68a`; accept it only with exit 0 and a current-identity attestation, otherwise preserve its allowlisted terminal state without retry.
 - reasoning_checkpoint:
     hypothesis: "PID 54703 was stranded in the coordinator's post-command synchronous scan boundary because scanPhase2RehearsalSources invokes synchronous history/tree scans without a stage record or stage-level timeout."
     confirming_evidence:
@@ -117,6 +117,10 @@ updated: 2026-09-14T19:06:00+10:00
   checked: New scan-boundary regression and managed typecheck.
   found: The regression was RED before implementation because the scan-stage API was absent. It is GREEN after implementation; an injected owned-child timeout records only `status: running, stage: scan` and returns `PRE_SOURCE / SCAN_STAGE_TIMEOUT`. Typecheck passes.
   implication: The repair has direct regression coverage for the missing classification boundary without accepting a timeout as success or retaining child output.
+- timestamp: 2026-09-14T19:10:00+10:00
+  checked: Complete release-gates regression, source diff, and clean committed identity.
+  found: `phase2-release-gates.test.ts` passes 51/51; typecheck passes; the bounded scan repair is committed as `722e2b6` and the persistent debug update as `edab68a`; working tree is clean.
+  implication: One fresh R1 is authorized on this identity. Any outcome without a current-identity pass attestation remains a failure/incomplete state and will not be retried.
 
 ## Eliminated
 
