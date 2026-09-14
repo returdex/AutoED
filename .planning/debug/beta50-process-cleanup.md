@@ -2,7 +2,7 @@
 status: investigating
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T14:49:00+10:00
+updated: 2026-09-14T18:34:22+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,10 @@ updated: 2026-09-14T14:49:00+10:00
 
 ## Current Focus
 
-- hypothesis: The corrected R1 runner preserves allowlisted failure classification without changing failure semantics; a complete fresh R1 from this clean committed identity is required to validate the complete release gate.
-- test: Run exactly one managed, unnumbered `phase2-rehearsal.mjs --run` invocation from the clean committed checkout and read only its final sanitized result/attestation status.
-- expecting: Exit 0 plus a current-identity sanitized attestation proves R1; any nonzero code or absent current attestation preserves the blocked state and ends this authorized attempt.
-- next_action: Start the single fresh R1 invocation after committing this state update; do not retry it, select a beta, or advance release/live gates.
+- hypothesis: The single authorized post-repair clean R1 did not complete; its childless coordinator remained live for more than 25 minutes and was then TERM-signalled only as the exact owned PID, so it produced neither a final sanitized result nor a current-identity attestation.
+- test: Read only the terminated coordinator's sanitized process outcome, repository status, and release-rehearsal directory; do not rerun the command or any test.
+- expecting: An absent PID together with no newer current-identity attestation confirms cleanup but cannot establish R1 success, failure classification, or a product-test root cause.
+- next_action: Stop. Preserve this incomplete R1 evidence for a separately authorized bounded R0 investigation; do not retry R1, select beta.51, sign, publish, install, log in, access sources/Profile, or advance phases.
 - reasoning_checkpoint:
     hypothesis: "The R1 orchestrator drops its only allowlisted failure category at process exit because it writes successful attestations only and returns the failure only via transient stderr."
     confirming_evidence:
@@ -96,6 +96,10 @@ updated: 2026-09-14T14:49:00+10:00
   checked: Repository-owned post-`da531b9` managed-runtime npm log, current Git identity, and R1-attestation directories; no command was rerun.
   found: The committed debug record left `git status --porcelain` clean. The fresh R1 invoked `npm run test:integration -- --run tests/integration/two-build-upgrade.test.ts` at the fixed focused boundary; npm recorded exit 1 at 2026-09-14T13:45:59+10:00. No `.planning/release-rehearsals` artifact newer than `da531b9` exists, and no attestation binds the current commit/tree.
   implication: Fresh R1 did not pass and must not authorize any candidate selection or later release/live action. Repository state proves a nonzero focused child at `two-build-upgrade`, but does not retain that child's sanitized final category, so no more-specific code is inferred.
+- timestamp: 2026-09-14T18:34:22+10:00
+  checked: The one authorized post-repair clean R1 coordinator's owned-PID outcome (54703), current repository status, and release-rehearsal attestation directory; no command or test was rerun.
+  found: After remaining childless and live for more than 25 minutes without a final sanitized result, PID 54703 received TERM as the exact owned coordinator and exited. A subsequent exact PID check finds it absent; the working tree is clean and no newer current-identity R1 attestation exists.
+  implication: This attempt is incomplete and blocked, not an R1 pass and not a classified product/test failure. Its termination confirms only scoped coordinator cleanup; it supplies no basis to retry the attempt, select beta.51, or progress any release/live gate.
 
 ## Eliminated
 
@@ -105,10 +109,12 @@ updated: 2026-09-14T14:49:00+10:00
   reason: No R3 report, artifact, signature, tag, release, publication, or availability receipt exists.
 - hypothesis: The fresh R1 passed after the debug record was committed.
   reason: The only post-commit R1 command log records a nonzero exit at `two-build-upgrade`, and the required current-identity R1 attestation was not written.
+- hypothesis: The one authorized post-repair clean R1 completed successfully or established a new classified failure.
+  reason: Its childless coordinator was terminated after more than 25 minutes without a final sanitized result, and no current-identity attestation or durable terminal classification was written.
 
 ## Resolution
 
 - root_cause: The process-group observer collapsed permission, timeout, execution, and invalid outcomes to a single null value, so the detached runner always emitted `PROCESS_GROUP_OBSERVATION_FAILED`; the manually spawned synthetic test host also had no bounded close proof.
 - fix: Return closed allowlisted process-group states, map each failure state to an allowlisted runner code, treat zombie-only groups as closed, and bound the test-owned host's EOF/TERM/KILL close sequence.
-- verification: Focused observer red→green, managed typecheck, targeted managed-cleanup host regression, and full release-gate 48/48 pass. The first R1 attempt was pre-suite clean-state invalid; the subsequent clean R1 reached focused `two-build-upgrade` but its managed child exited 1 and no new attestation exists. R1 is therefore not passed.
+- verification: Focused observer red→green, managed typecheck, targeted managed-cleanup host regression, and full release-gate 48/48 pass. The first R1 attempt was pre-suite clean-state invalid; the subsequent clean R1 reached focused `two-build-upgrade` but its managed child exited 1 and no new attestation exists. The sole authorized post-repair clean R1 then remained childless and live for more than 25 minutes, was TERM-stopped only as exact owned PID 54703, and wrote neither a final sanitized result nor a current-identity attestation. R1 is therefore incomplete and not passed.
 - files_changed: [scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/integration/managed-cleanup.test.ts]
