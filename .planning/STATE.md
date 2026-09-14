@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: M1
 milestone_name: milestone
 status: executing
-stopped_at: beta.50 immutable unpublished after ambiguous R3 process/cleanup failures; active candidate none; bounded R0 and fresh R1 required
-last_updated: "2026-09-14T11:43:28+10:00"
+stopped_at: beta.50 immutable unpublished; post-beta.50 bounded R0 resolved and fresh persistent-session R1 passed; active candidate none; beta.51 requires separate authorization
+last_updated: "2026-09-14T21:05:18+10:00"
 last_activity: 2026-09-14
 progress:
   total_phases: 9
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-26); AGENTS.md governs hard gates.
 
 **Core value:** 持续归档选定且获准保留的完整课程生命周期资料，让用户及获准模型完整读取固定版本内容，明确来源、历史与缺口。
-**Current focus:** Preserve beta.31–beta.50 as immutable invalidated history. beta.50 passed R2, typecheck 1/1 and unit 154/154, then its first formal R3 stopped at `integration-managed-cleanup` with a process-observer failure. One focused run independently exited nonzero and the next passed 7/7, so no single transient was proven and beta.50 is immutable unpublished consumed history. `active update candidate: none`; bounded R0 and a complete fresh unnumbered R1 are required before beta.51 may be separately authorized. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
+**Current focus:** Preserve beta.31–beta.50 as immutable invalidated history. beta.50 remains immutable unpublished consumed history. Its bounded process/cleanup R0 is resolved and a clean persistent-session fresh unnumbered R1 passed at commit `1d5c421e…`, tree `328ca8a3…`, build `4f735fbb…`, with focused 35, quality 1/154/407/34/24, two eight-asset closures, zero sensitive findings, zero remote mutations and no residual owned process. `active update candidate: none`; beta.51 remains unselected and requires separate authorization. All signing/publication/installation/login/live/02-15/Phase 3 gates remain blocked.
 
 ## Current Position
 
 Phase: 02 (poc-live) — EXECUTING
-Plan: Post-02-14 release stabilization reached beta.50 R3; beta.50 is immutable unpublished history after ambiguous process-observation and managed-cleanup failures; 19 of 41 have completion summaries
-Status: beta.31, beta.37–beta.40 and beta.44–beta.45 plus beta.48 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 plus beta.49–beta.50 are immutable unpublished consumed history. `active update candidate: none`; bounded R0 and fresh unnumbered R1 are required before any beta.51 authorization.
-Last activity: 2026-09-14 - Recorded beta.50 immutable R3 invalidation and retired its active selection after bounded diagnosis could not prove one transient
+Plan: Post-02-14 release stabilization completed the bounded post-beta.50 R0 and fresh unnumbered R1; beta.50 remains immutable unpublished history; 19 of 41 have completion summaries
+Status: beta.31, beta.37–beta.40 and beta.44–beta.45 plus beta.48 are immutable published-but-invalidated history; beta.41–beta.43 and beta.46–beta.47 plus beta.49–beta.50 are immutable unpublished consumed history. The post-beta.50 fresh R1 passed; `active update candidate: none`; beta.51 remains unselected and requires separate authorization.
+Last activity: 2026-09-14 - Completed bounded beta.50 process/cleanup repair and a clean persistent-session fresh unnumbered R1; preserved all R2+/live gates
 
 Plan progress: Phase 2 execution 19/41. Phase 1 remains 13/14 and is not marked complete; 01-14 and Windows remain `not_run / human_needed`, real L evidence remains pending, and 02-15 and Phase 3 remain blocked. The approved macOS-first ordering exception clears none of those gates.
 
