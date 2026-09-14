@@ -1,8 +1,8 @@
 ---
-status: investigating
+status: verifying
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T19:10:00+10:00
+updated: 2026-09-14T19:36:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,18 @@ updated: 2026-09-14T19:10:00+10:00
 
 ## Current Focus
 
-- hypothesis: The childless coordinator could remain unclassified because the post-command sensitive scan runs synchronously in the coordinator and has neither a durable stage boundary nor a whole-stage timeout; the lost PID 54703 cannot be uniquely back-attributed because no such boundary existed.
-- test: Add a regression that requires a durable allowlisted scan-stage record and execute the scan in an exact managed detached child bounded by a stage deadline.
-- expecting: The regression is RED before the repair. Afterward, an overlong or invalid scan child produces only a normalized `SCAN_STAGE_*` failure and no R1 pass attestation; a successful child creates no external disclosure.
-- next_action: Run exactly one fresh complete unnumbered R1 from clean committed identity `edab68a`; accept it only with exit 0 and a current-identity attestation, otherwise preserve its allowlisted terminal state without retry.
+- hypothesis: `runPhase2Detached` can wait forever for Node's child `close` event after the owned child process group has already disappeared, because its timeout only signals the group and never settles the close promise. This leaves an idle childless coordinator before report parsing or reclaim.
+- test: Record the current owned topology and stack state, then add a RED regression where an absent group never emits `close`; require a finite allowlisted `COMMAND_CLOSE_TIMEOUT` and step-progress state before retrying R1.
+- expecting: The current coordinator is idle in the event loop with no child group. The regression is RED before the repair and GREEN only when no-close cleanup returns a classified failure rather than an indefinitely pending promise.
+- next_action: Commit only the close-watchdog source and regression test repair, then run exactly one clean complete unnumbered R1 from that identity. The standalone managed-cleanup fixture observation is incomplete and must not be treated as a suite result.
+- reasoning_checkpoint:
+    hypothesis: "runPhase2Detached waits exclusively on `child.close`; when an owned child emits `exit`, its process group is verified absent, and Node never delivers `close`, no timer remains capable of settling the promise."
+    confirming_evidence:
+      - "The current R1 coordinator was idle in `uv__io_poll` while its exact managed-cleanup group was absent and no later stage record existed."
+      - "The adapter registers its timeout only to signal the group and resolves its sole pending promise only from `child.once('close', ...)`; group verification is unreachable until that promise resolves."
+    falsification_test: "A fake detached child that emits `exit` without `close` and whose group probe is `absent` must remain pending before the change, but reject with only `COMMAND_CLOSE_TIMEOUT` after the verified-group watchdog is added."
+    fix_rationale: "Verifying the exact owned group on `exit` and then bounding the still-missing `close` event converts the lost-event wait into a fail-closed allowlisted runner error without accepting an unverified child, descendant, or output."
+    blind_spots: "The historic child cannot be replayed, so the regression uses an injected event-emitting fake; real-child focused and complete R1 checks remain required after the source repair."
 - reasoning_checkpoint:
     hypothesis: "PID 54703 was stranded in the coordinator's post-command synchronous scan boundary because scanPhase2RehearsalSources invokes synchronous history/tree scans without a stage record or stage-level timeout."
     confirming_evidence:
@@ -121,6 +129,18 @@ updated: 2026-09-14T19:10:00+10:00
   checked: Complete release-gates regression, source diff, and clean committed identity.
   found: `phase2-release-gates.test.ts` passes 51/51; typecheck passes; the bounded scan repair is committed as `722e2b6` and the persistent debug update as `edab68a`; working tree is clean.
   implication: One fresh R1 is authorized on this identity. Any outcome without a current-identity pass attestation remains a failure/incomplete state and will not be retried.
+- timestamp: 2026-09-14T19:17:00+10:00
+  checked: Active fresh R1 owned topology after `managed-cleanup` child exit, plus one-second macOS sample of its exact managed coordinator.
+  found: Child group 18909 is absent while coordinator 13604 and its exact wrapper group 13589 remain live; no scan-stage record exists. The coordinator sample is idle in `uv__io_poll`, not executing synchronous scan/assembly code.
+  implication: The precise stall is the pending `child.close` await in `runPhase2Detached` after child-group disappearance. The prior scan hypothesis is eliminated for this attempt; timeout signaling alone cannot settle a lost close event.
+- timestamp: 2026-09-14T19:31:00+10:00
+  checked: New fake-child close-event regression, full phase2 release-gates suite, and managed typecheck.
+  found: Before the repair, a child that emitted `exit` with an absent owned group but no `close` remained pending and the regression failed RED. After the repair, the same case rejects with only `PRE_RUNNER / COMMAND_CLOSE_TIMEOUT`; release gates pass 52/52 and typecheck passes.
+  implication: The close-watchdog mechanism is directly proven without weakening owned-group verification. Targeted real-child managed-cleanup verification remains required before the atomic source/test commit.
+- timestamp: 2026-09-14T19:36:00+10:00
+  checked: Standalone managed-cleanup under the exact managed Node runtime, after a failed host-Node setup attempt.
+  found: The host-Node command used Node 26.0.0 and failed synthetic-sign setup because fixtures explicitly require Node 24.20.0; it is a runner setup failure, not a source failure. The explicit managed-Node invocation remained live past the bounded observation and created two exact test-owned synthetic services, all four identified test PIDs/groups were TERM-reclaimed and then absent without touching unrelated processes.
+  implication: Neither standalone attempt is a valid focused-suite pass. This repeats the independently known fixture lifecycle hang, while the close-watchdog test itself is GREEN; its atomic repair can be committed and the single authorized R1 will provide the next release-grade outcome.
 
 ## Eliminated
 
@@ -132,6 +152,8 @@ updated: 2026-09-14T19:10:00+10:00
   reason: The only post-commit R1 command log records a nonzero exit at `two-build-upgrade`, and the required current-identity R1 attestation was not written.
 - hypothesis: The one authorized post-repair clean R1 completed successfully or established a new classified failure.
   reason: Its childless coordinator was terminated after more than 25 minutes without a final sanitized result, and no current-identity attestation or durable terminal classification was written.
+- hypothesis: The current fresh R1 is stalled in synchronous scan or assembly work.
+  reason: It has not reached the scan-stage record, its managed-cleanup child group is absent, and a direct coordinator sample is idle in Node event-loop polling.
 
 ## Resolution
 
