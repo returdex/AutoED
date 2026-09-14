@@ -2,7 +2,7 @@
 status: verifying
 trigger: "Authorized bounded R0 diagnosis and necessary repair after beta.50 R3 failed at integration-managed-cleanup; distinguish process-group observer timeout, execution, permission, and zombie states; identify the independent managed-cleanup nonzero exit; finish a fresh unnumbered R1 without selecting beta.51 or performing release, install, login, 02-15, or Phase 3 work."
 created: 2026-09-14T12:00:00+10:00
-updated: 2026-09-14T19:36:00+10:00
+updated: 2026-09-14T20:23:00+10:00
 ---
 
 # Debug Session: beta.50 process observer and managed cleanup
@@ -17,10 +17,18 @@ updated: 2026-09-14T19:36:00+10:00
 
 ## Current Focus
 
-- hypothesis: `runPhase2Detached` can wait forever for Node's child `close` event after the owned child process group has already disappeared, because its timeout only signals the group and never settles the close promise. This leaves an idle childless coordinator before report parsing or reclaim.
-- test: Record the current owned topology and stack state, then add a RED regression where an absent group never emits `close`; require a finite allowlisted `COMMAND_CLOSE_TIMEOUT` and step-progress state before retrying R1.
-- expecting: The current coordinator is idle in the event loop with no child group. The regression is RED before the repair and GREEN only when no-close cleanup returns a classified failure rather than an indefinitely pending promise.
-- next_action: Commit only the close-watchdog source and regression test repair, then run exactly one clean complete unnumbered R1 from that identity. The standalone managed-cleanup fixture observation is incomplete and must not be treated as a suite result.
+- hypothesis: `runPhase2Detached` can still wait forever when the owned group disappears but Node emits neither `exit` nor `close`: the existing watchdog is installed only in the `exit` callback, while the primary timeout only sends signals and never re-probes or settles the awaiting promise.
+- test: Add one fake-child RED regression that emits no terminal event, has an absent owned group after the declared timeout, and requires a finite allowlisted terminal-event failure.
+- expecting: Before the repair, the fake-child promise remains pending after its timeout; after the repair, a post-timeout owned-group verification rejects with a classified failure without resolving success.
+- next_action: Commit this debug record, confirm a clean committed identity and no fixture residuals, then run exactly one fresh complete unnumbered R1. Do not retry it or perform R2+ action under any outcome.
+- reasoning_checkpoint:
+    hypothesis: "When no `exit` event is emitted, `runPhase2Detached` never installs its existing close watchdog. Its timeout calls `terminate`, but an already-absent owned group makes both signals no-ops and leaves the only promise unsettled."
+    confirming_evidence:
+      - "The new R1 coordinator exceeded the focused command's declared 1200-second ceiling while childless, and its exact owned PID 68539 was later TERM-sent and exited."
+      - "The source installs `closeTimer` only inside `child.once('exit', ...)`; `timeoutTimer` calls `terminate('timeout')`, which sends scoped signals but does not probe or settle."
+    falsification_test: "A fake detached child that emits neither `exit` nor `close`, whose owned group probe returns `absent`, must remain pending after `timeoutMs` before the change and reject with the new terminal-event code after it."
+    fix_rationale: "A bounded post-timeout re-probe of the exact owned group preserves ownership verification, rejects if the group remains or observation fails, and converts a missing terminal event into a finite fail-closed result."
+    blind_spots: "The terminated historic coordinator cannot prove why Node lost both events; the regression proves the uncovered adapter path and the fresh R1 remains required to exercise real children."
 - reasoning_checkpoint:
     hypothesis: "runPhase2Detached waits exclusively on `child.close`; when an owned child emits `exit`, its process group is verified absent, and Node never delivers `close`, no timer remains capable of settling the promise."
     confirming_evidence:
@@ -141,6 +149,34 @@ updated: 2026-09-14T19:36:00+10:00
   checked: Standalone managed-cleanup under the exact managed Node runtime, after a failed host-Node setup attempt.
   found: The host-Node command used Node 26.0.0 and failed synthetic-sign setup because fixtures explicitly require Node 24.20.0; it is a runner setup failure, not a source failure. The explicit managed-Node invocation remained live past the bounded observation and created two exact test-owned synthetic services, all four identified test PIDs/groups were TERM-reclaimed and then absent without touching unrelated processes.
   implication: Neither standalone attempt is a valid focused-suite pass. This repeats the independently known fixture lifecycle hang, while the close-watchdog test itself is GREEN; its atomic repair can be committed and the single authorized R1 will provide the next release-grade outcome.
+- timestamp: 2026-09-14T20:02:00+10:00
+  checked: Complete current `runPhase2Detached` terminal-event control flow against the new childless R1 coordinator outcome.
+  found: `timeoutTimer` only calls `terminate`; `terminate` only signals the exact group. The existing `COMMAND_CLOSE_TIMEOUT` timer is created exclusively after `child.once('exit')` completes owned-group verification.
+  implication: A child that loses both `exit` and `close` after its group disappears has no remaining settling path. This is distinct from, and not covered by, the prior post-exit close watchdog.
+- timestamp: 2026-09-14T20:06:00+10:00
+  checked: Exact current process topology following coordinator PID 68539 exit.
+  found: Orphaned integration Vitest PID 85667 and its worker PID 85668 remain in exact test-owned PGID 85629; two remaining synthetic service processes are rooted under the fixture-generated protected temporary root and share the worker as parent.
+  implication: The R1 wrapper/coordinator can exit while the child-chain remains alive. Before source repair, only the repository-owned exact synthetic-process reclamation path may be used to stop these identified fixture-owned processes.
+- timestamp: 2026-09-14T20:10:00+10:00
+  checked: Repository-owned synthetic-process reclamation followed by an exact process-table check for the validated fixture root and PGID 85629.
+  found: The managed reclamation command returned successfully; no validated synthetic service or member of the orphaned integration PGID remained.
+  implication: Residual cleanup was limited to the declared disposable fixture ownership boundary. The incomplete R1 remains failed/incomplete; cleanup does not create an R1 result or release evidence.
+- timestamp: 2026-09-14T20:12:00+10:00
+  checked: New managed-runtime regression with a fake detached child that emits neither `exit` nor `close`, has an absent group, and reaches its 20ms declared timeout.
+  found: RED: the runner remained `pending` after 50ms rather than rejecting `COMMAND_TERMINAL_EVENT_TIMEOUT`; the enclosing release-gates file was otherwise 52 passing / 1 failing.
+  implication: This directly reproduces the missing terminal-event path. The repair target is the timeout callback, not the already-covered post-exit close watchdog.
+- timestamp: 2026-09-14T20:16:00+10:00
+  checked: First minimal implementation, focused managed release-gates verification.
+  found: The new no-terminal-event regression became GREEN, but the existing real-child timeout case changed from `COMMAND_TIMEOUT` to `COMMAND_TERMINAL_EVENT_TIMEOUT` because immediate group verification raced normal child terminal events.
+  implication: Immediate verification is too aggressive and is eliminated. The terminal-event watchdog must wait the bounded existing grace so normal timeout closure retains its established classification.
+- timestamp: 2026-09-14T20:20:00+10:00
+  checked: Managed focused release-gates suite and managed TypeScript typecheck after delaying the timeout terminal-event watchdog by the existing bounded close grace.
+  found: GREEN: release gates pass 53/53, including the new no-terminal-event case, the prior post-exit missing-close case, and the ordinary real-child `COMMAND_TIMEOUT` case; typecheck passes.
+  implication: The repair yields a finite classified result only after the normal terminal-event opportunity, preserving established timeout and ownership/closure behavior.
+- timestamp: 2026-09-14T20:23:00+10:00
+  checked: Minimal source/test diff and atomic Git commit.
+  found: Only `scripts/release/phase2-rehearsal.mjs` and `tests/integration/phase2-release-gates.test.ts` changed; they were committed as `5fdf2ae` (`fix(release): bound missing child terminal events`).
+  implication: The repair identity is fixed. This debug record is the only remaining local change before the one authorized fresh R1.
 
 ## Eliminated
 
@@ -157,7 +193,7 @@ updated: 2026-09-14T19:36:00+10:00
 
 ## Resolution
 
-- root_cause: The process-group observer collapsed permission, timeout, execution, and invalid outcomes to a single null value, so the detached runner always emitted `PROCESS_GROUP_OBSERVATION_FAILED`; the manually spawned synthetic test host also had no bounded close proof.
-- fix: Return closed allowlisted process-group states, map each failure state to an allowlisted runner code, treat zombie-only groups as closed, and bound the test-owned host's EOF/TERM/KILL close sequence.
-- verification: Focused observer red→green, managed typecheck, targeted managed-cleanup host regression, and full release-gate 48/48 pass. The first R1 attempt was pre-suite clean-state invalid; the subsequent clean R1 reached focused `two-build-upgrade` but its managed child exited 1 and no new attestation exists. The sole authorized post-repair clean R1 then remained childless and live for more than 25 minutes, was TERM-stopped only as exact owned PID 54703, and wrote neither a final sanitized result nor a current-identity attestation. R1 is therefore incomplete and not passed.
+- root_cause: The observer previously collapsed process-group states, and the detached adapter subsequently had two independent missing-terminal-event waits: after `exit` without `close`, and after neither event. In the latter path, its declared timeout only sent scoped signals; when the exact group was already absent, no timer could settle the promise, allowing the R1 coordinator to outlive its ceiling while childless.
+- fix: Return closed allowlisted process-group states, preserve bounded test-host closure, bound post-exit missing `close`, and now after timeout wait one bounded terminal-event grace before re-verifying the exact group and rejecting `COMMAND_TERMINAL_EVENT_TIMEOUT` if no event arrives.
+- verification: The new no-terminal-event test was RED before repair (`pending` after timeout). After repair, managed release gates pass 53/53, including ordinary child timeout and both missing-event branches; managed typecheck passes. `5fdf2ae` is committed. The next required evidence is one fresh complete unnumbered R1; no prior incomplete R1 is a pass.
 - files_changed: [scripts/release/phase2-rehearsal.mjs, tests/integration/phase2-release-gates.test.ts, tests/integration/managed-cleanup.test.ts]
