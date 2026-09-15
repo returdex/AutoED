@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "status": "pass",
+  "anonymous": true,
+  "immutable": true,
+  "version": "0.1.0-beta.52",
+  "tag": "v0.1.0-beta.52",
+  "buildId": "5ba1ab86653cef8e1c688248736191b4da2d58018c80725d31b06c0b215781dc",
+  "manifestSha256": "973ed67e5b89f9d392440e3f77ff8083e31dbae508d82bb867c292dea0423053",
+  "assets": {
+    "macos": [
+      {
+        "id": 565053713,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-capability.tar.gz",
+        "bytes": 14154857,
+        "sha256": "0ad210bc96280b2f9fbe5ccea0c0275a0ce4ccb8329d47d3c4ac8307bf69f5e9",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-capability.tar.gz"
+      },
+      {
+        "id": 565053712,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-bootstrap.sh",
+        "bytes": 89044,
+        "sha256": "715b60cc20afddd1f2577ba6c2fb06cc298615518287da08a02fa9c0befd9667",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-bootstrap.sh"
+      },
+      {
+        "id": 565053718,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-manifest.json",
+        "bytes": 1261006,
+        "sha256": "ce4c92ffb13420300d9e9a239ec28b0503fb7296dd58f6c47d37ff8c9b949d8b",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-manifest.json"
+      },
+      {
+        "id": 565053722,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-manifest.sig",
+        "bytes": 64,
+        "sha256": "2fca51cad6a872c1ffd10c2aa094ad1712ea7b5584d947f90886111371d81611",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-manifest.sig"
+      },
+      {
+        "id": 565053721,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-installer.tar.gz",
+        "bytes": 14147807,
+        "sha256": "784f8ea9be03e530943fef9823e2ce2a3879c523d27537ed85be8432a5f2f11c",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-installer.tar.gz"
+      },
+      {
+        "id": 565053755,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-program.tar.gz",
+        "bytes": 14147807,
+        "sha256": "d2ef103c44b9d6b972813bf1d3fea7cd79e2dd52744f8c62a31322161dcd5b70",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-program.tar.gz"
+      },
+      {
+        "id": 565053756,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-node.tar.gz",
+        "bytes": 39253943,
+        "sha256": "f5faf8865a4a82d2931cb285df57b752210c0bb41dba764f29a7e679fd5421e8",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-node.tar.gz"
+      },
+      {
+        "id": 565053786,
+        "name": "autoed-0.1.0-beta.52-darwin-arm64-browser.zip",
+        "bytes": 174725825,
+        "sha256": "47d91f823a593d2e5f17b324d68f191adda49613f6fda8d893dec541fc25b432",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-darwin-arm64-browser.zip"
+      }
+    ],
+    "windows": [
+      {
+        "id": 565054159,
+        "name": "autoed-0.1.0-beta.52-win32-x64-capability.tar.gz",
+        "bytes": 14705693,
+        "sha256": "dc036ed2b51239c7f10c4f69faabc4441316666651d8162d8aff916d7f37edc4",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-capability.tar.gz"
+      },
+      {
+        "id": 565054515,
+        "name": "autoed-0.1.0-beta.52-win32-x64-bootstrap.ps1",
+        "bytes": 90916,
+        "sha256": "62d6d5e20dfc99b5be7ef202612d6b83a7eff0b9a9ce0f125a4500b944918257",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-bootstrap.ps1"
+      },
+      {
+        "id": 565054540,
+        "name": "autoed-0.1.0-beta.52-win32-x64-manifest.json",
+        "bytes": 1217018,
+        "sha256": "6163d67833f32db1321d4911bd496746f98a52b64795518af7ee4d3852d997f2",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-manifest.json"
+      },
+      {
+        "id": 565054592,
+        "name": "autoed-0.1.0-beta.52-win32-x64-manifest.sig",
+        "bytes": 64,
+        "sha256": "8318dddd96c422db955faf3e62e572599441b8e7ff40b2e960aefe64611495e5",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-manifest.sig"
+      },
+      {
+        "id": 565054624,
+        "name": "autoed-0.1.0-beta.52-win32-x64-installer.tar.gz",
+        "bytes": 14700523,
+        "sha256": "92be106eac2ebc045df6e88e1579ae51a25ca088fb959afc92afc6f77240a67e",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-installer.tar.gz"
+      },
+      {
+        "id": 565054663,
+        "name": "autoed-0.1.0-beta.52-win32-x64-program.tar.gz",
+        "bytes": 14700523,
+        "sha256": "359b18c63d774f31ffc5bec771f98452c42f033af08f043203df9d2e3ab01d48",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-program.tar.gz"
+      },
+      {
+        "id": 565054801,
+        "name": "autoed-0.1.0-beta.52-win32-x64-node.tar.gz",
+        "bytes": 34902481,
+        "sha256": "31846842a0eee390b5c77ed5954f48f2abcacfe2f4d736a1b6998bfa44db6e43",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-node.tar.gz"
+      },
+      {
+        "id": 565054822,
+        "name": "autoed-0.1.0-beta.52-win32-x64-browser.tar.gz",
+        "bytes": 201121917,
+        "sha256": "60dbb1d7d086b521728728e9db57dbf9f7a2a6169dccdccb5a801d08f03b9e3e",
+        "url": "https://github.com/returdex/AutoED/releases/download/v0.1.0-beta.52/autoed-0.1.0-beta.52-win32-x64-browser.tar.gz"
+      }
+    ]
+  },
+  "checkedAt": "2026-09-15T06:23:41.096Z"
+}
