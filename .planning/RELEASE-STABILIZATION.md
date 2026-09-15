@@ -271,3 +271,27 @@ by this correction. A complete fresh unnumbered R1 passed on corrective commit
 1/154/411/34/24; zero skip/todo; dual eight-asset closures; zero sensitive
 findings; zero remote mutations; and no rehearsal-owned process. beta.52 remains
 unselected and requires separate authorization.
+
+## Beta.52 availability-proven R2–R5 completion
+
+After the user completed the Xcode license gate, Apple Git changed from 2.50.1
+to 2.54.0. The project refreshed only the protected non-secret release
+environment coordinate and completed a new final-HEAD fresh unnumbered R1 on
+commit `42a703ba…`, tree `0d0bcd58…`, build `5ba1ab86…`: focused 38; quality
+1/154/411/34/24; zero skip/todo; dual eight-asset closures; zero sensitive
+findings; zero remote mutations; and no rehearsal-owned process.
+
+Beta.52 was then selected exactly once. Its independent R3 passed
+1/154/411/34/24 with zero skip/todo and a four-surface sensitive scan with zero
+findings. R4 rebuilt the selected prerelease identity, signed 16 assets through
+the approved Keychain identity, and passed both target archive, signature,
+manifest, dependency, closure, license and prompt proofs. R5 published
+`v0.1.0-beta.52` once and its single permitted anonymous full verifier
+downloaded and verified all 16 assets. The release targets commit `42a703ba…`
+and has build ID `5ba1ab86…`.
+
+`active update candidate: 0.1.0-beta.52 (availability-proven, human update not
+run)`. This completion authorizes no installation, OS confirmation, login,
+school/Profile access, live evidence, 02-15 or Phase 3 action. A real update
+requires separate permission and the exact tracked prompt in a same-host/account
+local projectless Codex task using one live PTY and one bootstrap invocation.
